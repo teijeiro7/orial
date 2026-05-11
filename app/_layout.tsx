@@ -1,7 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -10,6 +10,7 @@ import { useDatabaseMigrations } from '../src/services/database';
 import { notificationService } from '../src/services/notificationService';
 import { widgetService } from '../src/services/widgetService';
 import { OrialColors } from '../src/utils/colors';
+import { useAppStore } from '../src/stores/appStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -17,6 +18,9 @@ export default function RootLayout() {
   const router = useRouter();
   const notificationListener = useRef<any>();
   const responseListener = useRef<any>();
+  const [isReady, setIsReady] = useState(false);
+
+  const onboardingCompleted = useAppStore(state => state.onboardingCompleted);
 
   const [fontsLoaded] = useFonts({
     'Inter-Regular': Inter_400Regular,
@@ -29,9 +33,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded && (success || error)) {
+      setIsReady(true);
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, success, error]);
+
+  const hasRedirected = useRef(false);
+
+  useEffect(() => {
+    if (isReady && !onboardingCompleted && !hasRedirected.current) {
+      hasRedirected.current = true;
+      router.replace('/onboarding');
+    }
+  }, [isReady, onboardingCompleted]);
 
   // Setup notifications
   useEffect(() => {
