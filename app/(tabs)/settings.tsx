@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '../../src/components/GlassCard';
 import { ReminderCreationSheet } from '../../src/components/ReminderCreationSheet';
 import { NotionSettingsScreen } from '../settings/notion';
+import { CalendarSettingsScreen } from '../settings/calendar';
 import { useHabitStore } from '../../src/stores/habitStore';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
@@ -13,6 +14,7 @@ export default function SettingsScreen() {
   const { habits, reminders, loadReminders, loadHabits, deleteReminder } = useHabitStore();
   const [isReminderSheetVisible, setIsReminderSheetVisible] = useState(false);
   const [isNotionVisible, setIsNotionVisible] = useState(false);
+  const [isCalendarVisible, setIsCalendarVisible] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   useEffect(() => {
@@ -97,7 +99,7 @@ export default function SettingsScreen() {
           <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Integrations</Text>
           <GlassCard>
             <SettingItem title="Notion Sync" onPress={() => setIsNotionVisible(true)} />
-            <SettingItem title="Calendar" />
+            <SettingItem title="Calendar" onPress={() => setIsCalendarVisible(true)} />
             <SettingItem title="Appearance" />
           </GlassCard>
         </View>
@@ -107,7 +109,11 @@ export default function SettingsScreen() {
         visible={isNotionVisible}
         onClose={() => setIsNotionVisible(false)}
       />
-      </ScrollView>
+
+      <CalendarSettingsScreen
+        visible={isCalendarVisible}
+        onClose={() => setIsCalendarVisible(false)}
+      />
 
       <ReminderCreationSheet
         visible={isReminderSheetVisible}

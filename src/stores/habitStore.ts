@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { habitRepository } from '../repositories/habitRepository';
 import { notificationService } from '../services/notificationService';
 import { syncQueueWorker } from '../services/syncQueueWorker';
+import { calendarService } from '../services/calendarService';
 import type { Habit, HabitEntry, Reminder } from '../../drizzle/schema';
 
 interface HabitState {
@@ -148,10 +149,27 @@ export const useHabitStore = create<HabitState>()(
             id: crypto.randomUUID(),
           } as Reminder;
           
+          // Create calendar event if calendar sync is enabled
+          const habit = get().habits.find(h => h.id === reminderData.habitId);
+          let calendarEventId: string | null = null;
+          
+          if (habit && calendarService.getSelectedCalendar()) {
+            calendarEventId = await calendarService.createEventForReminder(
+              habit.name,
+              reminderData.time,
+              JSON.parse(reminderData.days),
+              `Habit reminder: ${habit.name}`
+            );
+          }
+          
+          // Add calendar event ID to reminder
+          if (calendarEventId) {
+            (newReminder as any).calendarEventId = calendarEventId;
+          }
+          
           await habitRepository.createReminder(newReminder);
           
           // Schedule notification
-          const habit = get().habits.find(h => h.id === reminderData.habitId);
           if (habit) {
             await notificationService.scheduleHabitReminder({
               id: newReminder.id,
@@ -171,6 +189,14 @@ export const useHabitStore = create<HabitState>()(
 
       deleteReminder: async (reminderId) => {
         try {
+          // Get reminder to check for calendar event
+          const reminder = get().reminders.find(r => r.id === reminderId);
+          
+          // Delete calendar event if exists
+          if (reminder?.calendarEventId) {
+            await calendarService.deleteEvent(reminder.calendarEventId);
+          }
+          
           await notificationService.cancelReminder(reminderId);
           await habitRepository.deleteReminder(reminderId);
           await get().loadReminders();
