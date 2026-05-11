@@ -2,11 +2,13 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { habitRepository } from '../repositories/habitRepository';
-import type { Habit, HabitEntry } from '../../drizzle/schema';
+import { notificationService } from '../services/notificationService';
+import type { Habit, HabitEntry, Reminder } from '../../drizzle/schema';
 
 interface HabitState {
   habits: Habit[];
   todayEntries: HabitEntry[];
+  reminders: Reminder[];
   selectedHabit: Habit | null;
   isLoading: boolean;
   error: string | null;
@@ -14,9 +16,12 @@ interface HabitState {
   // Actions
   loadHabits: () => Promise<void>;
   loadTodayEntries: () => Promise<void>;
+  loadReminders: () => Promise<void>;
   createHabit: (habit: Omit<Habit, 'id' | 'createdAt'>) => Promise<void>;
   toggleHabitToday: (habitId: string) => Promise<void>;
   archiveHabit: (habitId: string) => Promise<void>;
+  createReminder: (reminder: Omit<Reminder, 'id'>) => Promise<void>;
+  deleteReminder: (reminderId: string) => Promise<void>;
   selectHabit: (habit: Habit | null) => void;
   refresh: () => Promise<void>;
 }
@@ -26,6 +31,7 @@ export const useHabitStore = create<HabitState>()(
     (set, get) => ({
       habits: [],
       todayEntries: [],
+      reminders: [],
       selectedHabit: null,
       isLoading: false,
       error: null,
@@ -46,6 +52,15 @@ export const useHabitStore = create<HabitState>()(
           set({ todayEntries: entries });
         } catch (error) {
           set({ error: 'Failed to load today entries' });
+        }
+      },
+
+      loadReminders: async () => {
+        try {
+          const reminders = await habitRepository.getActiveReminders();
+          set({ reminders });
+        } catch (error) {
+          set({ error: 'Failed to load reminders' });
         }
       },
 
@@ -83,6 +98,44 @@ export const useHabitStore = create<HabitState>()(
         }
       },
 
+      createReminder: async (reminderData) => {
+        try {
+          const newReminder: Reminder = {
+            ...reminderData,
+            id: crypto.randomUUID(),
+          } as Reminder;
+          
+          await habitRepository.createReminder(newReminder);
+          
+          // Schedule notification
+          const habit = get().habits.find(h => h.id === reminderData.habitId);
+          if (habit) {
+            await notificationService.scheduleHabitReminder({
+              id: newReminder.id,
+              habitId: habit.id,
+              habitName: habit.name,
+              emoji: habit.emoji,
+              time: reminderData.time,
+              days: JSON.parse(reminderData.days),
+            });
+          }
+          
+          await get().loadReminders();
+        } catch (error) {
+          set({ error: 'Failed to create reminder' });
+        }
+      },
+
+      deleteReminder: async (reminderId) => {
+        try {
+          await notificationService.cancelReminder(reminderId);
+          await habitRepository.deleteReminder(reminderId);
+          await get().loadReminders();
+        } catch (error) {
+          set({ error: 'Failed to delete reminder' });
+        }
+      },
+
       selectHabit: (habit) => {
         set({ selectedHabit: habit });
       },
@@ -90,6 +143,7 @@ export const useHabitStore = create<HabitState>()(
       refresh: async () => {
         await get().loadHabits();
         await get().loadTodayEntries();
+        await get().loadReminders();
       },
     }),
     {

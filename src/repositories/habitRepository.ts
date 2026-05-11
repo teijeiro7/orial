@@ -1,7 +1,7 @@
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { db } from '../database';
-import { habits, habitEntries, type Habit, type NewHabit, type HabitEntry, type NewHabitEntry } from '../../../drizzle/schema';
-import { startOfDay, endOfDay, formatISO } from 'date-fns';
+import { habits, habitEntries, reminders, type Habit, type NewHabit, type HabitEntry, type NewHabitEntry, type Reminder, type NewReminder } from '../../../drizzle/schema';
+import { startOfDay, endOfDay } from 'date-fns';
 
 export class HabitRepository {
   async createHabit(data: NewHabit): Promise<Habit> {
@@ -100,6 +100,39 @@ export class HabitRepository {
           lte(habitEntries.date, end)
         )
       );
+  }
+
+  // Reminder methods
+  async createReminder(data: NewReminder): Promise<Reminder> {
+    await db.insert(reminders).values(data);
+    return data as Reminder;
+  }
+
+  async getRemindersForHabit(habitId: string): Promise<Reminder[]> {
+    return db
+      .select()
+      .from(reminders)
+      .where(eq(reminders.habitId, habitId));
+  }
+
+  async getActiveReminders(): Promise<Reminder[]> {
+    return db
+      .select()
+      .from(reminders)
+      .where(eq(reminders.isActive, true));
+  }
+
+  async updateReminder(id: string, data: Partial<NewReminder>): Promise<void> {
+    await db
+      .update(reminders)
+      .set(data)
+      .where(eq(reminders.id, id));
+  }
+
+  async deleteReminder(id: string): Promise<void> {
+    await db
+      .delete(reminders)
+      .where(eq(reminders.id, id));
   }
 }
 

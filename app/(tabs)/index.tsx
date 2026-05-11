@@ -1,13 +1,14 @@
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Plus, Bell } from 'lucide-react-native';
+import { Plus, Bell, AlertTriangle } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
+import { format, getHours } from 'date-fns';
 import { GlassCard } from '../../src/components/GlassCard';
 import { HabitGridCard } from '../../src/components/HabitGridCard';
 import { HabitCreationSheet } from '../../src/components/HabitCreationSheet';
 import { useHabitStore } from '../../src/stores/habitStore';
+import { notificationService } from '../../src/services/notificationService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
 
@@ -15,11 +16,40 @@ export default function HomeScreen() {
   const router = useRouter();
   const { habits, todayEntries, loadHabits, loadTodayEntries, toggleHabitToday, createHabit } = useHabitStore();
   const [isCreationVisible, setIsCreationVisible] = useState(false);
+  const [showStreakWarning, setShowStreakWarning] = useState(false);
 
   useEffect(() => {
     loadHabits();
     loadTodayEntries();
   }, []);
+
+  useEffect(() => {
+    // Check for streak at risk (after 21:00 and incomplete habits)
+    const checkStreakAtRisk = () => {
+      const hour = getHours(new Date());
+      const incompleteHabits = habits.filter(h => !isHabitCompleted(h.id));
+      
+      if (hour >= 21 && incompleteHabits.length > 0) {
+        setShowStreakWarning(true);
+        
+        // Schedule streak at risk notification for 23:30
+        incompleteHabits.forEach(habit => {
+          notificationService.scheduleStreakAtRiskNotification(
+            habit.id,
+            habit.name,
+            habit.emoji
+          );
+        });
+      } else {
+        setShowStreakWarning(false);
+      }
+    };
+
+    checkStreakAtRisk();
+    // Check every minute
+    const interval = setInterval(checkStreakAtRisk, 60000);
+    return () => clearInterval(interval);
+  }, [habits, todayEntries]);
 
   const isHabitCompleted = (habitId: string) => {
     return todayEntries.some(entry => entry.habitId === habitId && entry.completed);
@@ -41,6 +71,17 @@ export default function HomeScreen() {
             <Bell size={20} color={OrialColors.textPrimary} />
           </Pressable>
         </View>
+
+        {showStreakWarning && (
+          <GlassCard style={styles.warningCard} accentColor={OrialColors.warning}>
+            <View style={styles.warningRow}>
+              <AlertTriangle size={20} color={OrialColors.warning} />
+              <Text style={[OrialTypography.bodyMedium, { color: OrialColors.warning, flex: 1 }]}>
+                Some habits are incomplete! Complete them before midnight to keep your streaks.
+              </Text>
+            </View>
+          </GlassCard>
+        )}
 
         <GlassCard style={styles.progressCard}>
           <View style={styles.progressRow}>
@@ -124,6 +165,16 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: OrialColors.surface,
     borderRadius: 12,
+  },
+  warningCard: {
+    margin: 16,
+    marginTop: 0,
+    marginBottom: 8,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   progressCard: {
     margin: 16,
