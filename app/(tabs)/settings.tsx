@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Switch } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '../../src/components/GlassCard';
 import { ReminderCreationSheet } from '../../src/components/ReminderCreationSheet';
+import { NotionSettingsScreen } from '../settings/notion';
 import { useHabitStore } from '../../src/stores/habitStore';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
@@ -11,6 +12,7 @@ import { useState, useEffect } from 'react';
 export default function SettingsScreen() {
   const { habits, reminders, loadReminders, loadHabits, deleteReminder } = useHabitStore();
   const [isReminderSheetVisible, setIsReminderSheetVisible] = useState(false);
+  const [isNotionVisible, setIsNotionVisible] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   useEffect(() => {
@@ -94,11 +96,17 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Integrations</Text>
           <GlassCard>
-            <SettingItem title="Notion Sync" />
+            <SettingItem title="Notion Sync" onPress={() => setIsNotionVisible(true)} />
             <SettingItem title="Calendar" />
             <SettingItem title="Appearance" />
           </GlassCard>
         </View>
+      </ScrollView>
+
+      <NotionSettingsScreen
+        visible={isNotionVisible}
+        onClose={() => setIsNotionVisible(false)}
+      />
       </ScrollView>
 
       <ReminderCreationSheet
@@ -118,9 +126,9 @@ export default function SettingsScreen() {
   );
 }
 
-function SettingItem({ title }: { title: string }) {
+function SettingItem({ title, onPress }: { title: string; onPress?: () => void }) {
   return (
-    <Pressable style={styles.settingItem}>
+    <Pressable style={styles.settingItem} onPress={onPress}>
       <Text style={OrialTypography.bodyMedium}>{title}</Text>
       <ChevronRight size={20} color={OrialColors.textMuted} />
     </Pressable>

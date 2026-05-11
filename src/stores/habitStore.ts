@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { habitRepository } from '../repositories/habitRepository';
 import { notificationService } from '../services/notificationService';
+import { syncQueueWorker } from '../services/syncQueueWorker';
 import type { Habit, HabitEntry, Reminder } from '../../drizzle/schema';
 
 interface HabitState {
@@ -74,6 +75,19 @@ export const useHabitStore = create<HabitState>()(
           } as Habit;
           
           await habitRepository.createHabit(newHabit);
+          
+          // Add to sync queue
+          await syncQueueWorker.addToQueue('create', 'habit', newHabit.id, {
+            name: newHabit.name,
+            emoji: newHabit.emoji,
+            category: newHabit.category,
+            frequency: newHabit.frequency,
+            targetDays: newHabit.targetDays,
+            targetCount: newHabit.targetCount,
+            isArchived: newHabit.isArchived,
+            createdAt: newHabit.createdAt.toISOString(),
+          });
+          
           await get().loadHabits();
         } catch (error) {
           set({ error: 'Failed to create habit', isLoading: false });
@@ -83,6 +97,21 @@ export const useHabitStore = create<HabitState>()(
       toggleHabitToday: async (habitId) => {
         try {
           await habitRepository.toggleHabitEntry(habitId, new Date());
+          
+          // Get the updated entry
+          const entries = await habitRepository.getTodayEntries();
+          const entry = entries.find(e => e.habitId === habitId);
+          
+          if (entry) {
+            // Add to sync queue
+            await syncQueueWorker.addToQueue('create', 'entry', entry.id, {
+              date: entry.date.toISOString(),
+              habitId: habitId,
+              completed: entry.completed,
+              note: entry.note,
+            });
+          }
+          
           await get().loadTodayEntries();
         } catch (error) {
           set({ error: 'Failed to toggle habit' });
@@ -92,6 +121,20 @@ export const useHabitStore = create<HabitState>()(
       archiveHabit: async (habitId) => {
         try {
           await habitRepository.archiveHabit(habitId);
+          
+          // Add to sync queue
+          const habit = get().habits.find(h => h.id === habitId);
+          if (habit?.notionPageId) {
+            await syncQueueWorker.addToQueue('update', 'habit', habitId, {
+              notionPageId: habit.notionPageId,
+              name: habit.name,
+              emoji: habit.emoji,
+              category: habit.category,
+              frequency: habit.frequency,
+              isArchived: true,
+            });
+          }
+          
           await get().loadHabits();
         } catch (error) {
           set({ error: 'Failed to archive habit' });
