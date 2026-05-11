@@ -101,8 +101,17 @@ export default function HabitsScreen() {
           ))}
         </ScrollView>
 
-        <View style={styles.habitsList}>
-          {filteredHabits.map(habit => {
+        {filteredHabits.length === 0 ? (
+          <GlassCard style={styles.emptyCard}>
+            <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>
+              {habits.length === 0
+                ? "No habits yet. Create your first habit!"
+                : "No habits in this category."}
+            </Text>
+          </GlassCard>
+        ) : (
+          <View style={styles.habitsList}>
+            {filteredHabits.map(habit => {
             const streak = habitStreaks.get(habit.id);
             return (
               <GlassCard key={habit.id} style={styles.habitItem}>
@@ -133,7 +142,8 @@ export default function HabitsScreen() {
               </GlassCard>
             );
           })}
-        </View>
+          </View>
+        )}
       </ScrollView>
 
       <HabitCreationSheet
@@ -229,5 +239,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  emptyCard: {
+    margin: 16,
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    textAlign: 'center',
   },
 });

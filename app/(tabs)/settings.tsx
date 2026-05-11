@@ -1,17 +1,21 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { GlassCard } from '../../src/components/GlassCard';
 import { ReminderCreationSheet } from '../../src/components/ReminderCreationSheet';
 import { NotionSettingsScreen } from '../settings/notion';
 import { CalendarSettingsScreen } from '../settings/calendar';
 import { useHabitStore } from '../../src/stores/habitStore';
+import { useAppStore } from '../../src/stores/appStore';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
-import { ChevronRight, Bell, Trash2 } from 'lucide-react-native';
+import { ChevronRight, Bell, Trash2, RotateCcw } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { habits, reminders, loadReminders, loadHabits, deleteReminder } = useHabitStore();
+  const { setOnboardingCompleted } = useAppStore();
   const [isReminderSheetVisible, setIsReminderSheetVisible] = useState(false);
   const [isNotionVisible, setIsNotionVisible] = useState(false);
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
@@ -103,6 +107,27 @@ export default function SettingsScreen() {
             <SettingItem title="Appearance" />
           </GlassCard>
         </View>
+
+        <View style={styles.section}>
+          <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Getting Started</Text>
+          <GlassCard>
+            <Pressable 
+              style={styles.settingItem} 
+              onPress={() => {
+                setOnboardingCompleted(false);
+                router.replace('/onboarding');
+              }}
+            >
+              <View style={styles.settingItemContent}>
+                <RotateCcw size={20} color={OrialColors.textSecondary} />
+                <Text style={[OrialTypography.bodyMedium, styles.settingItemText]}>
+                  Replay Onboarding
+                </Text>
+              </View>
+              <ChevronRight size={20} color={OrialColors.textMuted} />
+            </Pressable>
+          </GlassCard>
+        </View>
       </ScrollView>
 
       <NotionSettingsScreen
@@ -179,6 +204,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: OrialColors.glassBorder,
+  },
+  settingItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingItemText: {
+    marginLeft: 4,
   },
   emptyCard: {
     alignItems: 'center',

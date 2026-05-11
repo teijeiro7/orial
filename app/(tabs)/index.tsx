@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Plus, Bell, AlertTriangle } from 'lucide-react-native';
@@ -14,14 +14,21 @@ import { OrialTypography } from '../../src/utils/typography';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { habits, todayEntries, loadHabits, loadTodayEntries, toggleHabitToday, createHabit } = useHabitStore();
+  const { habits, todayEntries, loadHabits, loadTodayEntries, toggleHabitToday, createHabit, isLoading, error, refresh } = useHabitStore();
   const [isCreationVisible, setIsCreationVisible] = useState(false);
   const [showStreakWarning, setShowStreakWarning] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadHabits();
     loadTodayEntries();
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     // Check for streak at risk (after 21:00 and incomplete habits)
@@ -61,7 +68,16 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={OrialColors.violetLight}
+          />
+        }
+      >
         <View style={styles.header}>
           <View>
             <Text style={OrialTypography.caption}>{format(new Date(), 'EEEE, MMM d')}</Text>
@@ -71,6 +87,22 @@ export default function HomeScreen() {
             <Bell size={20} color={OrialColors.textPrimary} />
           </Pressable>
         </View>
+
+        {isLoading && (
+          <GlassCard style={styles.loadingCard}>
+            <Text style={[OrialTypography.bodyMedium, styles.loadingText]}>
+              Loading your habits...
+            </Text>
+          </GlassCard>
+        )}
+
+        {error && (
+          <GlassCard style={styles.errorCard}>
+            <Text style={[OrialTypography.bodyMedium, styles.errorText]}>
+              {error}
+            </Text>
+          </GlassCard>
+        )}
 
         {showStreakWarning && (
           <GlassCard style={styles.warningCard} accentColor={OrialColors.warning}>
@@ -223,6 +255,25 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
+  },
+  loadingCard: {
+    margin: 16,
+    alignItems: 'center',
+    padding: 24,
+  },
+  loadingText: {
+    textAlign: 'center',
+  },
+  errorCard: {
+    margin: 16,
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: OrialColors.error + '10',
+    borderColor: OrialColors.error + '30',
+  },
+  errorText: {
+    textAlign: 'center',
+    color: OrialColors.error,
   },
   habitGrid: {
     flexDirection: 'row',
