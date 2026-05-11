@@ -1,9 +1,9 @@
 import { db } from './database';
-import { syncQueue, habits, habitEntries, userSettings } from '../../../drizzle/schema';
+import { syncQueue, habits, habitEntries, userSettings } from '../../drizzle/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { notionService } from './notionService';
 import { notificationService } from './notificationService';
-import type { Habit, HabitEntry } from '../../../drizzle/schema';
+import type { Habit, HabitEntry } from '../../drizzle/schema';
 
 export enum SyncStatus {
   IDLE = 'idle',
