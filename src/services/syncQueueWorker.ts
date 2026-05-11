@@ -1,4 +1,4 @@
-import { db } from '../database';
+import { db } from './database';
 import { syncQueue, habits, habitEntries, userSettings } from '../../../drizzle/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { notionService } from './notionService';

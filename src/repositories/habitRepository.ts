@@ -1,5 +1,5 @@
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { db } from '../database';
+import { db } from '../services/database';
 import { habits, habitEntries, reminders, type Habit, type NewHabit, type HabitEntry, type NewHabitEntry, type Reminder, type NewReminder } from '../../../drizzle/schema';
 import { startOfDay, endOfDay } from 'date-fns';
 
