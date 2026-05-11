@@ -5,9 +5,10 @@ import { useEffect, useRef } from 'react';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
-import { View, ActivityIndicator } from 'react-native';
+import { AppState, View, ActivityIndicator } from 'react-native';
 import { useDatabaseMigrations } from '../src/services/database';
 import { notificationService } from '../src/services/notificationService';
+import { widgetService } from '../src/services/widgetService';
 import { OrialColors } from '../src/utils/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -59,6 +60,20 @@ export default function RootLayout() {
       if (responseListener.current) {
         Notifications.removeNotificationSubscription(responseListener.current);
       }
+    };
+  }, []);
+
+  // Update widgets when app goes to background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background') {
+        // Update widget data when app goes to background
+        widgetService.updateWidgetData();
+      }
+    });
+
+    return () => {
+      subscription.remove();
     };
   }, []);
 

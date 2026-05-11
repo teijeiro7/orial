@@ -5,6 +5,7 @@ import { habitRepository } from '../repositories/habitRepository';
 import { notificationService } from '../services/notificationService';
 import { syncQueueWorker } from '../services/syncQueueWorker';
 import { calendarService } from '../services/calendarService';
+import { widgetService } from '../services/widgetService';
 import type { Habit, HabitEntry, Reminder } from '../../drizzle/schema';
 
 interface HabitState {
@@ -90,6 +91,9 @@ export const useHabitStore = create<HabitState>()(
           });
           
           await get().loadHabits();
+          
+          // Update widgets
+          await widgetService.updateWidgetData();
         } catch (error) {
           set({ error: 'Failed to create habit', isLoading: false });
         }
@@ -114,6 +118,9 @@ export const useHabitStore = create<HabitState>()(
           }
           
           await get().loadTodayEntries();
+          
+          // Update widgets
+          await widgetService.updateWidgetData();
         } catch (error) {
           set({ error: 'Failed to toggle habit' });
         }
