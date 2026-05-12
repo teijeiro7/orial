@@ -7,7 +7,7 @@ export default {
     icon: './assets/icon.png',
     userInterfaceStyle: 'dark',
     scheme: process.env.EXPO_PUBLIC_APP_SCHEME || 'orial',
-    newArchEnabled: true,
+    newArchEnabled: false,
     splash: {
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
@@ -32,6 +32,8 @@ export default {
     },
     android: {
       package: 'com.orial.app',
+      // Temporarily disabled for iOS-only prebuild
+      // googleServicesFile: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_SERVICES || './google-services.json',
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#0A0A1A'
@@ -104,7 +106,9 @@ export default {
         'expo-build-properties',
         {
           ios: {
-            useFrameworks: 'static'
+            useFrameworks: 'static',
+            deploymentTarget: '15.1',
+            clangCxxLanguageStandard: 'c++20'
           }
         }
       ]

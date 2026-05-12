@@ -2,7 +2,6 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// Add .sql to asset extensions (not sourceExts) for drizzle migrations
-config.resolver.assetExts = [...config.resolver.assetExts, 'sql'];
+// SQL files are inlined as strings in migrations.js — no special resolver needed
 
 module.exports = config;
