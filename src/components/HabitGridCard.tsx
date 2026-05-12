@@ -1,12 +1,5 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring,
-  withSequence,
-  withTiming 
-} from 'react-native-reanimated';
+import React, { useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { OrialColors } from '../utils/colors';
 import { OrialTypography } from '../utils/typography';
@@ -20,18 +13,16 @@ interface HabitGridCardProps {
 }
 
 export function HabitGridCard({ habit, isCompleted, onToggle, onLongPress }: HabitGridCardProps) {
-  const scale = useSharedValue(1);
+  const scale = useRef(new Animated.Value(1)).current;
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const animatedStyle = { transform: [{ scale }] };
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSequence(
-      withTiming(0.95, { duration: 100 }),
-      withSpring(1, { damping: 15, stiffness: 300 })
-    );
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 0.95, duration: 100, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, damping: 15, stiffness: 300, useNativeDriver: true }),
+    ]).start();
     onToggle();
   };
 

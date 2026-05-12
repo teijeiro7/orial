@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { X } from 'lucide-react-native';
 import { OrialColors } from '../utils/colors';
 import { OrialTypography } from '../utils/typography';
@@ -186,7 +185,7 @@ export function HabitCreationSheet({ visible, onClose, onSave }: HabitCreationSh
           </View>
 
           {frequency === 'custom' && (
-            <Animated.View entering={FadeInUp} exiting={FadeOutDown} style={styles.section}>
+            <View style={styles.section}>
               <Text style={[OrialTypography.caption, styles.label]}>Target Days</Text>
               <View style={styles.daysRow}>
                 {WEEK_DAYS.map(day => (
@@ -207,7 +206,7 @@ export function HabitCreationSheet({ visible, onClose, onSave }: HabitCreationSh
                   </Pressable>
                 ))}
               </View>
-            </Animated.View>
+            </View>
           )}
 
           <View style={styles.section}>
