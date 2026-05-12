@@ -54,6 +54,7 @@ export const useHabitStore = create<HabitState>()(
           const entries = await habitRepository.getTodayEntries();
           set({ todayEntries: entries });
         } catch (error) {
+          console.error('[habitStore] loadTodayEntries failed:', error);
           set({ error: 'Failed to load today entries' });
         }
       },
