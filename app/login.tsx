@@ -2,10 +2,10 @@ import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, Scroll
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, User, ArrowRight, Chrome, Apple, Facebook } from 'lucide-react-native';
-import { useAuth } from '../../src/context/AuthContext';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { Mail, Lock, User, ArrowRight, Globe, Apple } from 'lucide-react-native';
+import { useAuth } from '../src/context/AuthContext';
+import { OrialColors } from '../src/utils/colors';
+import { OrialTypography } from '../src/utils/typography';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -242,7 +242,7 @@ export default function LoginScreen() {
               onPress={() => handleSocialLogin('google')}
               disabled={isLoading}
             >
-              <Chrome size={24} color="#EA4335" />
+              <Globe size={24} color="#EA4335" />
             </Pressable>
 
             {Platform.OS === 'ios' && (
@@ -260,7 +260,7 @@ export default function LoginScreen() {
               onPress={() => handleSocialLogin('facebook')}
               disabled={isLoading}
             >
-              <Facebook size={24} color="#1877F2" />
+              <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>f</Text>
             </Pressable>
           </View>
 

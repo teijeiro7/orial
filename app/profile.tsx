@@ -2,9 +2,9 @@ import { View, Text, StyleSheet, Image, Pressable, Alert, ActivityIndicator } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, LogOut, Mail, Shield, Calendar, Edit3 } from 'lucide-react-native';
-import { useAuth } from '../../src/context/AuthContext';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { useAuth } from '../src/context/AuthContext';
+import { OrialColors } from '../src/utils/colors';
+import { OrialTypography } from '../src/utils/typography';
 
 export default function ProfileScreen() {
   const router = useRouter();
