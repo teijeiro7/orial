@@ -31,6 +31,11 @@ export class WidgetService {
 
   async updateWidgetData(): Promise<void> {
     try {
+      if (!DefaultPreference) {
+        console.warn('DefaultPreference native module not available');
+        return;
+      }
+
       const { habits, todayEntries } = useHabitStore.getState();
       
       const completedCount = habits.filter(h => 
