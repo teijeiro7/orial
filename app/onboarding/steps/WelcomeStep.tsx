@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { OrialColors } from '../../../src/utils/colors';
 import { OrialTypography } from '../../../src/utils/typography';
 import { GlassCard } from '../../../src/components/GlassCard';
-import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 
 interface WelcomeStepProps {
   onNext: () => void;
@@ -14,7 +13,7 @@ interface WelcomeStepProps {
 
 export function WelcomeStep({ onNext, onSkip }: WelcomeStepProps) {
   return (
-    <Animated.View entering={FadeInRight} exiting={FadeOutLeft} style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.iconContainer}>
           <Sparkles size={64} color={OrialColors.violetLight} />
@@ -40,7 +39,7 @@ export function WelcomeStep({ onNext, onSkip }: WelcomeStepProps) {
           <Text style={[OrialTypography.caption, styles.skipText]}>Set up later</Text>
         </Pressable>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 

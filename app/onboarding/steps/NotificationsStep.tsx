@@ -5,7 +5,6 @@ import * as Notifications from 'expo-notifications';
 import { OrialColors } from '../../../src/utils/colors';
 import { OrialTypography } from '../../../src/utils/typography';
 import { GlassCard } from '../../../src/components/GlassCard';
-import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 
 interface NotificationsStepProps {
   onNext: () => void;
@@ -30,7 +29,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
   }
 
   return (
-    <Animated.View entering={FadeInRight} exiting={FadeOutLeft} style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
           <Bell size={32} color={OrialColors.amber} />
@@ -106,7 +105,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
           <Text style={[OrialTypography.caption, styles.skipText]}>Skip for now</Text>
         </Pressable>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 

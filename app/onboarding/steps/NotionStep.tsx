@@ -7,7 +7,6 @@ import { notionService } from '../../../src/services/notionService';
 import { OrialColors } from '../../../src/utils/colors';
 import { OrialTypography } from '../../../src/utils/typography';
 import { GlassCard } from '../../../src/components/GlassCard';
-import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 
 interface NotionStepProps {
   onNext: () => void;
@@ -25,7 +24,7 @@ export function NotionStep({ onNext, onSkip }: NotionStepProps) {
 
   return (
     <>
-      <Animated.View entering={FadeInRight} exiting={FadeOutLeft} style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.iconContainer}>
             <Database size={32} color={OrialColors.categoryWork} />
@@ -83,7 +82,7 @@ export function NotionStep({ onNext, onSkip }: NotionStepProps) {
             <Text style={[OrialTypography.caption, styles.skipText]}>Skip for now</Text>
           </Pressable>
         </View>
-      </Animated.View>
+      </View>
 
       <NotionSettingsScreen
         visible={showSettings}

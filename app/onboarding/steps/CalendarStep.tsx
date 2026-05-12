@@ -5,7 +5,6 @@ import { CalendarSettingsScreen } from '../../settings/calendar';
 import { OrialColors } from '../../../src/utils/colors';
 import { OrialTypography } from '../../../src/utils/typography';
 import { GlassCard } from '../../../src/components/GlassCard';
-import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 
 interface CalendarStepProps {
   onNext: () => void;
@@ -18,7 +17,7 @@ export function CalendarStep({ onNext, onSkip }: CalendarStepProps) {
 
   return (
     <>
-      <Animated.View entering={FadeInRight} exiting={FadeOutLeft} style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.iconContainer}>
             <Calendar size={32} color={OrialColors.categorySocial} />
@@ -65,7 +64,7 @@ export function CalendarStep({ onNext, onSkip }: CalendarStepProps) {
             <Text style={[OrialTypography.caption, styles.skipText]}>Skip for now</Text>
           </Pressable>
         </View>
-      </Animated.View>
+      </View>
 
       <CalendarSettingsScreen
         visible={showSettings}
