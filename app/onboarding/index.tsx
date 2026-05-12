@@ -48,7 +48,7 @@ export default function OnboardingScreen() {
 
   function finishOnboarding() {
     setOnboardingCompleted(true);
-    router.replace('/(tabs)');
+    router.replace('/login');
   }
 
   function handleClose() {
