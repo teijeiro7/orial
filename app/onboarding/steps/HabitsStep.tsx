@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { OrialColors } from '../../../src/utils/colors';
 import { OrialTypography } from '../../../src/utils/typography';
 import { GlassCard } from '../../../src/components/GlassCard';
-import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 
 interface HabitsStepProps {
   onNext: () => void;
@@ -30,7 +29,7 @@ export function HabitsStep({ onNext, onSkip }: HabitsStepProps) {
   }
 
   return (
-    <Animated.View entering={FadeInRight} exiting={FadeOutLeft} style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
           <Target size={32} color={OrialColors.violet} />
@@ -93,7 +92,7 @@ export function HabitsStep({ onNext, onSkip }: HabitsStepProps) {
           <Text style={[OrialTypography.caption, styles.skipText]}>I'll do this later</Text>
         </Pressable>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 

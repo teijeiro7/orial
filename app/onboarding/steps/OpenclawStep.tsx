@@ -5,7 +5,6 @@ import * as SecureStore from 'expo-secure-store';
 import { OrialColors } from '../../../src/utils/colors';
 import { OrialTypography } from '../../../src/utils/typography';
 import { GlassCard } from '../../../src/components/GlassCard';
-import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 
 interface OpenclawStepProps {
   onNext: () => void;
@@ -51,7 +50,7 @@ export function OpenclawStep({ onNext, onSkip }: OpenclawStepProps) {
   }
 
   return (
-    <Animated.View entering={FadeInRight} exiting={FadeOutLeft} style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
           <Zap size={32} color={OrialColors.cyan} />
@@ -135,7 +134,7 @@ export function OpenclawStep({ onNext, onSkip }: OpenclawStepProps) {
           <Text style={[OrialTypography.caption, styles.skipText]}>Skip for now</Text>
         </Pressable>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
