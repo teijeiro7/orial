@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
-import { AppState, View, ActivityIndicator } from 'react-native';
+import { AppState, View, ActivityIndicator, Text } from 'react-native';
 import { useDatabaseMigrations } from '../src/services/database';
 import { notificationService } from '../src/services/notificationService';
 import { widgetService } from '../src/services/widgetService';
@@ -74,12 +74,8 @@ function AppLayout() {
     });
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
   }, []);
 
@@ -101,6 +97,15 @@ function AppLayout() {
     return (
       <View style={{ flex: 1, backgroundColor: OrialColors.deepNavy, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={OrialColors.violetLight} />
+      </View>
+    );
+  }
+
+  if (error) {
+    console.error('[_layout] Database migration failed:', error);
+    return (
+      <View style={{ flex: 1, backgroundColor: OrialColors.deepNavy, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ color: '#ff4444', textAlign: 'center' }}>Database error. Please restart the app.</Text>
       </View>
     );
   }
@@ -132,30 +137,6 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <AppLayout />
-    </AuthProvider>
-  );
-}
-
-  return (
-    <AuthProvider>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: OrialColors.deepNavy,
-          },
-          headerTintColor: OrialColors.textPrimary,
-          contentStyle: {
-            backgroundColor: OrialColors.deepNavy,
-          },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="habit/[id]" options={{ headerShown: false }} />
-      </Stack>
-    </SafeAreaProvider>
     </AuthProvider>
   );
 }
