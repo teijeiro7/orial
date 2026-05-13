@@ -1,6 +1,11 @@
 import { NativeModules, Platform } from 'react-native';
 import DefaultPreference from 'react-native-default-preference';
 import { useHabitStore } from '../stores/habitStore';
+import { whoopService } from './whoopService';
+import { pedometerService } from './pedometerService';
+import { db } from './database';
+import { bodyMetrics } from '../../drizzle/schema';
+import { desc } from 'drizzle-orm';
 
 const SHARED_PREFS_NAME = 'orial_widget_data';
 const GROUP_ID = 'group.com.orial.app.widget';
@@ -17,6 +22,16 @@ export interface WidgetData {
     category: string;
   }[];
   streakCount: number;
+}
+
+export interface ForgeWidgetData {
+  date: string;
+  steps: number;
+  caloriesBurned: number | null;
+  recoveryScore: number | null;
+  strain: number | null;
+  whoopConnected: boolean;
+  weight: number | null;
 }
 
 export class WidgetService {
@@ -56,15 +71,36 @@ export class WidgetService {
         streakCount: this.calculateTotalStreaks(),
       };
 
+      // Fetch Forge data
+      const whoopConnected = await whoopService.isConnected();
+      const todayMetrics = whoopConnected ? await whoopService.getTodayMetrics() : null;
+      const steps = await pedometerService.getTodaySteps();
+
+      // Get latest weight from DB
+      const weightEntries = await db.select().from(bodyMetrics).orderBy(desc(bodyMetrics.date)).limit(1);
+      const latestWeight = weightEntries[0]?.weightKg ?? null;
+
+      const forgeData: ForgeWidgetData = {
+        date: new Date().toISOString(),
+        steps,
+        caloriesBurned: todayMetrics?.kilojoule ? Math.round(todayMetrics.kilojoule / 4.184) : null,
+        recoveryScore: todayMetrics?.recoveryScore ?? null,
+        strain: todayMetrics?.strain ?? null,
+        whoopConnected,
+        weight: latestWeight,
+      };
+
       // Save to shared preferences for widgets
       if (Platform.OS === 'ios') {
         // iOS: Use App Groups via DefaultPreference
         await DefaultPreference.setName(GROUP_ID);
         await DefaultPreference.set('widget_data', JSON.stringify(widgetData));
+        await DefaultPreference.set('forge_widget_data', JSON.stringify(forgeData));
       } else {
         // Android: Use SharedPreferences
         await DefaultPreference.setName(SHARED_PREFS_NAME);
         await DefaultPreference.set('widget_data', JSON.stringify(widgetData));
+        await DefaultPreference.set('forge_widget_data', JSON.stringify(forgeData));
       }
 
       // Reload widgets
