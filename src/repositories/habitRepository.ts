@@ -2,6 +2,7 @@ import { eq, and, gte, lte } from 'drizzle-orm';
 import { db } from '../services/database';
 import { habits, habitEntries, reminders, type Habit, type NewHabit, type HabitEntry, type NewHabitEntry, type Reminder, type NewReminder } from '../../drizzle/schema';
 import { startOfDay, endOfDay } from 'date-fns';
+import { generateUUID } from '../utils/uuid';
 
 export class HabitRepository {
   async createHabit(data: NewHabit): Promise<Habit> {
@@ -57,7 +58,7 @@ export class HabitRepository {
         .where(eq(habitEntries.id, existing[0].id));
     } else {
       const newEntry: NewHabitEntry = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         habitId,
         date: start,
         completed: true,
