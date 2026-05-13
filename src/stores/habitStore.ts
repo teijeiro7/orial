@@ -6,6 +6,7 @@ import { notificationService } from '../services/notificationService';
 import { syncQueueWorker } from '../services/syncQueueWorker';
 import { calendarService } from '../services/calendarService';
 import { widgetService } from '../services/widgetService';
+import { generateUUID } from '../utils/uuid';
 import type { Habit, HabitEntry, Reminder } from '../../drizzle/schema';
 
 interface HabitState {
@@ -73,8 +74,9 @@ export const useHabitStore = create<HabitState>()(
         try {
           const newHabit: Habit = {
             ...habitData,
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             createdAt: new Date(),
+            targetDays: JSON.stringify(habitData.targetDays),
           } as Habit;
           
           await habitRepository.createHabit(newHabit);
@@ -96,7 +98,8 @@ export const useHabitStore = create<HabitState>()(
           // Update widgets
           await widgetService.updateWidgetData();
         } catch (error) {
-          set({ error: 'Failed to create habit', isLoading: false });
+          console.error('[habitStore] createHabit failed:', error);
+          set({ error: `Failed to create habit: ${error instanceof Error ? error.message : 'Unknown error'}`, isLoading: false });
         }
       },
 
@@ -154,7 +157,7 @@ export const useHabitStore = create<HabitState>()(
         try {
           const newReminder: Reminder = {
             ...reminderData,
-            id: crypto.randomUUID(),
+            id: generateUUID(),
           } as Reminder;
           
           // Create calendar event if calendar sync is enabled
