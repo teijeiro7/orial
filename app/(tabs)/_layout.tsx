@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, List, Calendar, Settings } from 'lucide-react-native';
+import { Home, List, Calendar, Settings, Flame } from 'lucide-react-native';
 import { OrialColors } from '../../src/utils/colors';
 
 export default function TabLayout() {
@@ -28,6 +28,13 @@ export default function TabLayout() {
         options={{
           title: 'Habits',
           tabBarIcon: ({ color, size }) => <List size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="forge"
+        options={{
+          title: 'Forge',
+          tabBarIcon: ({ color, size }) => <Flame size={size} color={color} />,
         }}
       />
       <Tabs.Screen
