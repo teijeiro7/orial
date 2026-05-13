@@ -3,6 +3,7 @@ import { syncQueue, habits, habitEntries, userSettings } from '../../drizzle/sch
 import { eq, and, asc } from 'drizzle-orm';
 import { notionService } from './notionService';
 import { notificationService } from './notificationService';
+import { generateUUID } from '../utils/uuid';
 import type { Habit, HabitEntry } from '../../drizzle/schema';
 
 export enum SyncStatus {
@@ -27,7 +28,7 @@ export class SyncQueueWorker {
 
   async addToQueue(operation: 'create' | 'update' | 'delete', entity: 'habit' | 'entry' | 'reminder', entityId: string, payload: any): Promise<void> {
     await db.insert(syncQueue).values({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       operation,
       entity,
       entityId,
