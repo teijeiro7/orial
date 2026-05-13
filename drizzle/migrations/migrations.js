@@ -1,72 +1,114 @@
 // This file is required for Expo/React Native SQLite migrations - https://orm.drizzle.team/quick-sqlite/expo
 
-const journal = require('./meta/_journal.json');
+import journal from './meta/_journal.json';
 
-const m0000 = `CREATE TABLE \`habit_entries\` (
-\t\`id\` text PRIMARY KEY NOT NULL,
-\t\`habit_id\` text NOT NULL,
-\t\`date\` integer NOT NULL,
-\t\`completed\` integer NOT NULL,
-\t\`created_at\` integer NOT NULL,
-\t\`note\` text,
-\t\`notion_entry_id\` text,
-\t\`is_synced\` integer DEFAULT false NOT NULL,
-\tFOREIGN KEY (\`habit_id\`) REFERENCES \`habits\`(\`id\`) ON UPDATE no action ON DELETE cascade
+export default {
+  journal,
+  migrations: {
+    m0000: `CREATE TABLE \`habit_entries\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`habit_id\` text NOT NULL,
+	\`date\` integer NOT NULL,
+	\`completed\` integer NOT NULL,
+	\`created_at\` integer NOT NULL,
+	\`note\` text,
+	\`notion_entry_id\` text,
+	\`is_synced\` integer DEFAULT false NOT NULL,
+	FOREIGN KEY (\`habit_id\`) REFERENCES \`habits\`(\`id\`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE \`habits\` (
-\t\`id\` text PRIMARY KEY NOT NULL,
-\t\`name\` text NOT NULL,
-\t\`emoji\` text DEFAULT '✅' NOT NULL,
-\t\`category\` text NOT NULL,
-\t\`frequency\` text NOT NULL,
-\t\`target_days\` text NOT NULL,
-\t\`target_count\` integer DEFAULT 1 NOT NULL,
-\t\`created_at\` integer NOT NULL,
-\t\`description\` text,
-\t\`notion_page_id\` text,
-\t\`color\` text,
-\t\`is_archived\` integer DEFAULT false NOT NULL,
-\t\`is_ai_suggested\` integer DEFAULT false NOT NULL
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`name\` text NOT NULL,
+	\`emoji\` text DEFAULT '✅' NOT NULL,
+	\`category\` text NOT NULL,
+	\`frequency\` text NOT NULL,
+	\`target_days\` text NOT NULL,
+	\`target_count\` integer DEFAULT 1 NOT NULL,
+	\`created_at\` integer NOT NULL,
+	\`description\` text,
+	\`notion_page_id\` text,
+	\`color\` text,
+	\`is_archived\` integer DEFAULT false NOT NULL,
+	\`is_ai_suggested\` integer DEFAULT false NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE \`reminders\` (
-\t\`id\` text PRIMARY KEY NOT NULL,
-\t\`habit_id\` text NOT NULL,
-\t\`time\` text NOT NULL,
-\t\`days\` text NOT NULL,
-\t\`is_active\` integer DEFAULT true NOT NULL,
-\t\`calendar_event_id\` text,
-\tFOREIGN KEY (\`habit_id\`) REFERENCES \`habits\`(\`id\`) ON UPDATE no action ON DELETE cascade
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`habit_id\` text NOT NULL,
+	\`time\` text NOT NULL,
+	\`days\` text NOT NULL,
+	\`is_active\` integer DEFAULT true NOT NULL,
+	\`calendar_event_id\` text,
+	FOREIGN KEY (\`habit_id\`) REFERENCES \`habits\`(\`id\`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE \`sync_queue\` (
-\t\`id\` text PRIMARY KEY NOT NULL,
-\t\`operation\` text NOT NULL,
-\t\`entity\` text NOT NULL,
-\t\`entity_id\` text NOT NULL,
-\t\`payload\` text NOT NULL,
-\t\`created_at\` integer NOT NULL,
-\t\`retry_count\` integer DEFAULT 0 NOT NULL,
-\t\`last_error\` text
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`operation\` text NOT NULL,
+	\`entity\` text NOT NULL,
+	\`entity_id\` text NOT NULL,
+	\`payload\` text NOT NULL,
+	\`created_at\` integer NOT NULL,
+	\`retry_count\` integer DEFAULT 0 NOT NULL,
+	\`last_error\` text
 );
 --> statement-breakpoint
 CREATE TABLE \`user_settings\` (
-\t\`id\` text PRIMARY KEY DEFAULT 'default' NOT NULL,
-\t\`notion_access_token\` text,
-\t\`notion_habits_db_id\` text,
-\t\`notion_logs_db_id\` text,
-\t\`calendar_account_id\` text,
-\t\`calendar_provider\` text DEFAULT 'icloud',
-\t\`dark_mode\` integer DEFAULT true NOT NULL,
-\t\`ai_reminders_enabled\` integer DEFAULT true NOT NULL,
-\t\`sync_frequency\` text DEFAULT 'realtime',
-\t\`fcm_token\` text
-);`;
-
-module.exports = {
-  journal,
-  migrations: {
-    m0000
+	\`id\` text PRIMARY KEY DEFAULT 'default' NOT NULL,
+	\`notion_access_token\` text,
+	\`notion_habits_db_id\` text,
+	\`notion_logs_db_id\` text,
+	\`calendar_account_id\` text,
+	\`calendar_provider\` text DEFAULT 'icloud',
+	\`dark_mode\` integer DEFAULT true NOT NULL,
+	\`ai_reminders_enabled\` integer DEFAULT true NOT NULL,
+	\`sync_frequency\` text DEFAULT 'realtime',
+	\`fcm_token\` text
+);`,
+    m0001: `CREATE TABLE \`body_metrics\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`date\` integer NOT NULL,
+	\`weight_kg\` real,
+	\`body_fat_pct\` real,
+	\`notes\` text,
+	\`photo_uri\` text,
+	\`created_at\` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE \`pedometer_history\` (
+	\`date\` text PRIMARY KEY NOT NULL,
+	\`steps\` integer DEFAULT 0 NOT NULL,
+	\`updated_at\` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE \`whoop_daily\` (
+	\`date\` text PRIMARY KEY NOT NULL,
+	\`strain\` real,
+	\`kilojoule\` real,
+	\`avg_heart_rate\` integer,
+	\`max_heart_rate\` integer,
+	\`recovery_score\` integer,
+	\`resting_heart_rate\` integer,
+	\`hrv_rmssd_milli\` real,
+	\`spo2_percentage\` real,
+	\`skin_temp_celsius\` real,
+	\`sleep_performance\` integer,
+	\`sleep_duration_milli\` integer,
+	\`respiratory_rate\` real,
+	\`nap\` integer,
+	\`raw\` text,
+	\`updated_at\` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE \`whoop_tokens\` (
+	\`id\` text PRIMARY KEY DEFAULT 'default' NOT NULL,
+	\`access_token\` text,
+	\`refresh_token\` text,
+	\`expires_at\` integer,
+	\`scope\` text,
+	\`whoop_user_id\` integer,
+	\`created_at\` integer NOT NULL
+);`,
   }
 };

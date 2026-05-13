@@ -60,6 +60,51 @@ export const userSettings = sqliteTable('user_settings', {
   fcmToken: text('fcm_token'),
 });
 
+export const whoopTokens = sqliteTable('whoop_tokens', {
+  id: text('id').primaryKey().default('default'),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
+  scope: text('scope'),
+  whoopUserId: integer('whoop_user_id'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const whoopDaily = sqliteTable('whoop_daily', {
+  date: text('date').primaryKey(),
+  strain: real('strain'),
+  kilojoule: real('kilojoule'),
+  avgHeartRate: integer('avg_heart_rate'),
+  maxHeartRate: integer('max_heart_rate'),
+  recoveryScore: integer('recovery_score'),
+  restingHeartRate: integer('resting_heart_rate'),
+  hrvRmssdMilli: real('hrv_rmssd_milli'),
+  spo2Percentage: real('spo2_percentage'),
+  skinTempCelsius: real('skin_temp_celsius'),
+  sleepPerformance: integer('sleep_performance'),
+  sleepDurationMilli: integer('sleep_duration_milli'),
+  respiratoryRate: real('respiratory_rate'),
+  nap: integer('nap', { mode: 'boolean' }),
+  raw: text('raw'),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const bodyMetrics = sqliteTable('body_metrics', {
+  id: text('id').primaryKey(),
+  date: integer('date', { mode: 'timestamp' }).notNull(),
+  weightKg: real('weight_kg'),
+  bodyFatPct: real('body_fat_pct'),
+  notes: text('notes'),
+  photoUri: text('photo_uri'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const pedometerHistory = sqliteTable('pedometer_history', {
+  date: text('date').primaryKey(),
+  steps: integer('steps').notNull().default(0),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 export type Habit = typeof habits.$inferSelect;
 export type NewHabit = typeof habits.$inferInsert;
 export type HabitEntry = typeof habitEntries.$inferSelect;
@@ -70,3 +115,11 @@ export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;
 export type UserSettings = typeof userSettings.$inferSelect;
 export type NewUserSettings = typeof userSettings.$inferInsert;
+export type WhoopToken = typeof whoopTokens.$inferSelect;
+export type NewWhoopToken = typeof whoopTokens.$inferInsert;
+export type WhoopDaily = typeof whoopDaily.$inferSelect;
+export type NewWhoopDaily = typeof whoopDaily.$inferInsert;
+export type BodyMetric = typeof bodyMetrics.$inferSelect;
+export type NewBodyMetric = typeof bodyMetrics.$inferInsert;
+export type PedometerEntry = typeof pedometerHistory.$inferSelect;
+export type NewPedometerEntry = typeof pedometerHistory.$inferInsert;
