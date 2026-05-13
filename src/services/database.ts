@@ -7,5 +7,6 @@ const expoDb = openDatabaseSync('orial.db');
 export const db = drizzle(expoDb, { schema });
 
 export function useDatabaseMigrations() {
-  return useMigrations(db, require('../../drizzle/migrations/migrations.js'));
+  const m = require('../../drizzle/migrations/migrations.js');
+  return useMigrations(db, m.default ?? m);
 }
