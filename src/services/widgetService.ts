@@ -3,6 +3,9 @@ import DefaultPreference from 'react-native-default-preference';
 import { useHabitStore } from '../stores/habitStore';
 import { whoopService } from './whoopService';
 import { pedometerService } from './pedometerService';
+import { hydrationService } from './hydrationService';
+import { supplementService } from './supplementService';
+import { weightPredictionService } from './weightPredictionService';
 import { db } from './database';
 import { bodyMetrics } from '../../drizzle/schema';
 import { desc } from 'drizzle-orm';
@@ -32,6 +35,18 @@ export interface ForgeWidgetData {
   strain: number | null;
   whoopConnected: boolean;
   weight: number | null;
+}
+
+export interface PhysicalWidgetData {
+  date: string;
+  hydrationCurrent: number;
+  hydrationTarget: number;
+  hydrationPercentage: number;
+  supplementsPending: number;
+  supplementsTotal: number;
+  predictedWeight: number | null;
+  weightRangeLow: number | null;
+  weightRangeHigh: number | null;
 }
 
 export class WidgetService {
@@ -90,17 +105,39 @@ export class WidgetService {
         weight: latestWeight,
       };
 
+      // Fetch Physical data
+      const today = new Date().toISOString().split('T')[0];
+      const hydrationProgress = await hydrationService.getProgress(today);
+      const supplementLogs = await supplementService.getTodayLogs(today);
+      const prediction = await weightPredictionService.getTodayPrediction();
+
+      const pendingSupplements = supplementLogs.filter(l => !l.takenAt).length;
+
+      const physicalData: PhysicalWidgetData = {
+        date: new Date().toISOString(),
+        hydrationCurrent: hydrationProgress.current,
+        hydrationTarget: hydrationProgress.target,
+        hydrationPercentage: hydrationProgress.percentage,
+        supplementsPending: pendingSupplements,
+        supplementsTotal: supplementLogs.length,
+        predictedWeight: prediction?.predictedWeightKg ?? null,
+        weightRangeLow: prediction?.predictionRangeLow ?? null,
+        weightRangeHigh: prediction?.predictionRangeHigh ?? null,
+      };
+
       // Save to shared preferences for widgets
       if (Platform.OS === 'ios') {
         // iOS: Use App Groups via DefaultPreference
         await DefaultPreference.setName(GROUP_ID);
         await DefaultPreference.set('widget_data', JSON.stringify(widgetData));
         await DefaultPreference.set('forge_widget_data', JSON.stringify(forgeData));
+        await DefaultPreference.set('physical_widget_data', JSON.stringify(physicalData));
       } else {
         // Android: Use SharedPreferences
         await DefaultPreference.setName(SHARED_PREFS_NAME);
         await DefaultPreference.set('widget_data', JSON.stringify(widgetData));
         await DefaultPreference.set('forge_widget_data', JSON.stringify(forgeData));
+        await DefaultPreference.set('physical_widget_data', JSON.stringify(physicalData));
       }
 
       // Reload widgets
