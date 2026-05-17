@@ -15,6 +15,13 @@
       "when": 1778663874746,
       "tag": "0001_closed_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779024602870,
+      "tag": "0002_thankful_vertigo",
+      "breakpoints": true
     }
   ]
 }
