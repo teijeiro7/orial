@@ -105,6 +105,94 @@ export const pedometerHistory = sqliteTable('pedometer_history', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const hydration = sqliteTable('hydration', {
+  date: text('date').primaryKey(),
+  targetLiters: real('target_liters').notNull().default(3.0),
+  consumedLiters: real('consumed_liters').notNull().default(0),
+  effectiveLiters: real('effective_liters').notNull().default(0),
+  sodiumMg: integer('sodium_mg').notNull().default(0),
+  extraLitersFromSodium: real('extra_liters_from_sodium').notNull().default(0),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const sodiumIntake = sqliteTable('sodium_intake', {
+  id: text('id').primaryKey(),
+  date: text('date').notNull(),
+  source: text('source').notNull(),
+  sodiumMg: integer('sodium_mg').notNull(),
+  mealType: text('meal_type'),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const supplements = sqliteTable('supplements', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  type: text('type').notNull().default('creatine'),
+  dailyDoseMg: integer('daily_dose_mg').notNull().default(5000),
+  reminderTime: text('reminder_time'),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const supplementLogs = sqliteTable('supplement_logs', {
+  id: text('id').primaryKey(),
+  supplementId: text('supplement_id').notNull().references(() => supplements.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  doseMg: integer('dose_mg').notNull(),
+  takenAt: integer('taken_at', { mode: 'timestamp' }),
+  skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const manualMetrics = sqliteTable('manual_metrics', {
+  date: text('date').primaryKey(),
+  caloriesIn: integer('calories_in'),
+  proteinG: integer('protein_g'),
+  carbsG: integer('carbs_g'),
+  fatG: integer('fat_g'),
+  sodiumMg: integer('sodium_mg'),
+  fiberG: integer('fiber_g'),
+  stepsWalk: integer('steps_walk'),
+  stepsConscious: integer('steps_conscious'),
+  workoutMinutes: integer('workout_minutes'),
+  workoutType: text('workout_type'),
+  workoutCalories: integer('workout_calories'),
+  bowelMovement: integer('bowel_movement', { mode: 'boolean' }),
+  bowelVolume: text('bowel_volume'),
+  sleepQuality: integer('sleep_quality'),
+  stressLevel: integer('stress_level'),
+  notes: text('notes'),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const weightPredictions = sqliteTable('weight_predictions', {
+  date: text('date').primaryKey(),
+  actualWeightKg: real('actual_weight_kg'),
+  predictedWeightKg: real('predicted_weight_kg'),
+  predictionRangeLow: real('prediction_range_low'),
+  predictionRangeHigh: real('prediction_range_high'),
+  predictedDeltaKg: real('predicted_delta_kg'),
+  factors: text('factors'),
+  confidence: real('confidence'),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const nutritionLogs = sqliteTable('nutrition_logs', {
+  id: text('id').primaryKey(),
+  date: text('date').notNull(),
+  source: text('source').notNull().default('openclaw'),
+  totalCalories: integer('total_calories'),
+  proteinG: integer('protein_g'),
+  carbsG: integer('carbs_g'),
+  fatG: integer('fat_g'),
+  sodiumMg: integer('sodium_mg'),
+  fiberG: integer('fiber_g'),
+  rawData: text('raw_data'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export type Habit = typeof habits.$inferSelect;
 export type NewHabit = typeof habits.$inferInsert;
 export type HabitEntry = typeof habitEntries.$inferSelect;
@@ -123,3 +211,17 @@ export type BodyMetric = typeof bodyMetrics.$inferSelect;
 export type NewBodyMetric = typeof bodyMetrics.$inferInsert;
 export type PedometerEntry = typeof pedometerHistory.$inferSelect;
 export type NewPedometerEntry = typeof pedometerHistory.$inferInsert;
+export type Hydration = typeof hydration.$inferSelect;
+export type NewHydration = typeof hydration.$inferInsert;
+export type SodiumIntake = typeof sodiumIntake.$inferSelect;
+export type NewSodiumIntake = typeof sodiumIntake.$inferInsert;
+export type Supplement = typeof supplements.$inferSelect;
+export type NewSupplement = typeof supplements.$inferInsert;
+export type SupplementLog = typeof supplementLogs.$inferSelect;
+export type NewSupplementLog = typeof supplementLogs.$inferInsert;
+export type ManualMetric = typeof manualMetrics.$inferSelect;
+export type NewManualMetric = typeof manualMetrics.$inferInsert;
+export type WeightPrediction = typeof weightPredictions.$inferSelect;
+export type NewWeightPrediction = typeof weightPredictions.$inferInsert;
+export type NutritionLog = typeof nutritionLogs.$inferSelect;
+export type NewNutritionLog = typeof nutritionLogs.$inferInsert;
