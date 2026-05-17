@@ -19,15 +19,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Dashboard',
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="habits"
+        name="calendar"
         options={{
-          title: 'Habits',
-          tabBarIcon: ({ color, size }) => <List size={size} color={color} />,
+          title: 'Calendar',
+          tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -38,10 +38,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="calendar"
+        name="habits"
         options={{
-          title: 'Calendar',
-          tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
+          title: 'Habits',
+          tabBarIcon: ({ color, size }) => <List size={size} color={color} />,
         }}
       />
       <Tabs.Screen
