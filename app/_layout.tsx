@@ -17,8 +17,8 @@ SplashScreen.preventAutoHideAsync();
 
 function AppLayout() {
   const router = useRouter();
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
   const [isReady, setIsReady] = useState(false);
 
   const onboardingCompleted = useAppStore(state => state.onboardingCompleted);
