@@ -94,6 +94,12 @@ interface WorkoutResponse {
   };
 }
 
+interface BodyMeasurementResponse {
+  height_meter: number;
+  weight_kilogram: number;
+  max_heart_rate: number;
+}
+
 export class WhoopService {
   private static instance: WhoopService;
   private authState: WhoopAuthState | null = null;
@@ -288,6 +294,14 @@ export class WhoopService {
     return data.records;
   }
 
+  async fetchBodyMeasurement(): Promise<BodyMeasurementResponse | null> {
+    try {
+      return await this.fetchWhoop<BodyMeasurementResponse>('/v2/user/measurement/body');
+    } catch {
+      return null;
+    }
+  }
+
   async syncToday(): Promise<void> {
     const cycle = await this.fetchTodayCycle();
     if (!cycle) return;
@@ -298,6 +312,23 @@ export class WhoopService {
     if (cycle.score_state === 'SCORED') {
       recovery = await this.fetchTodayRecovery(cycle.id);
       sleep = await this.fetchSleepForCycle(cycle.id);
+    }
+
+    // Fetch body measurement and update if available
+    const bodyMeasurement = await this.fetchBodyMeasurement();
+    if (bodyMeasurement?.weight_kilogram) {
+      const today = new Date().toISOString().split('T')[0];
+      await db.insert(bodyMetrics).values({
+        id: generateUUID(),
+        date: new Date(today),
+        weightKg: bodyMeasurement.weight_kilogram,
+        createdAt: new Date(),
+      }).onConflictDoUpdate({
+        target: bodyMetrics.id,
+        set: {
+          weightKg: bodyMeasurement.weight_kilogram,
+        },
+      });
     }
 
     const today = new Date().toISOString().split('T')[0];
