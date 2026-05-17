@@ -5,6 +5,7 @@ import { GlassCard } from '../../src/components/GlassCard';
 import { ReminderCreationSheet } from '../../src/components/ReminderCreationSheet';
 import { NotionSettingsScreen } from '../settings/notion';
 import { CalendarSettingsScreen } from '../settings/calendar';
+import { JarvisSettingsScreen } from '../settings/jarvis';
 import { useHabitStore } from '../../src/stores/habitStore';
 import { useAppStore } from '../../src/stores/appStore';
 import { OrialColors } from '../../src/utils/colors';
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
   const [isReminderSheetVisible, setIsReminderSheetVisible] = useState(false);
   const [isNotionVisible, setIsNotionVisible] = useState(false);
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
+  const [isJarvisVisible, setIsJarvisVisible] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   useEffect(() => {
@@ -130,6 +132,7 @@ export default function SettingsScreen() {
           <GlassCard>
             <SettingItem title="Notion Sync" onPress={() => setIsNotionVisible(true)} />
             <SettingItem title="Calendar" onPress={() => setIsCalendarVisible(true)} />
+            <SettingItem title="JARVIS / OpenClaw" onPress={() => setIsJarvisVisible(true)} />
             <SettingItem title="Appearance" />
           </GlassCard>
         </View>
@@ -191,6 +194,11 @@ export default function SettingsScreen() {
       <CalendarSettingsScreen
         visible={isCalendarVisible}
         onClose={() => setIsCalendarVisible(false)}
+      />
+
+      <JarvisSettingsScreen
+        visible={isJarvisVisible}
+        onClose={() => setIsJarvisVisible(false)}
       />
 
       <ReminderCreationSheet
