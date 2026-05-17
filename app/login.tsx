@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: OrialColors.border,
+    backgroundColor: OrialColors.glassBorder,
   },
   dividerText: {
     ...OrialTypography.bodySmall,

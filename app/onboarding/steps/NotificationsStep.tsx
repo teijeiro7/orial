@@ -32,7 +32,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <Bell size={32} color={OrialColors.amber} />
+          <Bell size={32} color={OrialColors.warning} />
         </View>
         
         <Text style={OrialTypography.headingMedium}>Stay on Track</Text>
@@ -69,7 +69,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
 
       {permissionStatus === 'denied' && (
         <GlassCard style={styles.warningCard}>
-          <Text style={[OrialTypography.bodySmall, { color: OrialColors.amber }]}>
+          <Text style={[OrialTypography.bodySmall, { color: OrialColors.warning }]}>
             Notifications are blocked. Please enable them in your device settings to receive habit reminders.
           </Text>
         </GlassCard>
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: OrialColors.amber + '20',
+    backgroundColor: OrialColors.warning + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -153,8 +153,8 @@ const styles = StyleSheet.create({
   },
   warningCard: {
     marginBottom: 16,
-    backgroundColor: OrialColors.amber + '10',
-    borderColor: OrialColors.amber + '30',
+    backgroundColor: OrialColors.warning + '10',
+    borderColor: OrialColors.warning + '30',
   },
   actions: {
     gap: 12,
