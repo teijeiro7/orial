@@ -98,7 +98,7 @@ export class CalendarService {
         return dayMap[day];
       }).filter(Boolean);
 
-      const eventData: Calendar.Event = {
+      const eventData = {
         title: `Orial: ${habitName}`,
         notes: notes || 'Habit reminder from Orial app',
         startDate,
@@ -107,9 +107,9 @@ export class CalendarService {
         recurrenceRule: daysOfWeek.length > 0 
           ? {
               frequency: Calendar.Frequency.WEEKLY,
-              daysOfTheWeek: daysOfWeek.map(day => ({ dayOfWeek: day as any })),
+              daysOfTheWeek: daysOfWeek.map(day => ({ dayOfTheWeek: day as any })),
             }
-          : undefined,
+          : null,
       };
 
       const eventId = await Calendar.createEventAsync(this.selectedCalendarId, eventData);
@@ -122,7 +122,7 @@ export class CalendarService {
 
   async deleteEvent(eventId: string): Promise<void> {
     try {
-      await Calendar.deleteEventAsync(eventId, { futureEventsOnly: true });
+      await Calendar.deleteEventAsync(eventId, { futureEvents: true });
     } catch (error) {
       console.error('Error deleting calendar event:', error);
     }

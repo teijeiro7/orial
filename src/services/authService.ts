@@ -245,8 +245,8 @@ class AuthService {
   async signOut(): Promise<void> {
     try {
       // Sign out from all providers
-      await GoogleSignin.signOut().catch(() => {});
-      await LoginManager.logOut().catch(() => {});
+      try { await GoogleSignin.signOut(); } catch {}
+      try { LoginManager.logOut(); } catch {}
       await auth().signOut();
     } catch (error: any) {
       throw this.handleAuthError(error);
