@@ -218,7 +218,8 @@ export class WhoopService {
         refresh_token: state.refreshToken,
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
-        scope: 'offline',
+        redirect_uri: REDIRECT_URI,
+        scope: SCOPES,
       }).toString(),
     });
 
