@@ -5,30 +5,52 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface OpenClawConfig {
+export interface AgentConfig {
   apiUrl: string;
   apiKey: string;
 }
 
-class OpenClawService {
-  private static instance: OpenClawService;
+const HERMES_STORAGE_URL = 'hermes_api_url';
+const HERMES_STORAGE_KEY = 'hermes_api_key';
+const LEGACY_OPENCLAW_URL = 'openclaw_api_url';
+const LEGACY_OPENCLAW_KEY = 'openclaw_api_key';
 
-  static getInstance(): OpenClawService {
-    if (!OpenClawService.instance) {
-      OpenClawService.instance = new OpenClawService();
+class AgentService {
+  private static instance: AgentService;
+
+  static getInstance(): AgentService {
+    if (!AgentService.instance) {
+      AgentService.instance = new AgentService();
     }
-    return OpenClawService.instance;
+    return AgentService.instance;
   }
 
-  async getConfig(): Promise<OpenClawConfig | null> {
+  async getConfig(): Promise<AgentConfig | null> {
     try {
-      const apiUrl = await SecureStore.getItemAsync('openclaw_api_url');
-      const apiKey = await SecureStore.getItemAsync('openclaw_api_key');
+      // Try new Hermes keys first, fall back to legacy OpenClaw keys
+      let apiUrl = await SecureStore.getItemAsync(HERMES_STORAGE_URL);
+      let apiKey = await SecureStore.getItemAsync(HERMES_STORAGE_KEY);
+
+      if (!apiUrl) {
+        apiUrl = await SecureStore.getItemAsync(LEGACY_OPENCLAW_URL);
+        apiKey = await SecureStore.getItemAsync(LEGACY_OPENCLAW_KEY);
+      }
+
       if (!apiUrl) return null;
       return { apiUrl: apiUrl.replace(/\/$/, ''), apiKey: apiKey || '' };
     } catch {
       return null;
     }
+  }
+
+  async saveConfig(apiUrl: string, apiKey: string): Promise<void> {
+    await SecureStore.setItemAsync(HERMES_STORAGE_URL, apiUrl);
+    await SecureStore.setItemAsync(HERMES_STORAGE_KEY, apiKey);
+  }
+
+  async clearConfig(): Promise<void> {
+    await SecureStore.deleteItemAsync(HERMES_STORAGE_URL);
+    await SecureStore.deleteItemAsync(HERMES_STORAGE_KEY);
   }
 
   async isConfigured(): Promise<boolean> {
@@ -56,7 +78,7 @@ class OpenClawService {
     onChunk?: (text: string) => void
   ): Promise<string> {
     const config = await this.getConfig();
-    if (!config) throw new Error('OpenClaw not configured');
+    if (!config) throw new Error('Hermes Agent not configured');
 
     const response = await fetch(`${config.apiUrl}/v1/chat/completions`, {
       method: 'POST',
@@ -65,7 +87,7 @@ class OpenClawService {
         Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify({
-        model: 'jarvis',
+        model: 'hermes-agent',
         messages,
         stream: !!onChunk,
       }),
@@ -73,7 +95,7 @@ class OpenClawService {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`OpenClaw error ${response.status}: ${error}`);
+      throw new Error(`Hermes error ${response.status}: ${error}`);
     }
 
     if (onChunk && response.body) {
@@ -121,4 +143,4 @@ class OpenClawService {
   }
 }
 
-export const openClawService = OpenClawService.getInstance();
+export const agentService = AgentService.getInstance();
