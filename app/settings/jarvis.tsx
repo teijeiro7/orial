@@ -54,11 +54,14 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
     const normalizedUrl = apiUrl.trim().replace(/\/$/, '');
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const response = await fetch(`${normalizedUrl}/health`, {
         method: 'GET',
         headers: { Authorization: `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(8000),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         await agentService.saveConfig(normalizedUrl, apiKey.trim());
