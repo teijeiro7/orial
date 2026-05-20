@@ -101,47 +101,35 @@ class AgentService {
       throw new Error(`Hermes error ${response.status}: ${error}`);
     }
 
-    if (onChunk && response.body) {
-      return this.readStream(response, onChunk);
+    if (onChunk) {
+      // React Native (Hermes) doesn't support ReadableStream (response.body).
+      // Read full text and parse SSE manually.
+      const raw = await response.text();
+      return this.parseSSE(raw, onChunk);
     }
 
     const data = await response.json();
     return data.choices?.[0]?.message?.content ?? '';
   }
 
-  private async readStream(
-    response: Response,
-    onChunk: (text: string) => void
-  ): Promise<string> {
-    const reader = response.body!.getReader();
-    const decoder = new TextDecoder();
+  /** Parse SSE text and call onChunk for each delta. Works without ReadableStream. */
+  private parseSSE(raw: string, onChunk: (text: string) => void): string {
     let full = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]') break;
-
-        try {
-          const parsed = JSON.parse(data);
-          const delta = parsed.choices?.[0]?.delta?.content;
-          if (delta) {
-            full += delta;
-            onChunk(delta);
-          }
-        } catch {
-          // malformed chunk — skip
+    for (const line of raw.split('\n')) {
+      if (!line.startsWith('data: ')) continue;
+      const payload = line.slice(6).trim();
+      if (payload === '[DONE]') break;
+      try {
+        const parsed = JSON.parse(payload);
+        const delta = parsed.choices?.[0]?.delta?.content;
+        if (delta) {
+          full += delta;
+          onChunk(delta);
         }
+      } catch {
+        // skip malformed line
       }
     }
-
     return full;
   }
 }
