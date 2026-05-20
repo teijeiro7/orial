@@ -1,10 +1,15 @@
 export const OrialColors = {
   // Backgrounds
-  deepNavy: '#0A0A1A',
+  deepNavy: '#080C18',
   darkBlue: '#0D1B2A',
-  surface: '#1A1F3A',
+  surface: '#111827',
+  surfaceElevated: '#1C2539',
 
-  // Glass
+  // Borders
+  border: 'rgba(255, 255, 255, 0.07)',
+  borderStrong: 'rgba(255, 255, 255, 0.13)',
+
+  // Glass (legacy — prefer flat cards)
   glassWhite: 'rgba(255, 255, 255, 0.15)',
   glassBorder: 'rgba(255, 255, 255, 0.20)',
 
@@ -20,9 +25,9 @@ export const OrialColors = {
   error: '#EF4444',
 
   // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#B0B7D3',
-  textMuted: '#6B7280',
+  textPrimary: '#F1F5F9',
+  textSecondary: '#94A3B8',
+  textMuted: '#4B5563',
 
   // Category colors
   categoryHealth: '#10B981',
