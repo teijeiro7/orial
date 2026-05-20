@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Animated, RefreshControl, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Animated, RefreshControl, ViewStyle, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { GlassCard } from '../../src/components/GlassCard';
 import { OrialColors } from '../../src/utils/colors';
 import { nutritionService } from '../../src/services/nutritionService';
+import { agentService } from '../../src/services/openclawService';
 import type { NutritionLog } from '../../drizzle/schema';
 
 const GOALS = { calories: 2100, protein: 160, carbs: 220, fat: 70 };
@@ -30,6 +31,7 @@ function SkeletonBlock({ width, height, style }: { width: number | string; heigh
 export default function MacrosScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [nutrition, setNutrition] = useState<NutritionLog | null>(null);
 
   const fetchMacros = useCallback(async (isRefresh = false) => {
@@ -42,6 +44,58 @@ export default function MacrosScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { fetchMacros(); }, [fetchMacros]));
+
+  /** Call the Hermes agent to populate today's macros into the local DB */
+  const handleFetchFromAgent = useCallback(async () => {
+    setFetching(true);
+    try {
+      const configured = await agentService.isConfigured();
+      if (!configured) {
+        setFetching(false);
+        return;
+      }
+      const today = new Date().toISOString().split('T')[0];
+      const existing = await nutritionService.getTodayNutrition();
+
+      const response = await agentService.chat([
+        {
+          role: 'system',
+          content: `Eres un asistente nutricional.
+IMPORTANTE: Ejecuta EXACTAMENTE este comando y devuelve su salida sin modificarla:
+
+python3 -c "import sqlite3,json,os;from datetime import datetime;today=datetime.now().strftime('%Y-%m-%d');db=os.path.expanduser('~/.hermes/data/nutrition.db');c=sqlite3.connect(db);c.row_factory=sqlite3.Row;r=c.execute('SELECT * FROM meals WHERE date=?',(today,));m=r.fetchall();c.close();tc=sum((x['calories']or 0)for x in m);tp=sum((x['protein']or 0)for x in m);tcarb=sum((x['carbs']or 0)for x in m);tf=sum((x['fat']or 0)for x in m);ml=[{'name':x['meal_type'],'calories':x['calories'],'protein':x['protein'],'carbs':x['carbs'],'fat':x['fat'],'sodium':0}for x in m];d={'date':today,'totalCalories':tc,'proteinG':round(tp,1),'carbsG':round(tcarb,1),'fatG':round(tf,1),'sodiumMg':0,'meals':ml};print('###ORIAL_NUTRITION###');print(json.dumps(d,indent=2));print('###END_ORIAL###')"
+
+Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
+        },
+        { role: 'user', content: `Dame mis macros de hoy` },
+      ]);
+
+      const saved = await nutritionService.processOpenclawMessage(response);
+      if (!saved) {
+        // Fallback: try to extract JSON directly
+        const jsonMatch = response.match(/\{[\s\S]*"totalCalories"[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            await nutritionService.importFromOpenclaw({
+              date: today,
+              totalCalories: parsed.totalCalories || 0,
+              proteinG: parsed.proteinG || 0,
+              carbsG: parsed.carbsG || 0,
+              fatG: parsed.fatG || 0,
+              sodiumMg: parsed.sodiumMg || 0,
+              meals: parsed.meals || [],
+            });
+          } catch {}
+        }
+      }
+      await fetchMacros();
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setFetching(false);
+    }
+  }, [fetchMacros]);
 
   const pct = (val: number | null | undefined, goal: number) =>
     goal > 0 ? Math.min((val ?? 0) / goal, 1) : 0;
@@ -107,8 +161,19 @@ export default function MacrosScreen() {
               <Text style={styles.emptyBody}>
                 Tell Hermes what you ate — it will parse meals and log your macros automatically.
               </Text>
+              <Pressable
+                style={[styles.fetchBtn, fetching && { opacity: 0.6 }]}
+                onPress={handleFetchFromAgent}
+                disabled={fetching}
+              >
+                {fetching ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.fetchBtnText}>Fetch from Hermes</Text>
+                )}
+              </Pressable>
               <View style={styles.emptyHint}>
-                <Text style={styles.emptyHintText}>"Breakfast: 3 eggs, toast with butter, OJ"</Text>
+                <Text style={styles.emptyHintText}>Or type "Breakfast: 3 eggs, toast with butter, OJ"</Text>
               </View>
             </GlassCard>
 
@@ -229,6 +294,21 @@ const styles = StyleSheet.create({
   emptyBody: { fontSize: 13, color: OrialColors.textMuted, textAlign: 'center', lineHeight: 20, fontFamily: 'Inter-Regular' },
   emptyHint: { marginTop: 16, paddingVertical: 10, paddingHorizontal: 14, backgroundColor: OrialColors.surfaceElevated, borderRadius: 10, borderWidth: 1, borderColor: OrialColors.borderStrong },
   emptyHintText: { fontSize: 11, color: OrialColors.cyan, fontFamily: 'Inter-Regular', fontStyle: 'italic' },
+  fetchBtn: {
+    marginTop: 16,
+    backgroundColor: OrialColors.violet,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    width: '100%',
+  },
+  fetchBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
+  },
   microCard: { marginHorizontal: 16, marginBottom: 10, padding: 16 },
   microRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   microLabel: { fontSize: 9, letterSpacing: 1.4, color: OrialColors.textMuted, marginBottom: 5, fontFamily: 'Inter-Medium' },
