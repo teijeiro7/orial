@@ -23,11 +23,18 @@ interface DisplayMessage {
   streaming?: boolean;
 }
 
+const SUGGESTED_PROMPTS = [
+  'Log breakfast: 3 eggs, toast, black coffee',
+  'How was my recovery this week?',
+  'What should I eat to hit my protein goal?',
+];
+
 export default function JarvisScreen() {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [inputFocused, setInputFocused] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -45,8 +52,8 @@ export default function JarvisScreen() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const send = useCallback(async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
     if (!text || sending) return;
 
     setInput('');
@@ -110,7 +117,7 @@ export default function JarvisScreen() {
       <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
         {!isUser && (
           <View style={styles.avatar}>
-            <Zap size={14} color={OrialColors.cyan} />
+            <Zap size={13} color={OrialColors.cyan} />
           </View>
         )}
         <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
@@ -134,11 +141,17 @@ export default function JarvisScreen() {
   if (!configured) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.emptyState}>
-          <AlertCircle size={48} color={OrialColors.textMuted} />
-          <Text style={[OrialTypography.headingSmall, styles.emptyTitle]}>JARVIS not connected</Text>
-          <Text style={[OrialTypography.bodyMedium, styles.emptyBody]}>
-            Set up your Hermes Agent API URL and key in Settings to use JARVIS.
+        <View style={styles.header}>
+          <View style={styles.headerIconWrap}>
+            <Zap size={18} color={OrialColors.cyan} />
+          </View>
+          <Text style={styles.headerTitle}>Hermes</Text>
+        </View>
+        <View style={styles.errorState}>
+          <AlertCircle size={40} color={OrialColors.textMuted} />
+          <Text style={styles.errorStateTitle}>Not connected</Text>
+          <Text style={styles.errorStateBody}>
+            Set up your Hermes Agent API URL and key in Settings to start chatting.
           </Text>
         </View>
       </SafeAreaView>
@@ -147,11 +160,12 @@ export default function JarvisScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerIcon}>
-          <Zap size={20} color={OrialColors.cyan} />
+        <View style={styles.headerIconWrap}>
+          <Zap size={18} color={OrialColors.cyan} />
         </View>
-        <Text style={OrialTypography.headingMedium}>JARVIS</Text>
+        <Text style={styles.headerTitle}>Hermes</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -168,35 +182,48 @@ export default function JarvisScreen() {
           onContentSizeChange={scrollToBottom}
           ListEmptyComponent={
             <View style={styles.emptyChat}>
-              <Text style={[OrialTypography.bodyMedium, { textAlign: 'center' }]}>
-                Ask JARVIS anything about your habits, health, or tasks.
-              </Text>
+              <Text style={styles.emptyChatTitle}>How can I help?</Text>
+              <Text style={styles.emptyChatSub}>Log food, check metrics, or ask anything about your health.</Text>
+              <View style={styles.promptChips}>
+                {SUGGESTED_PROMPTS.map((prompt) => (
+                  <Pressable
+                    key={prompt}
+                    style={styles.promptChip}
+                    onPress={() => send(prompt)}
+                  >
+                    <Text style={styles.promptChipText}>{prompt}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           }
         />
 
-        <View style={styles.inputRow}>
+        {/* Input bar */}
+        <View style={[styles.inputRow, inputFocused && styles.inputRowFocused]}>
           <TextInput
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Message JARVIS..."
+            placeholder="Message Hermes..."
             placeholderTextColor={OrialColors.textMuted}
             multiline
             maxLength={2000}
-            onSubmitEditing={send}
+            onSubmitEditing={() => send()}
             returnKeyType="send"
             blurOnSubmit={false}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
           />
           <Pressable
             style={[styles.sendBtn, (!input.trim() || sending) && styles.sendBtnDisabled]}
-            onPress={send}
+            onPress={() => send()}
             disabled={!input.trim() || sending}
           >
             {sending ? (
               <ActivityIndicator size="small" color={OrialColors.textPrimary} />
             ) : (
-              <Send size={20} color={OrialColors.textPrimary} />
+              <Send size={18} color={OrialColors.textPrimary} />
             )}
           </Pressable>
         </View>
@@ -218,44 +245,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: OrialColors.glassBorder,
   },
-  headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: OrialColors.cyan + '20',
+  headerIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: OrialColors.cyan + '18',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: OrialColors.cyan + '30',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    letterSpacing: -0.3,
+    fontFamily: 'Inter-Bold',
   },
   messageList: {
     padding: 16,
-    gap: 12,
     flexGrow: 1,
   },
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   messageRowUser: {
     flexDirection: 'row-reverse',
   },
   avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: OrialColors.cyan + '20',
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: OrialColors.cyan + '18',
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
+    borderWidth: 1,
+    borderColor: OrialColors.cyan + '30',
   },
   bubble: {
     maxWidth: '78%',
-    borderRadius: 16,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -270,9 +307,10 @@ const styles = StyleSheet.create({
     borderColor: OrialColors.glassBorder,
   },
   bubbleText: {
-    ...OrialTypography.bodyMedium,
+    fontSize: 15,
     color: OrialColors.textSecondary,
-    lineHeight: 22,
+    lineHeight: 23,
+    fontFamily: 'Inter-Regular',
   },
   bubbleTextUser: {
     color: OrialColors.textPrimary,
@@ -285,27 +323,31 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 10,
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingBottom: 16,
     borderTopWidth: 1,
     borderTopColor: OrialColors.glassBorder,
   },
+  inputRowFocused: {
+    borderTopColor: OrialColors.cyan + '60',
+  },
   input: {
     flex: 1,
     backgroundColor: OrialColors.surface,
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    borderRadius: 8,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     color: OrialColors.textPrimary,
     fontSize: 15,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: OrialColors.glassBorder,
     maxHeight: 120,
+    fontFamily: 'Inter-Regular',
   },
   sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     backgroundColor: OrialColors.violet,
     justifyContent: 'center',
     alignItems: 'center',
@@ -313,25 +355,66 @@ const styles = StyleSheet.create({
   sendBtnDisabled: {
     backgroundColor: OrialColors.surface,
   },
-  emptyState: {
+  // Empty chat state
+  emptyChat: {
+    flex: 1,
+    paddingTop: 60,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  emptyChatTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    letterSpacing: -0.5,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 8,
+  },
+  emptyChatSub: {
+    fontSize: 13,
+    color: OrialColors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
+    marginBottom: 28,
+  },
+  promptChips: {
+    width: '100%',
+    gap: 8,
+  },
+  promptChip: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: OrialColors.glassBorder,
+  },
+  promptChipText: {
+    fontSize: 13,
+    color: OrialColors.textSecondary,
+    fontFamily: 'Inter-Regular',
+    lineHeight: 20,
+  },
+  // Error / not configured state
+  errorState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
-    gap: 16,
+    gap: 14,
   },
-  emptyTitle: {
-    textAlign: 'center',
+  errorStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: OrialColors.textSecondary,
+    fontFamily: 'Inter-SemiBold',
   },
-  emptyBody: {
-    textAlign: 'center',
+  errorStateBody: {
+    fontSize: 13,
     color: OrialColors.textMuted,
-  },
-  emptyChat: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-    paddingHorizontal: 40,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
   },
 });
