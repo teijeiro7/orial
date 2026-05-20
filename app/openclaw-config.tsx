@@ -11,13 +11,13 @@ export default function OpenclawConfigScreen() {
   const [copied, setCopied] = useState(false);
 
   const instructions = `
-# Configuración de Openclaw para Orial
+# Configuración de Hermes Agent para Orial
 
 ## Instrucciones para el Agente
 
-Cuando el usuario te pida registrar su nutrición del día, sigue estos pasos:
+Cuando el usuario te pida registrar su nutrición del día (por texto o foto), sigue estos pasos:
 
-1. **Analiza las comidas** descritas por el usuario
+1. **Analiza las comidas** descritas por el usuario o visibles en la foto
 2. **Calcula los totales**:
    - Calorías totales
    - Proteínas (g)
@@ -115,7 +115,7 @@ Resumen: Buen balance proteico, sodio moderado. Considera aumentar hidratación 
     <SafeAreaView style={styles.container}>
       <ScrollView>
         <View style={styles.header}>
-          <Text style={OrialTypography.headingLarge}>Openclaw Setup</Text>
+          <Text style={OrialTypography.headingLarge}>Hermes Agent Setup</Text>
           <Text style={OrialTypography.caption}>Configure your AI agent to sync with Orial</Text>
         </View>
 
@@ -125,7 +125,7 @@ Resumen: Buen balance proteico, sodio moderado. Considera aumentar hidratación 
             <Text style={[OrialTypography.headingSmall, styles.infoTitle]}>How it works</Text>
           </View>
           <Text style={[OrialTypography.bodyMedium, styles.infoText]}>
-            Your Openclaw agent can automatically send nutrition data to Orial by including a special JSON block at the end of messages. The app will parse this data and update your nutrition logs, hydration targets, and weight predictions.
+            Your Hermes Agent can automatically send nutrition data to Orial by including a special JSON block at the end of messages. The app will parse this data and update your nutrition logs, hydration targets, and weight predictions.
           </Text>
         </GlassCard>
 
