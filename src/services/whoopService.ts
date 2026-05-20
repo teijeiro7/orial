@@ -261,11 +261,15 @@ export class WhoopService {
 
   async fetchTodayCycle(): Promise<CycleResponse | null> {
     const today = new Date().toISOString();
-    const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/cycles', {
-      start: today,
-      limit: '1',
-    });
-    return data.records[0] || null;
+    try {
+      const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/cycles', {
+        start: today,
+        limit: '1',
+      });
+      return data.records[0] || null;
+    } catch {
+      return null;
+    }
   }
 
   async fetchTodayRecovery(cycleId: number): Promise<RecoveryResponse | null> {
