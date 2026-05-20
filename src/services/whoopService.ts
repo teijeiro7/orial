@@ -10,7 +10,7 @@ const STORE_KEY_EXPIRES = 'whoop_expires_at';
 
 const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const WHOOP_TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
-const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer';
+const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer/v2';
 
 const CLIENT_ID = '469f8c7f-98e6-4e1b-89a0-e3625022c70d';
 const CLIENT_SECRET = '981991bea57efa65e1ca183113611073853af09e7589f5629fafa6baf2de0901';
@@ -164,14 +164,14 @@ export class WhoopService {
   async handleCallback(code: string): Promise<void> {
     const response = await fetch(WHOOP_TOKEN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         redirect_uri: REDIRECT_URI,
-      }),
+      }).toString(),
     });
 
     if (!response.ok) {
@@ -206,36 +206,45 @@ export class WhoopService {
     });
   }
 
+  private async forceRefreshToken(): Promise<string> {
+    const state = await this.getAuthState();
+    if (!state) throw new Error('Not connected to Whoop');
+
+    const response = await fetch(WHOOP_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: state.refreshToken,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        scope: 'offline',
+      }).toString(),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      console.error('[Whoop] refresh failed', response.status, body);
+      await this.clearAuthState();
+      throw new Error(`Failed to refresh Whoop token: ${response.status} ${body}`);
+    }
+
+    const data = await response.json();
+    await this.saveAuthState({
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
+      scope: data.scope,
+    });
+    return data.access_token;
+  }
+
   private async ensureValidToken(): Promise<string> {
     const state = await this.getAuthState();
     if (!state) throw new Error('Not connected to Whoop');
 
     if (new Date() > state.expiresAt) {
-      const response = await fetch(WHOOP_TOKEN_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grant_type: 'refresh_token',
-          refresh_token: state.refreshToken,
-          client_id: CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          scope: 'offline',
-        }),
-      });
-
-      if (!response.ok) {
-        await this.clearAuthState();
-        throw new Error('Failed to refresh Whoop token');
-      }
-
-      const data = await response.json();
-      await this.saveAuthState({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
-        scope: data.scope,
-      });
-      return data.access_token;
+      return this.forceRefreshToken();
     }
 
     return state.accessToken;
@@ -248,11 +257,18 @@ export class WhoopService {
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     }
 
-    const response = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const doFetch = (t: string) =>
+      fetch(url.toString(), { headers: { Authorization: `Bearer ${t}` } });
+
+    let response = await doFetch(token);
+
+    if (response.status === 401) {
+      const newToken = await this.forceRefreshToken();
+      response = await doFetch(newToken);
+    }
 
     if (!response.ok) {
+      if (response.status === 401) await this.clearAuthState();
       throw new Error(`Whoop API ${path}: ${response.status}`);
     }
 
@@ -260,21 +276,18 @@ export class WhoopService {
   }
 
   async fetchTodayCycle(): Promise<CycleResponse | null> {
-    const today = new Date().toISOString();
-    try {
-      const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/v2/cycles', {
-        start: today,
-        limit: '1',
-      });
-      return data.records[0] || null;
-    } catch {
-      return null;
-    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/cycle', {
+      start: today.toISOString(),
+      limit: '1',
+    });
+    return data.records[0] || null;
   }
 
   async fetchTodayRecovery(cycleId: number): Promise<RecoveryResponse | null> {
     try {
-      return await this.fetchWhoop<RecoveryResponse>(`/v2/cycle/${cycleId}/recovery`);
+      return await this.fetchWhoop<RecoveryResponse>(`/cycle/${cycleId}/recovery`);
     } catch {
       return null;
     }
@@ -282,7 +295,7 @@ export class WhoopService {
 
   async fetchSleepForCycle(cycleId: number): Promise<SleepResponse | null> {
     try {
-      return await this.fetchWhoop<SleepResponse>(`/v2/cycle/${cycleId}/sleep`);
+      return await this.fetchWhoop<SleepResponse>(`/cycle/${cycleId}/sleep`);
     } catch {
       return null;
     }
@@ -291,7 +304,7 @@ export class WhoopService {
   async fetchTodayWorkouts(): Promise<WorkoutResponse[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const data = await this.fetchWhoop<{ records: WorkoutResponse[] }>('/v2/activity/workout', {
+    const data = await this.fetchWhoop<{ records: WorkoutResponse[] }>('/activity/workout', {
       start: today.toISOString(),
       limit: '10',
     });
@@ -300,7 +313,7 @@ export class WhoopService {
 
   async fetchBodyMeasurement(): Promise<BodyMeasurementResponse | null> {
     try {
-      return await this.fetchWhoop<BodyMeasurementResponse>('/v2/user/measurement/body');
+      return await this.fetchWhoop<BodyMeasurementResponse>('/user/measurement/body');
     } catch {
       return null;
     }
