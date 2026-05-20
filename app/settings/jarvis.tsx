@@ -66,7 +66,8 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
       } else {
         setStatus('error');
       }
-    } catch {
+    } catch (e) {
+      console.warn('[JarvisSettings] Health check failed:', e);
       setStatus('error');
     } finally {
       setTesting(false);
