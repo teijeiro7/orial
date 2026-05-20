@@ -31,7 +31,14 @@ export default function JarvisScreen() {
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    agentService.isConfigured().then(setConfigured);
+    let mounted = true;
+    const check = async () => {
+      const ok = await agentService.isConfigured();
+      if (mounted) setConfigured(ok);
+    };
+    check();
+    const interval = setInterval(check, 3000);
+    return () => { mounted = false; clearInterval(interval); };
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -131,7 +138,7 @@ export default function JarvisScreen() {
           <AlertCircle size={48} color={OrialColors.textMuted} />
           <Text style={[OrialTypography.headingSmall, styles.emptyTitle]}>JARVIS not connected</Text>
           <Text style={[OrialTypography.bodyMedium, styles.emptyBody]}>
-            Set up your OpenClaw API URL and key in onboarding or Settings to use JARVIS.
+            Set up your Hermes Agent API URL and key in Settings to use JARVIS.
           </Text>
         </View>
       </SafeAreaView>
