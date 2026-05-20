@@ -56,7 +56,6 @@ export default function ForgeScreen() {
       const todaySteps = await pedometerService.getTodaySteps();
       setSteps(todaySteps);
 
-      // Weight from DB
       const weightEntries = await db.select().from(bodyMetrics).orderBy(desc(bodyMetrics.date)).limit(30);
       const history = weightEntries.map((e) => ({
         date: e.date.toISOString().split('T')[0],
@@ -74,11 +73,7 @@ export default function ForgeScreen() {
 
   useEffect(() => {
     refreshAll();
-    
-    // Request notification permissions
     forgeNotificationService.requestPermissions();
-    
-    // Check if Forge lock is enabled and authenticate
     checkForgeLock();
   }, [refreshAll]);
 
@@ -88,7 +83,6 @@ export default function ForgeScreen() {
       setForgeLocked(false);
       return;
     }
-
     setAuthenticating(true);
     const success = await biometricAuthService.authenticate('Access Forge');
     setAuthenticating(false);
@@ -103,28 +97,7 @@ export default function ForgeScreen() {
   };
 
   useEffect(() => {
-    const handleDeepLink = (event: { url: string }) => {
-      const url = event.url;
-      if (url.includes('whoop/callback')) {
-        const params = new URLSearchParams(url.split('?')[1]);
-        const code = params.get('code');
-        if (code) {
-          setIsConnecting(true);
-          whoopService.handleCallback(code).then(() => {
-            refreshAll();
-          }).catch((e) => {
-            setError(e.message);
-          }).finally(() => {
-            setIsConnecting(false);
-          });
-        }
-      }
-    };
-
-    Linking.addEventListener('url', handleDeepLink);
-    Linking.getInitialURL().then((url) => {
-      if (url) handleDeepLink({ url });
-    });
+    refreshAll();
   }, [refreshAll]);
 
   const handleConnectWhoop = async () => {
@@ -164,11 +137,11 @@ export default function ForgeScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.lockScreen}>
-          <View style={styles.lockIcon}>
-            <Flame size={48} color={OrialColors.textMuted} />
+          <View style={styles.lockIconWrap}>
+            <Flame size={40} color={OrialColors.textMuted} />
           </View>
-          <Text style={OrialTypography.headingMedium}>Forge Locked</Text>
-          <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted, marginTop: 8, textAlign: 'center' }]}>
+          <Text style={styles.lockTitle}>Forge Locked</Text>
+          <Text style={styles.lockBody}>
             Authenticate with Face ID or Touch ID to access your body metrics
           </Text>
           <Pressable style={styles.unlockButton} onPress={handleAuthenticate}>
@@ -188,33 +161,34 @@ export default function ForgeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={OrialColors.violetLight} />
         }
       >
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Flame size={28} color={OrialColors.cyan} />
-            <Text style={OrialTypography.headingLarge}>Forge</Text>
+            <Flame size={24} color={OrialColors.cyan} />
+            <Text style={styles.headerTitle}>Forge</Text>
           </View>
-          <Text style={[OrialTypography.bodySmall, { color: OrialColors.textMuted }]}>
-            {format(new Date(), 'EEEE, MMM d')}
-          </Text>
+          <Text style={styles.headerDate}>{format(new Date(), 'EEE, MMM d').toUpperCase()}</Text>
         </View>
 
         {error && (
           <View style={styles.errorBanner}>
-            <Text style={[OrialTypography.caption, { color: OrialColors.error }]}>{error}</Text>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
-        {!isConnected ? (
-          <GlassCard style={styles.card}>
-            <View style={styles.connectRow}>
-              <View style={styles.connectInfo}>
-                <Text style={OrialTypography.headingSmall}>Connect Whoop</Text>
-                <Text style={[OrialTypography.bodySmall, { color: OrialColors.textSecondary, marginTop: 4 }]}>
-                  Link your Whoop to see recovery, strain, sleep and calories
-                </Text>
+        {/* WHOOP connect CTA — prominent when not connected */}
+        {!isConnected && (
+          <View style={styles.connectCtaWrap}>
+            <GlassCard style={styles.connectCta}>
+              <View style={styles.connectCtaIcon}>
+                <Heart size={32} color={OrialColors.textMuted} />
               </View>
+              <Text style={styles.connectCtaTitle}>Connect WHOOP</Text>
+              <Text style={styles.connectCtaBody}>
+                Link your WHOOP to see recovery, strain, sleep and HRV in real time.
+              </Text>
               <Pressable
-                style={[styles.connectButton, isConnecting && styles.buttonDisabled]}
+                style={[styles.connectCtaBtn, isConnecting && { opacity: 0.5 }]}
                 onPress={handleConnectWhoop}
                 disabled={isConnecting}
               >
@@ -222,177 +196,166 @@ export default function ForgeScreen() {
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
                   <>
-                    <Link size={18} color="#FFF" />
-                    <Text style={styles.connectButtonText}>Connect</Text>
+                    <Link size={16} color="#FFF" />
+                    <Text style={styles.connectCtaBtnText}>Connect WHOOP</Text>
                   </>
                 )}
               </Pressable>
-            </View>
-          </GlassCard>
-        ) : (
+            </GlassCard>
+          </View>
+        )}
+
+        {/* Connected badge */}
+        {isConnected && (
           <View style={styles.connectedBadge}>
             <View style={styles.connectedDot} />
-            <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>Whoop connected</Text>
+            <Text style={styles.connectedText}>WHOOP connected</Text>
             <Pressable onPress={handleDisconnectWhoop} style={styles.disconnectBtn}>
-              <LogIn size={12} color={OrialColors.textMuted} style={{ transform: [{ scaleX: -1 }] }} />
-              <Text style={[OrialTypography.caption, { color: OrialColors.textMuted, marginLeft: 4 }]}>Disconnect</Text>
+              <LogIn size={11} color={OrialColors.textMuted} style={{ transform: [{ scaleX: -1 }] }} />
+              <Text style={styles.disconnectText}>Disconnect</Text>
             </Pressable>
           </View>
         )}
 
+        {/* WHOOP metrics — horizontal stat strip */}
         {metrics && (
           <>
-            <View style={styles.metricsGrid}>
-              <GlassCard style={styles.metricCard}>
-                <Heart size={20} color={OrialColors.error} />
-                <Text style={styles.metricValue}>
-                  {metrics.recoveryScore !== null ? `${metrics.recoveryScore}%` : '--'}
-                </Text>
-                <Text style={styles.metricLabel}>Recovery</Text>
-              </GlassCard>
-
-              <GlassCard style={styles.metricCard}>
-                <Zap size={20} color={OrialColors.warning} />
-                <Text style={styles.metricValue}>
-                  {metrics.strain !== null ? metrics.strain.toFixed(1) : '--'}
-                </Text>
-                <Text style={styles.metricLabel}>Strain</Text>
-              </GlassCard>
-
-              <GlassCard style={styles.metricCard}>
-                <Flame size={20} color={OrialColors.cyan} />
-                <Text style={styles.metricValue}>
-                  {metrics.kilojoule !== null ? `${kjToKcal(metrics.kilojoule)}` : '--'}
-                </Text>
-                <Text style={styles.metricLabel}>Cal Burned</Text>
-              </GlassCard>
-
-              <GlassCard style={styles.metricCard}>
-                <Footprints size={20} color={OrialColors.violetLight} />
-                <Text style={styles.metricValue}>
-                  {steps.toLocaleString()}
-                </Text>
-                <Text style={styles.metricLabel}>Steps</Text>
-              </GlassCard>
+            <View style={styles.sectionLabel}>
+              <Text style={styles.sectionLabelText}>BODY METRICS</Text>
             </View>
+            <GlassCard style={styles.statStrip}>
+              <ForgeStatItem
+                icon={<Heart size={13} color={OrialColors.error} />}
+                value={metrics.recoveryScore !== null ? `${metrics.recoveryScore}%` : '--'}
+                label="RECOVERY"
+                borderRight
+              />
+              <ForgeStatItem
+                icon={<Zap size={13} color={OrialColors.warning} />}
+                value={metrics.strain !== null ? metrics.strain.toFixed(1) : '--'}
+                label="STRAIN"
+                borderRight
+              />
+              <ForgeStatItem
+                icon={<Flame size={13} color={OrialColors.cyan} />}
+                value={metrics.kilojoule !== null ? `${kjToKcal(metrics.kilojoule)}` : '--'}
+                label="KCAL"
+                borderRight
+              />
+              <ForgeStatItem
+                icon={<Footprints size={13} color={OrialColors.violetLight} />}
+                value={steps.toLocaleString()}
+                label="STEPS"
+              />
+            </GlassCard>
 
-            <View style={styles.row}>
-              <GlassCard style={styles.halfCardFlex}>
-                <Text style={styles.subLabel}>HRV</Text>
-                <Text style={styles.subValue}>
+            {/* HRV + RHR row */}
+            <View style={styles.subRow}>
+              <GlassCard style={[styles.subCard, { marginRight: 6 }]}>
+                <Text style={styles.subCardLabel}>HRV</Text>
+                <Text style={styles.subCardValue}>
                   {metrics.hrvRmssdMilli !== null ? `${Math.round(metrics.hrvRmssdMilli)} ms` : '--'}
                 </Text>
               </GlassCard>
-              <View style={{ width: 8 }} />
-              <GlassCard style={styles.halfCardFlex}>
-                <Text style={styles.subLabel}>Resting HR</Text>
-                <Text style={styles.subValue}>
+              <GlassCard style={[styles.subCard, { marginLeft: 6 }]}>
+                <Text style={styles.subCardLabel}>RESTING HR</Text>
+                <Text style={styles.subCardValue}>
                   {metrics.restingHeartRate !== null ? `${metrics.restingHeartRate} bpm` : '--'}
                 </Text>
               </GlassCard>
             </View>
 
+            {/* Sleep */}
             {metrics.sleepDurationMilli && (
-              <GlassCard style={styles.card}>
-                <View style={styles.sectionHeader}>
-                  <Moon size={20} color={OrialColors.violetLight} />
-                  <Text style={[OrialTypography.headingSmall, { marginLeft: 8 }]}>Last Night</Text>
+              <GlassCard style={styles.sleepCard}>
+                <View style={styles.sleepHeader}>
+                  <Moon size={16} color={OrialColors.violetLight} />
+                  <Text style={styles.sleepTitle}>Last Night</Text>
                 </View>
                 <View style={styles.sleepRow}>
                   <View style={styles.sleepStat}>
-                    <Text style={styles.subValue}>
+                    <Text style={styles.sleepValue}>
                       {Math.round(metrics.sleepDurationMilli / 3600000 * 10) / 10}h
                     </Text>
-                    <Text style={styles.subLabel}>Duration</Text>
+                    <Text style={styles.sleepLabel}>DURATION</Text>
                   </View>
+                  <View style={styles.sleepDivider} />
                   <View style={styles.sleepStat}>
-                    <Text style={styles.subValue}>
+                    <Text style={styles.sleepValue}>
                       {metrics.sleepPerformance !== null ? `${metrics.sleepPerformance}%` : '--'}
                     </Text>
-                    <Text style={styles.subLabel}>Performance</Text>
+                    <Text style={styles.sleepLabel}>PERFORMANCE</Text>
                   </View>
+                  <View style={styles.sleepDivider} />
                   <View style={styles.sleepStat}>
-                    <Text style={styles.subValue}>
-                      {metrics.respiratoryRate !== null ? `${metrics.respiratoryRate.toFixed(1)}` : '--'}
+                    <Text style={styles.sleepValue}>
+                      {metrics.respiratoryRate !== null ? metrics.respiratoryRate.toFixed(1) : '--'}
                     </Text>
-                    <Text style={styles.subLabel}>Resp. Rate</Text>
+                    <Text style={styles.sleepLabel}>RESP RATE</Text>
                   </View>
                 </View>
               </GlassCard>
             )}
 
-            {/* Weight Section */}
-            <GlassCard style={styles.card}>
+            {/* Weight section */}
+            <GlassCard style={styles.weightCard}>
               <View style={styles.weightHeader}>
-                <View style={styles.sectionHeader}>
-                  <Scale size={20} color={OrialColors.success} />
-                  <Text style={[OrialTypography.headingSmall, { marginLeft: 8 }]}>Weight</Text>
+                <View style={styles.weightHeaderLeft}>
+                  <Scale size={16} color={OrialColors.success} />
+                  <Text style={styles.weightTitle}>Weight</Text>
                 </View>
                 <Pressable style={styles.addWeightBtn} onPress={() => setIsWeightModalVisible(true)}>
-                  <Plus size={16} color={OrialColors.violetLight} />
+                  <Plus size={15} color={OrialColors.violetLight} />
                 </Pressable>
               </View>
 
               {latestWeight ? (
                 <>
-                  <Text style={[OrialTypography.headingLarge, { marginTop: 8 }]}>
-                    {latestWeight.toFixed(1)} kg
-                  </Text>
+                  <Text style={styles.weightValue}>{latestWeight.toFixed(1)} kg</Text>
                   {weightHistory.length > 1 && (
                     <View style={styles.weightTrend}>
-                      <TrendingDown size={14} color={OrialColors.success} />
-                      <Text style={[OrialTypography.caption, { color: OrialColors.success, marginLeft: 4 }]}>
-                        {(weightHistory[weightHistory.length - 1].weight - weightHistory[0].weight).toFixed(1)} kg change
+                      <TrendingDown size={13} color={OrialColors.success} />
+                      <Text style={styles.weightTrendText}>
+                        {(weightHistory[weightHistory.length - 1].weight - weightHistory[0].weight).toFixed(1)} kg change (30d)
                       </Text>
                     </View>
                   )}
-                  <WeightChart data={weightHistory} />
+                  <View style={styles.chartWrap}>
+                    <WeightChart data={weightHistory} />
+                  </View>
                 </>
               ) : (
-                <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted, marginTop: 12 }]}>
-                  No weight entries yet. Tap + to add your first.
-                </Text>
+                <View style={styles.weightEmpty}>
+                  <Text style={styles.weightEmptyText}>No entries yet. Tap + to log your weight.</Text>
+                </View>
               )}
             </GlassCard>
           </>
         )}
 
+        {/* Connected but no metrics yet */}
         {isConnected && !metrics && (
-          <GlassCard style={styles.card}>
-            <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-              <Dumbbell size={32} color={OrialColors.textMuted} />
-              <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted, marginTop: 12, textAlign: 'center' }]}>
-                Whoop data will appear here after your next sync
-              </Text>
-            </View>
+          <GlassCard style={styles.noMetricsCard}>
+            <Dumbbell size={28} color={OrialColors.textMuted} />
+            <Text style={styles.noMetricsText}>
+              WHOOP data will appear here after your next sync
+            </Text>
           </GlassCard>
         )}
 
+        {/* Not connected — steps still available */}
         {!isConnected && (
-          <>
-            <GlassCard style={styles.cardCentered}>
-              <Heart size={40} color={OrialColors.textMuted} style={{ opacity: 0.5 }} />
-              <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted, marginTop: 16, textAlign: 'center' }]}>
-                Connect your Whoop to unlock your full body metrics
-              </Text>
-            </GlassCard>
-
-            <GlassCard style={styles.card}>
-              <View style={styles.sectionHeader}>
-                <Footprints size={20} color={OrialColors.violetLight} />
-                <Text style={[OrialTypography.headingSmall, { marginLeft: 8 }]}>Today's Steps</Text>
-              </View>
-              <Text style={[OrialTypography.headingLarge, { color: OrialColors.textPrimary, marginTop: 12 }]}>
-                {steps.toLocaleString()}
-              </Text>
-              <Text style={[OrialTypography.caption, { color: OrialColors.textMuted, marginTop: 4 }]}>
-                via iPhone
-              </Text>
-            </GlassCard>
-          </>
+          <GlassCard style={styles.stepsCard}>
+            <View style={styles.stepsHeader}>
+              <Footprints size={16} color={OrialColors.violetLight} />
+              <Text style={styles.stepsTitle}>Today's Steps</Text>
+            </View>
+            <Text style={styles.stepsValue}>{steps.toLocaleString()}</Text>
+            <Text style={styles.stepsSource}>via iPhone</Text>
+          </GlassCard>
         )}
 
-        <View style={{ height: 32 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       <WeightEntryModal
@@ -403,6 +366,52 @@ export default function ForgeScreen() {
     </SafeAreaView>
   );
 }
+
+function ForgeStatItem({
+  icon, value, label, borderRight,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+  borderRight?: boolean;
+}) {
+  return (
+    <View style={[forgeStatStyles.item, borderRight && forgeStatStyles.borderRight]}>
+      <View style={forgeStatStyles.iconRow}>{icon}</View>
+      <Text style={forgeStatStyles.value}>{value}</Text>
+      <Text style={forgeStatStyles.label}>{label}</Text>
+    </View>
+  );
+}
+
+const forgeStatStyles = StyleSheet.create({
+  item: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  borderRight: {
+    borderRightWidth: 1,
+    borderRightColor: OrialColors.glassBorder,
+  },
+  iconRow: {
+    marginBottom: 6,
+  },
+  value: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    letterSpacing: -0.5,
+    fontFamily: 'Inter-Bold',
+  },
+  label: {
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: OrialColors.textMuted,
+    marginTop: 3,
+    fontFamily: 'Inter-Medium',
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -420,21 +429,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
   },
-  lockIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  lockIconWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: OrialColors.surface,
+    borderWidth: 1,
+    borderColor: OrialColors.glassBorder,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
+  lockTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 10,
+  },
+  lockBody: {
+    fontSize: 14,
+    color: OrialColors.textMuted,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontFamily: 'Inter-Regular',
+  },
   unlockButton: {
     backgroundColor: OrialColors.violet,
-    paddingHorizontal: 32,
+    paddingHorizontal: 36,
     paddingVertical: 16,
-    borderRadius: 12,
-    marginTop: 24,
+    borderRadius: 10,
+    marginTop: 28,
   },
   unlockButtonText: {
     color: '#FFF',
@@ -444,7 +469,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
   },
   header: {
     flexDirection: 'row',
@@ -458,46 +483,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    letterSpacing: -0.5,
+    fontFamily: 'Inter-Bold',
+  },
+  headerDate: {
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: OrialColors.textMuted,
+    fontFamily: 'Inter-Medium',
+  },
   errorBanner: {
     backgroundColor: OrialColors.error + '20',
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: OrialColors.error + '30',
   },
-  card: {
-    marginBottom: 12,
-    padding: 16,
+  errorText: {
+    color: OrialColors.error,
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
   },
-  cardCentered: {
-    marginBottom: 12,
-    padding: 16,
+  // Connect CTA
+  connectCtaWrap: {
+    marginBottom: 16,
+  },
+  connectCta: {
+    padding: 28,
     alignItems: 'center',
-    paddingVertical: 32,
   },
-  connectRow: {
+  connectCtaIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: OrialColors.surface,
+    borderWidth: 1,
+    borderColor: OrialColors.glassBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  connectCtaTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 8,
+  },
+  connectCtaBody: {
+    fontSize: 13,
+    color: OrialColors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
+    marginBottom: 20,
+    maxWidth: 260,
+  },
+  connectCtaBtn: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  connectInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  connectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: 8,
     backgroundColor: OrialColors.violet,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 10,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  connectButtonText: {
+  connectCtaBtnText: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
   },
@@ -505,114 +563,217 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
-    paddingHorizontal: 4,
   },
   connectedDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
     backgroundColor: OrialColors.success,
     marginRight: 6,
   },
+  connectedText: {
+    fontSize: 12,
+    color: OrialColors.success,
+    fontFamily: 'Inter-Medium',
+  },
   disconnectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
     marginLeft: 'auto',
     padding: 4,
   },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
+  disconnectText: {
+    fontSize: 11,
+    color: OrialColors.textMuted,
+    fontFamily: 'Inter-Regular',
   },
-  metricCard: {
-    width: '47.5%',
-    flexGrow: 1,
-    maxWidth: '48%',
-    padding: 14,
-    alignItems: 'center',
+  sectionLabel: {
+    marginBottom: 10,
   },
-  metricValue: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 28,
-    color: OrialColors.textPrimary,
-    marginTop: 8,
-  },
-  metricLabel: {
+  sectionLabelText: {
+    fontSize: 10,
+    letterSpacing: 1.4,
+    color: OrialColors.textMuted,
     fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    color: OrialColors.textSecondary,
-    marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  row: {
+  // Stat strip
+  statStrip: {
+    padding: 0,
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  halfCard: {
-    padding: 14,
-    alignItems: 'center',
+  subRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
   },
-  halfCardFlex: {
+  subCard: {
     flex: 1,
     padding: 14,
     alignItems: 'center',
   },
-  subLabel: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 11,
+  subCardLabel: {
+    fontSize: 9,
+    letterSpacing: 1.2,
     color: OrialColors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontFamily: 'Inter-Medium',
+    marginBottom: 6,
   },
-  subValue: {
-    fontFamily: 'Inter-Bold',
+  subCardValue: {
     fontSize: 22,
+    fontWeight: '700',
     color: OrialColors.textPrimary,
-    marginTop: 6,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: -0.5,
   },
-  sectionHeader: {
+  // Sleep
+  sleepCard: {
+    marginBottom: 10,
+    padding: 16,
+  },
+  sleepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  sleepTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: OrialColors.textPrimary,
+    fontFamily: 'Inter-SemiBold',
   },
   sleepRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
+    alignItems: 'center',
   },
   sleepStat: {
+    flex: 1,
     alignItems: 'center',
   },
-  caloriesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginTop: 16,
+  sleepDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: OrialColors.glassBorder,
   },
-  calorieStat: {
-    alignItems: 'center',
+  sleepValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: -0.5,
+  },
+  sleepLabel: {
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: OrialColors.textMuted,
+    fontFamily: 'Inter-Medium',
+    marginTop: 4,
+  },
+  // Weight
+  weightCard: {
+    marginBottom: 10,
+    padding: 16,
   },
   weightHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  weightHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  weightTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: OrialColors.textPrimary,
+    fontFamily: 'Inter-SemiBold',
   },
   addWeightBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: OrialColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: OrialColors.glassBorder,
   },
+  weightValue: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    letterSpacing: -1,
+    fontFamily: 'Inter-Bold',
+  },
   weightTrend: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 5,
     marginTop: 4,
+    marginBottom: 14,
+  },
+  weightTrendText: {
+    fontSize: 12,
+    color: OrialColors.success,
+    fontFamily: 'Inter-Regular',
+  },
+  chartWrap: {
+    marginTop: 8,
+  },
+  weightEmpty: {
+    paddingVertical: 16,
+  },
+  weightEmptyText: {
+    fontSize: 13,
+    color: OrialColors.textMuted,
+    fontFamily: 'Inter-Regular',
+  },
+  // No metrics placeholder
+  noMetricsCard: {
     marginBottom: 12,
+    padding: 28,
+    alignItems: 'center',
+    gap: 12,
+  },
+  noMetricsText: {
+    fontSize: 13,
+    color: OrialColors.textMuted,
+    textAlign: 'center',
+    fontFamily: 'Inter-Regular',
+    lineHeight: 20,
+  },
+  // Steps standalone
+  stepsCard: {
+    marginBottom: 12,
+    padding: 16,
+  },
+  stepsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  stepsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: OrialColors.textPrimary,
+    fontFamily: 'Inter-SemiBold',
+  },
+  stepsValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+    letterSpacing: -1,
+    fontFamily: 'Inter-Bold',
+  },
+  stepsSource: {
+    fontSize: 11,
+    color: OrialColors.textMuted,
+    fontFamily: 'Inter-Regular',
+    marginTop: 4,
   },
 });
