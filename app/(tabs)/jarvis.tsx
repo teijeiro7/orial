@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Zap, AlertCircle } from 'lucide-react-native';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
-import { openClawService, type ChatMessage } from '../../src/services/openclawService';
+import { agentService, type ChatMessage } from '../../src/services/openclawService';
 
 interface DisplayMessage {
   id: string;
@@ -31,7 +31,7 @@ export default function JarvisScreen() {
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    openClawService.isConfigured().then(setConfigured);
+    agentService.isConfigured().then(setConfigured);
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -68,7 +68,7 @@ export default function JarvisScreen() {
     ];
 
     try {
-      await openClawService.chat(history, (delta) => {
+      await agentService.chat(history, (delta) => {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
