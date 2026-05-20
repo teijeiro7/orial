@@ -226,13 +226,15 @@ export default function DashboardScreen() {
           </GlassCard>
         </View>
 
-        {/* Nutrition */}
+        {/* Macros Summary */}
         {nutritionData && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Nutrition (Openclaw)</Text>
+              <Pressable onPress={() => router.push('/macros')} style={styles.sectionTitlePressable}>
+                <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Macros <ChevronRight size={16} color={OrialColors.textMuted} /></Text>
+              </Pressable>
               <Pressable onPress={() => router.push('/nutrition-history')}>
-                <Text style={[OrialTypography.caption, styles.historyLink]}>View History</Text>
+                <Text style={[OrialTypography.caption, styles.historyLink]}>History</Text>
               </Pressable>
             </View>
             <GlassCard style={styles.nutritionCard}>
@@ -254,10 +256,19 @@ export default function DashboardScreen() {
                   <Text style={OrialTypography.caption}>Fat</Text>
                 </View>
               </View>
+              {/* Mini progress bars */}
+              <View style={styles.macroMiniBars}>
+                <MacroMiniBar label="Protein" current={nutritionData.proteinG || 0} goal={160} color={OrialColors.error} />
+                <MacroMiniBar label="Carbs" current={nutritionData.carbsG || 0} goal={220} color={OrialColors.cyan} />
+                <MacroMiniBar label="Fat" current={nutritionData.fatG || 0} goal={70} color={OrialColors.violetLight} />
+              </View>
+              <Pressable onPress={() => router.push('/macros')} style={styles.macroDetailLink}>
+                <Text style={[OrialTypography.caption, { color: OrialColors.violetLight }]}>View full details →</Text>
+              </Pressable>
               {nutritionData.sodiumMg && (
                 <View style={styles.sodiumBadge}>
                   <Text style={styles.sodiumText}>
-                    Sodium: {nutritionData.sodiumMg}mg → +{((nutritionData.sodiumMg / 2300)).toFixed(2)}L extra water needed
+                    Sodium: {nutritionData.sodiumMg}mg → +{((nutritionData.sodiumMg / 2300)).toFixed(2)}L extra water
                   </Text>
                 </View>
               )}
@@ -611,4 +622,54 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     color: OrialColors.textSecondary,
   },
+  macroMiniBars: {
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  macroMiniRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  macroMiniLabel: {
+    width: 50,
+    color: OrialColors.textSecondary,
+    fontSize: 11,
+  },
+  macroMiniTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  macroMiniFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  macroMiniValue: {
+    width: 40,
+    textAlign: 'right',
+    color: OrialColors.textMuted,
+    fontSize: 11,
+  },
+  macroDetailLink: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
 });
+
+function MacroMiniBar({ label, current, goal, color }: { label: string; current: number; goal: number; color: string }) {
+  const pct = goal > 0 ? Math.min(current / goal, 1) : 0;
+  return (
+    <View style={styles.macroMiniRow}>
+      <Text style={styles.macroMiniLabel}>{label}</Text>
+      <View style={styles.macroMiniTrack}>
+        <View style={[styles.macroMiniFill, { width: `${(pct * 100).toFixed(0)}%`, backgroundColor: color }]} />
+      </View>
+      <Text style={styles.macroMiniValue}>{current}g/{goal}g</Text>
+    </View>
+  );
+}

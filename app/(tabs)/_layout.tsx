@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, List, Calendar, Settings, Flame, Zap } from 'lucide-react-native';
+import { Home, Calendar, Settings, Flame, Zap, BarChart3 } from 'lucide-react-native';
 import { OrialColors } from '../../src/utils/colors';
 
 export default function TabLayout() {
@@ -26,7 +26,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
+          title: 'Daily',
           tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
         }}
       />
@@ -38,10 +38,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="habits"
+        name="macros"
         options={{
-          title: 'Habits',
-          tabBarIcon: ({ color, size }) => <List size={size} color={color} />,
+          title: 'Macros',
+          tabBarIcon: ({ color, size }) => <BarChart3 size={size} color={color} />,
         }}
       />
       <Tabs.Screen
