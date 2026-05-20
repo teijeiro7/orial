@@ -236,6 +236,14 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
                 <Text style={[styles.microValue, { color: OrialColors.success }]}>{nutrition.fiberG} g</Text>
               </GlassCard>
             ) : null}
+
+            <Pressable style={styles.fetchBtnData} onPress={handleFetchFromAgent} disabled={fetching}>
+              {fetching ? (
+                <ActivityIndicator size="small" color={OrialColors.violetLight} />
+              ) : (
+                <Text style={styles.fetchBtnDataText}>Fetch from Hermes</Text>
+              )}
+            </Pressable>
           </>
         )}
 
@@ -315,4 +323,6 @@ const styles = StyleSheet.create({
   microValue: { fontSize: 26, fontWeight: '700', letterSpacing: -0.8, fontFamily: 'Inter-Bold' },
   microNote: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Regular', maxWidth: '50%', textAlign: 'right', lineHeight: 16 },
   disclaimer: { textAlign: 'center', color: OrialColors.textMuted, fontSize: 11, fontFamily: 'Inter-Regular', marginBottom: 32, marginTop: 12, letterSpacing: 0.3 },
+  fetchBtnData: { marginHorizontal: 16, marginTop: 4, marginBottom: 8, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: OrialColors.border, backgroundColor: OrialColors.surface },
+  fetchBtnDataText: { fontSize: 13, color: OrialColors.violetLight, fontFamily: 'Inter-Medium' },
 });
