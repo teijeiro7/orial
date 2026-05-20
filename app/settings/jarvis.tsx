@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Check, AlertTriangle, Zap } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
 import { GlassCard } from '../../src/components/GlassCard';
-import { openClawService } from '../../src/services/openclawService';
+import { agentService } from '../../src/services/openclawService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
 
@@ -35,7 +35,7 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
 
   async function loadConfig() {
     setLoading(true);
-    const config = await openClawService.getConfig();
+    const config = await agentService.getConfig();
     if (config) {
       setApiUrl(config.apiUrl);
       setApiKey(config.apiKey);
@@ -61,8 +61,7 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
       });
 
       if (response.ok) {
-        await SecureStore.setItemAsync('openclaw_api_url', normalizedUrl);
-        await SecureStore.setItemAsync('openclaw_api_key', apiKey.trim());
+        await agentService.saveConfig(normalizedUrl, apiKey.trim());
         setStatus('success');
       } else {
         setStatus('error');
@@ -75,14 +74,13 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
   }
 
   async function disconnect() {
-    Alert.alert('Disconnect JARVIS', 'Remove OpenClaw credentials?', [
+    Alert.alert('Disconnect JARVIS', 'Remove Hermes credentials?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Disconnect',
         style: 'destructive',
         onPress: async () => {
-          await SecureStore.deleteItemAsync('openclaw_api_url');
-          await SecureStore.deleteItemAsync('openclaw_api_key');
+          await agentService.clearConfig();
           setApiUrl('');
           setApiKey('');
           setStatus('idle');
@@ -98,7 +96,7 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
           <View style={styles.headerIcon}>
             <Zap size={20} color={OrialColors.cyan} />
           </View>
-          <Text style={OrialTypography.headingMedium}>JARVIS / OpenClaw</Text>
+          <Text style={OrialTypography.headingMedium}>JARVIS / Hermes Agent</Text>
           <Pressable onPress={onClose} style={styles.closeBtn}>
             <X size={22} color={OrialColors.textMuted} />
           </Pressable>
@@ -172,8 +170,9 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
             <GlassCard style={styles.hintCard}>
               <Text style={[OrialTypography.caption, styles.hint]}>
                 Run on your VPS:{'\n'}
-                <Text style={styles.code}>cloudflared tunnel --url http://localhost:18789</Text>
-                {'\n\n'}Paste the generated URL above. Tunnel URL changes on restart — use a named tunnel for a permanent URL.
+                <Text style={styles.code}>cloudflared tunnel --url http://localhost:8642</Text>
+                {'\n\n'}Then paste the URL above. Use a named tunnel for a permanent URL.{'\n\n'}
+                Need to expose Hermes API Server (port 8642). Your Hermes API key is set in {'{'}'.'}env{'}'} as API_SERVER_KEY.
               </Text>
             </GlassCard>
           </View>
