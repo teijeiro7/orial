@@ -62,6 +62,54 @@ export default function MacrosScreen() {
     await loadFromDb();
   };
 
+  /** Fetch today's macros from JARVIS and save to local DB */
+  const fetchFromAgent = async () => {
+    setLogging(true);
+    try {
+      const configured = await agentService.isConfigured();
+      if (!configured) {
+        Alert.alert('JARVIS not configured', 'Set up JARVIS in Settings first.');
+        setLogging(false);
+        return;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const existing = await nutritionService.getTodayNutrition();
+
+      const response = await agentService.chat([
+        {
+          role: 'system',
+          content: `Eres un asistente nutricional. Devuelve las macros del día de hoy (${today}) en formato EXACTO:
+
+###ORIAL_NUTRITION###
+{
+  "date": "${today}",
+  "totalCalories": <total>,
+  "proteinG": <total>,
+  "carbsG": <total>,
+  "fatG": <total>,
+  "sodiumMg": <total>
+}
+###END_ORIAL###
+
+Datos ya registrados: ${JSON.stringify(existing || {})}
+
+Si no tienes datos, responde con 0 en todo y el array meals vacío.`,
+        },
+        { role: 'user', content: `Dame mis macros de hoy` },
+      ]);
+
+      const saved = await nutritionService.processOpenclawMessage(response);
+      console.log('[Macros] fetchFromAgent saved:', saved);
+      await loadFromDb();
+    } catch (e: any) {
+      console.warn('[Macros] fetchFromAgent failed:', e);
+      Alert.alert('Error', e?.message || 'Failed to fetch macros');
+    } finally {
+      setLogging(false);
+    }
+  };
+
   const handleLogMeal = async () => {
     if (!mealText.trim()) return;
     setLogging(true);
@@ -73,22 +121,70 @@ export default function MacrosScreen() {
         return;
       }
 
+      const today = new Date().toISOString().split('T')[0];
+
+      // Read existing data first to compute cumulative totals
+      const existing = await nutritionService.getTodayNutrition();
+
       const response = await agentService.chat([
         {
           role: 'system',
-          content: `You are a nutrition logger. The user will describe what they ate. Parse the meal and add it to their nutrition logs for today (${new Date().toISOString().split('T')[0]}).
+          content: `Eres un asistente nutricional. El usuario describe una comida.
+          
+IMPORTANTE: DEBES responder EXACTAMENTE con este formato al final de tu mensaje (sin faltar ni una línea):
 
-IMPORTANT: You have access to the nutrition database at ~/.hermes/data/nutrition.db. Query it to see today's existing logs, then add this new meal.
+###ORIAL_NUTRITION###
+{
+  "date": "${today}",
+  "totalCalories": <suma total del día>,
+  "proteinG": <suma total del día>,
+  "carbsG": <suma total del día>,
+  "fatG": <suma total del día>,
+  "sodiumMg": <suma total del día>,
+  "meals": [
+    { "name": "nombre comida", "calories": X, "protein": X, "carbs": X, "fat": X, "sodium": X }
+  ]
+}
+###END_ORIAL###
 
-Respond with a brief confirmation of what was logged and the updated macro totals. Keep it under 3 sentences.`,
+Datos ya registrados hoy: ${JSON.stringify(existing || {})}
+
+Calcula los totales SUMANDO la nueva comida a lo ya existente. Responde con el JSON completo del día completo.`,
         },
         { role: 'user', content: mealText.trim() },
       ]);
 
+      // Parse and save nutrition data from the response
+      const saved = await nutritionService.processOpenclawMessage(response);
+      
+      if (saved) {
+        console.log('[Macros] Nutrition data saved successfully');
+      } else {
+        console.warn('[Macros] No nutrition markers in response, trying JSON fallback');
+        // Try to extract JSON from the response directly
+        try {
+          const jsonMatch = response.match(/\{[\s\S]*"totalCalories"[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            await nutritionService.importFromOpenclaw({
+              date: today,
+              totalCalories: parsed.totalCalories || 0,
+              proteinG: parsed.proteinG || 0,
+              carbsG: parsed.carbsG || 0,
+              fatG: parsed.fatG || 0,
+              sodiumMg: parsed.sodiumMg || 0,
+              meals: parsed.meals || [],
+            });
+          }
+        } catch (e) {
+          console.warn('[Macros] JSON fallback also failed:', e);
+        }
+      }
+
       setShowMealInput(false);
       setMealText('');
-      // Reload from local DB after agent logs
-      setTimeout(() => loadFromDb(), 500);
+      // Reload from local DB
+      await loadFromDb();
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Failed to log meal');
     } finally {
@@ -180,6 +276,13 @@ Respond with a brief confirmation of what was logged and the updated macro total
                 <Text style={styles.promptSubtitle}>
                   Tell JARVIS what you ate — it will parse meals and log your macros automatically.
                 </Text>
+                <Pressable onPress={fetchFromAgent} disabled={logging} style={[styles.fetchBtn, logging && { opacity: 0.5 }]}>
+                  {logging ? (
+                    <ActivityIndicator size="small" color={OrialColors.textPrimary} />
+                  ) : (
+                    <Text style={styles.fetchBtnText}>Fetch from JARVIS</Text>
+                  )}
+                </Pressable>
               </>
             )}
             <Pressable onPress={() => setShowMealInput(true)} style={styles.logMealBtn}>
@@ -330,6 +433,20 @@ const styles = StyleSheet.create({
   },
   logMealBtnText: {
     color: OrialColors.cyan,
+    fontSize: 14,
+  },
+  fetchBtn: {
+    backgroundColor: OrialColors.violet,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 8,
+  },
+  fetchBtnText: {
+    color: OrialColors.textPrimary,
+    fontWeight: '600',
     fontSize: 14,
   },
   inputCard: {
