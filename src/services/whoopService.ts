@@ -261,7 +261,7 @@ export class WhoopService {
 
   async fetchTodayCycle(): Promise<CycleResponse | null> {
     const today = new Date().toISOString();
-    const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/v2/cycle', {
+    const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/cycles', {
       start: today,
       limit: '1',
     });
@@ -270,7 +270,7 @@ export class WhoopService {
 
   async fetchTodayRecovery(cycleId: number): Promise<RecoveryResponse | null> {
     try {
-      return await this.fetchWhoop<RecoveryResponse>(`/v2/cycle/${cycleId}/recovery`);
+      return await this.fetchWhoop<RecoveryResponse>(`/cycle/${cycleId}/recovery`);
     } catch {
       return null;
     }
@@ -278,7 +278,7 @@ export class WhoopService {
 
   async fetchSleepForCycle(cycleId: number): Promise<SleepResponse | null> {
     try {
-      return await this.fetchWhoop<SleepResponse>(`/v2/cycle/${cycleId}/sleep`);
+      return await this.fetchWhoop<SleepResponse>(`/cycle/${cycleId}/sleep`);
     } catch {
       return null;
     }
@@ -287,7 +287,7 @@ export class WhoopService {
   async fetchTodayWorkouts(): Promise<WorkoutResponse[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const data = await this.fetchWhoop<{ records: WorkoutResponse[] }>('/v2/activity/workout', {
+    const data = await this.fetchWhoop<{ records: WorkoutResponse[] }>('/activity/workout', {
       start: today.toISOString(),
       limit: '10',
     });
@@ -296,7 +296,7 @@ export class WhoopService {
 
   async fetchBodyMeasurement(): Promise<BodyMeasurementResponse | null> {
     try {
-      return await this.fetchWhoop<BodyMeasurementResponse>('/v2/user/measurement/body');
+      return await this.fetchWhoop<BodyMeasurementResponse>('/user/measurement/body');
     } catch {
       return null;
     }
