@@ -3,9 +3,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
-import {
-  Activity, Heart, Droplets, Pill, TrendingDown,
-  Flame, Moon, Zap, ChevronRight
+import { 
+  Activity, Heart, Droplets, Pill, TrendingDown, 
+  Flame, Moon, Zap, ChevronRight 
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
 import { OrialColors } from '../../src/utils/colors';
@@ -18,20 +18,6 @@ import { weightPredictionService } from '../../src/services/weightPredictionServ
 import { nutritionService } from '../../src/services/nutritionService';
 import type { WhoopDaily, Hydration, SupplementLog, ManualMetric, WeightPrediction, NutritionLog } from '../../drizzle/schema';
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}
-
-function recoveryColor(score: number | null | undefined): string {
-  if (!score) return OrialColors.textMuted;
-  if (score >= 67) return OrialColors.success;
-  if (score >= 34) return OrialColors.warning;
-  return OrialColors.error;
-}
-
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [whoopData, setWhoopData] = useState<WhoopDaily | null>(null);
@@ -40,30 +26,44 @@ export default function DashboardScreen() {
   const [manualData, setManualData] = useState<ManualMetric | null>(null);
   const [prediction, setPrediction] = useState<WeightPrediction | null>(null);
   const [nutritionData, setNutritionData] = useState<NutritionLog | null>(null);
+  const [steps, setSteps] = useState(0);
   const router = useRouter();
 
   const loadAllData = async () => {
     try {
-      const [whoop, hyd, supps, manual, pred, nutrition] = await Promise.all([
+      const [
+        whoop,
+        hyd,
+        supps,
+        manual,
+        pred,
+        nutrition,
+        stepData
+      ] = await Promise.all([
         whoopService.getTodayMetrics(),
         hydrationService.getProgress(),
         supplementService.getTodayLogs(),
         manualMetricsService.getTodayMetrics(),
         weightPredictionService.getTodayPrediction(),
         nutritionService.getTodayNutrition(),
+        Promise.resolve(0),
       ]);
+
       setWhoopData(whoop);
       setHydrationData(hyd);
       setSupplementLogs(supps as any);
       setManualData(manual);
       setPrediction(pred);
       setNutritionData(nutrition);
+      setSteps(stepData);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     }
   };
 
-  useEffect(() => { loadAllData(); }, []);
+  useEffect(() => {
+    loadAllData();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -88,8 +88,6 @@ export default function DashboardScreen() {
     }
   };
 
-  const hydPct = Math.min(hydrationData.percentage, 100);
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -102,207 +100,200 @@ export default function DashboardScreen() {
           />
         }
       >
-        {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.dateLabel}>{format(new Date(), 'EEEE, MMMM d').toUpperCase()}</Text>
+            <Text style={OrialTypography.caption}>{format(new Date(), 'EEEE, MMM d')}</Text>
+            <Text style={OrialTypography.headingMedium}>Dashboard</Text>
           </View>
         </View>
 
-        {/* WHOOP */}
+        {/* Whoop Metrics */}
         {whoopData && (
           <View style={styles.section}>
-            <SectionLabel label="WHOOP" />
-            <Pressable onPress={() => router.push('/forge')}>
-            <View style={styles.whoopGrid}>
-              <View style={styles.whoopRow}>
-                <WhoopMetricCard
-                  icon={<Zap size={13} color={OrialColors.cyan} />}
-                  value={whoopData.strain?.toFixed(1) || '--'}
-                  label="STRAIN"
-                  accent={OrialColors.cyan}
-                />
-                <WhoopMetricCard
-                  icon={<Heart size={13} color={recoveryColor(whoopData.recoveryScore)} />}
-                  value={whoopData.recoveryScore ? `${whoopData.recoveryScore}%` : '--'}
-                  label="RECOVERY"
-                  accent={recoveryColor(whoopData.recoveryScore)}
-                />
-              </View>
-              <View style={styles.whoopRow}>
-                <WhoopMetricCard
-                  icon={<Moon size={13} color={OrialColors.violetLight} />}
-                  value={whoopData.sleepPerformance ? `${whoopData.sleepPerformance}%` : '--'}
-                  label="SLEEP"
-                  accent={OrialColors.violetLight}
-                />
-                <WhoopMetricCard
-                  icon={<Activity size={13} color={OrialColors.warning} />}
-                  value={whoopData.hrvRmssdMilli?.toFixed(0) || '--'}
-                  label="HRV"
-                  accent={OrialColors.warning}
-                />
-              </View>
+            <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Whoop Metrics</Text>
+            <View style={styles.metricsGrid}>
+              <GlassCard style={styles.metricCard}>
+                <View style={styles.metricIcon}>
+                  <Zap size={20} color={OrialColors.cyan} />
+                </View>
+                <Text style={OrialTypography.headingMedium}>{whoopData.strain?.toFixed(1) || '--'}</Text>
+                <Text style={OrialTypography.caption}>Strain</Text>
+              </GlassCard>
+
+              <GlassCard style={styles.metricCard}>
+                <View style={styles.metricIcon}>
+                  <Heart size={20} color={OrialColors.error} />
+                </View>
+                <Text style={OrialTypography.headingMedium}>{whoopData.recoveryScore || '--'}%</Text>
+                <Text style={OrialTypography.caption}>Recovery</Text>
+              </GlassCard>
+
+              <GlassCard style={styles.metricCard}>
+                <View style={styles.metricIcon}>
+                  <Moon size={20} color={OrialColors.violetLight} />
+                </View>
+                <Text style={OrialTypography.headingMedium}>{whoopData.sleepPerformance || '--'}%</Text>
+                <Text style={OrialTypography.caption}>Sleep</Text>
+              </GlassCard>
+
+              <GlassCard style={styles.metricCard}>
+                <View style={styles.metricIcon}>
+                  <Activity size={20} color={OrialColors.warning} />
+                </View>
+                <Text style={OrialTypography.headingMedium}>{whoopData.hrvRmssdMilli?.toFixed(0) || '--'}</Text>
+                <Text style={OrialTypography.caption}>HRV</Text>
+              </GlassCard>
             </View>
 
-            <View style={styles.whoopDetails}>
-              <View style={styles.whoopDetailItem}>
-                <Flame size={11} color={OrialColors.warning} />
-                <Text style={styles.whoopDetailText}>
-                  {whoopData.kilojoule ? Math.round(whoopData.kilojoule * 0.239) : '--'} kcal
+            <GlassCard style={styles.detailCard}>
+              <View style={styles.detailRow}>
+                <Flame size={16} color={OrialColors.warning} />
+                <Text style={[OrialTypography.bodyMedium, styles.detailValue]}>
+                  {whoopData.kilojoule ? Math.round(whoopData.kilojoule * 0.239) : '--'} kcal burned
                 </Text>
               </View>
-              <View style={styles.whoopDetailDivider} />
-              <View style={styles.whoopDetailItem}>
-                <Heart size={11} color={OrialColors.error} />
-                <Text style={styles.whoopDetailText}>
-                  RHR {whoopData.restingHeartRate || '--'} bpm
+              <View style={styles.detailRow}>
+                <Heart size={16} color={OrialColors.error} />
+                <Text style={[OrialTypography.bodyMedium, styles.detailValue]}>
+                  RHR: {whoopData.restingHeartRate || '--'} bpm
                 </Text>
               </View>
-              <View style={styles.whoopDetailDivider} />
-              <View style={styles.whoopDetailItem}>
-                <Moon size={11} color={OrialColors.violetLight} />
-                <Text style={styles.whoopDetailText}>
-                  {whoopData.sleepDurationMilli
-                    ? `${Math.round(whoopData.sleepDurationMilli / 3600000 * 10) / 10}h sleep`
-                    : '--'}
+              <View style={styles.detailRow}>
+                <Moon size={16} color={OrialColors.violetLight} />
+                <Text style={[OrialTypography.bodyMedium, styles.detailValue]}>
+                  Sleep: {whoopData.sleepDurationMilli ? Math.round(whoopData.sleepDurationMilli / 3600000 * 10) / 10 : '--'}h
                 </Text>
               </View>
-            </View>
-            </Pressable>
+            </GlassCard>
           </View>
         )}
 
         {/* Hydration */}
         <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <SectionLabel label="HYDRATION" inline />
+          <View style={styles.sectionHeader}>
+            <Pressable onPress={() => router.push('/hydration')} style={styles.sectionTitlePressable}>
+              <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Hydration <ChevronRight size={16} color={OrialColors.textMuted} /></Text>
+            </Pressable>
             <Pressable onPress={() => router.push('/hydration-history')}>
-              <Text style={styles.historyLink}>History</Text>
+              <Text style={[OrialTypography.caption, styles.historyLink]}>View History</Text>
             </Pressable>
           </View>
-          <Pressable onPress={() => router.push('/hydration')}>
-            <GlassCard style={styles.hydrationCard}>
-              <View style={styles.hydrationTop}>
-                <View style={styles.hydrationLeft}>
-                  <Droplets size={18} color={OrialColors.cyan} />
-                  <View style={styles.hydrationNums}>
-                    <Text style={styles.hydrationValue}>{hydrationData.current.toFixed(1)}</Text>
-                    <Text style={styles.hydrationUnit}>/ {hydrationData.target.toFixed(1)} L</Text>
-                  </View>
-                </View>
-                <View style={[styles.pctBadge, { borderColor: (hydPct >= 100 ? OrialColors.success : OrialColors.cyan) + '40' }]}>
-                  <Text style={[styles.pctBadgeValue, { color: hydPct >= 100 ? OrialColors.success : OrialColors.cyan }]}>
-                    {hydrationData.percentage.toFixed(0)}%
-                  </Text>
-                  <Text style={styles.pctBadgeLabel}>DONE</Text>
-                </View>
+          <GlassCard style={styles.hydrationCard}>
+            <View style={styles.hydrationHeader}>
+              <View style={styles.hydrationIcon}>
+                <Droplets size={24} color={OrialColors.cyan} />
               </View>
-
-              <View style={styles.progressBarWrap}>
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${hydPct}%`, backgroundColor: hydPct >= 100 ? OrialColors.success : OrialColors.cyan },
-                    ]}
-                  />
-                </View>
+              <View style={styles.hydrationInfo}>
+                <Text style={OrialTypography.headingMedium}>
+                  {hydrationData.current.toFixed(2)}L / {hydrationData.target.toFixed(2)}L
+                </Text>
+                <Text style={OrialTypography.caption}>
+                  {hydrationData.percentage.toFixed(0)}% of daily target
+                </Text>
               </View>
-
-              <View style={styles.hydrationActions}>
-                <Pressable style={styles.waterBtn} onPress={handleAddWater}>
-                  <Text style={styles.waterBtnText}>+250 ml</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.waterBtn, styles.waterBtnSecondary]}
-                  onPress={async () => {
-                    const today = new Date().toISOString().split('T')[0];
-                    await hydrationService.addWater(today, 0.5, 'soda_zero');
-                    const progress = await hydrationService.getProgress(today);
-                    setHydrationData(progress);
-                  }}
-                >
-                  <Text style={[styles.waterBtnText, styles.waterBtnSecondaryText]}>+500 ml Zero</Text>
-                </Pressable>
+            </View>
+            
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBar}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { 
+                      width: `${Math.min(hydrationData.percentage, 100)}%`,
+                      backgroundColor: hydrationData.percentage >= 100 ? OrialColors.success : OrialColors.cyan
+                    }
+                  ]} 
+                />
               </View>
-            </GlassCard>
-          </Pressable>
+            </View>
+            
+            <View style={styles.hydrationActions}>
+              <Pressable style={styles.waterButton} onPress={handleAddWater}>
+                <Text style={styles.waterButtonText}>+250ml Water</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.waterButton, styles.waterButtonSecondary]}
+                onPress={async () => {
+                  const today = new Date().toISOString().split('T')[0];
+                  await hydrationService.addWater(today, 0.5, 'soda_zero');
+                  const progress = await hydrationService.getProgress(today);
+                  setHydrationData(progress);
+                }}
+              >
+                <Text style={[styles.waterButtonText, styles.waterButtonSecondaryText]}>+500ml Zero</Text>
+              </Pressable>
+            </View>
+          </GlassCard>
         </View>
 
-        {/* Macros */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <SectionLabel label="MACROS" inline />
-            <Pressable onPress={() => router.push('/nutrition-history')}>
-              <Text style={styles.historyLink}>History</Text>
-            </Pressable>
-          </View>
-          <Pressable onPress={() => router.push('/macros')}>
+        {/* Macros Summary */}
+        {nutritionData && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Pressable onPress={() => router.push('/macros')} style={styles.sectionTitlePressable}>
+                <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Macros <ChevronRight size={16} color={OrialColors.textMuted} /></Text>
+              </Pressable>
+              <Pressable onPress={() => router.push('/nutrition-history')}>
+                <Text style={[OrialTypography.caption, styles.historyLink]}>History</Text>
+              </Pressable>
+            </View>
             <GlassCard style={styles.nutritionCard}>
-              {nutritionData ? (
-                <>
-                  <View style={styles.calorieRow}>
-                    <View>
-                      <Text style={styles.calorieValue}>{nutritionData.totalCalories ?? 0}</Text>
-                      <Text style={styles.calorieLabel}>KCAL TODAY</Text>
-                    </View>
-                    <View style={styles.calorieGoal}>
-                      <Text style={styles.goalLabel}>GOAL</Text>
-                      <Text style={styles.goalValue}>2100</Text>
-                    </View>
-                  </View>
-                  <View style={styles.calorieTrack}>
-                    <View style={[styles.calorieFill, {
-                      width: `${Math.min(((nutritionData.totalCalories ?? 0) / 2100) * 100, 100).toFixed(0)}%`,
-                      backgroundColor: (nutritionData.totalCalories ?? 0) >= 2100 ? OrialColors.success : OrialColors.warning,
-                    }]} />
-                  </View>
-                  <View style={styles.macroMiniBars}>
-                    <MacroMiniBar label="PRO" current={nutritionData.proteinG ?? 0} goal={160} color={OrialColors.error} />
-                    <MacroMiniBar label="CHO" current={nutritionData.carbsG ?? 0} goal={220} color={OrialColors.cyan} />
-                    <MacroMiniBar label="FAT" current={nutritionData.fatG ?? 0} goal={70} color={OrialColors.violetLight} />
-                  </View>
-                  {nutritionData.sodiumMg ? (
-                    <View style={styles.sodiumBadge}>
-                      <Text style={styles.sodiumText}>
-                        {nutritionData.sodiumMg}mg Na · +{(nutritionData.sodiumMg / 2300).toFixed(2)}L H₂O
-                      </Text>
-                    </View>
-                  ) : null}
-                </>
-              ) : (
-                <View style={styles.nutritionEmpty}>
-                  <Flame size={20} color={OrialColors.textMuted} />
-                  <Text style={styles.nutritionEmptyText}>No macros logged today</Text>
-                  <Text style={styles.nutritionEmptySubtext}>Chat with Hermes to log meals</Text>
+              <View style={styles.nutritionGrid}>
+                <View style={styles.nutritionItem}>
+                  <Text style={OrialTypography.headingMedium}>{nutritionData.totalCalories || '--'}</Text>
+                  <Text style={OrialTypography.caption}>kcal</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={OrialTypography.headingMedium}>{nutritionData.proteinG || '--'}g</Text>
+                  <Text style={OrialTypography.caption}>Protein</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={OrialTypography.headingMedium}>{nutritionData.carbsG || '--'}g</Text>
+                  <Text style={OrialTypography.caption}>Carbs</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={OrialTypography.headingMedium}>{nutritionData.fatG || '--'}g</Text>
+                  <Text style={OrialTypography.caption}>Fat</Text>
+                </View>
+              </View>
+              {/* Mini progress bars */}
+              <View style={styles.macroMiniBars}>
+                <MacroMiniBar label="Protein" current={nutritionData.proteinG || 0} goal={160} color={OrialColors.error} />
+                <MacroMiniBar label="Carbs" current={nutritionData.carbsG || 0} goal={220} color={OrialColors.cyan} />
+                <MacroMiniBar label="Fat" current={nutritionData.fatG || 0} goal={70} color={OrialColors.violetLight} />
+              </View>
+              <Pressable onPress={() => router.push('/macros')} style={styles.macroDetailLink}>
+                <Text style={[OrialTypography.caption, { color: OrialColors.violetLight }]}>Log a meal →</Text>
+              </Pressable>
+              {nutritionData.sodiumMg && (
+                <View style={styles.sodiumBadge}>
+                  <Text style={styles.sodiumText}>
+                    Sodium: {nutritionData.sodiumMg}mg → +{((nutritionData.sodiumMg / 2300)).toFixed(2)}L extra water
+                  </Text>
                 </View>
               )}
             </GlassCard>
-          </Pressable>
-        </View>
+          </View>
+        )}
 
-        {/* Activity */}
+        {/* Steps & Activity */}
         <View style={styles.section}>
           <Pressable onPress={() => router.push('/metrics-manual')}>
-            <SectionLabel label="ACTIVITY" />
+            <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Activity <ChevronRight size={16} color={OrialColors.textMuted} /></Text>
           </Pressable>
           <GlassCard style={styles.activityCard}>
             <View style={styles.activityRow}>
               <View style={styles.activityItem}>
-                <Text style={styles.activityNumber}>{(manualData?.stepsWalk || 0).toLocaleString()}</Text>
-                <Text style={styles.activityLabel}>STEPS</Text>
+                <Text style={OrialTypography.headingMedium}>{(manualData?.stepsWalk || 0).toLocaleString()}</Text>
+                <Text style={OrialTypography.caption}>Steps</Text>
               </View>
-              <View style={styles.activityDivider} />
               <View style={styles.activityItem}>
-                <Text style={styles.activityNumber}>{manualData?.workoutMinutes || '--'}</Text>
-                <Text style={styles.activityLabel}>MIN WORKOUT</Text>
+                <Text style={OrialTypography.headingMedium}>{manualData?.workoutMinutes || '--'}</Text>
+                <Text style={OrialTypography.caption}>Min Workout</Text>
               </View>
-              <View style={styles.activityDivider} />
               <View style={styles.activityItem}>
-                <Text style={styles.activityNumber}>{manualData?.caloriesIn || '--'}</Text>
-                <Text style={styles.activityLabel}>KCAL IN</Text>
+                <Text style={OrialTypography.headingMedium}>{manualData?.caloriesIn ? `${manualData.caloriesIn}` : '--'}</Text>
+                <Text style={OrialTypography.caption}>Kcal In</Text>
               </View>
             </View>
           </GlassCard>
@@ -312,25 +303,29 @@ export default function DashboardScreen() {
         {supplementLogs.length > 0 && (
           <View style={styles.section}>
             <Pressable onPress={() => router.push('/supplements')}>
-              <SectionLabel label="SUPPLEMENTS" />
+              <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Supplements <ChevronRight size={16} color={OrialColors.textMuted} /></Text>
             </Pressable>
             {supplementLogs.map((log) => (
               <GlassCard key={log.supplementId} style={styles.supplementCard}>
                 <View style={styles.supplementRow}>
                   <View style={styles.supplementInfo}>
-                    <View style={styles.supplementIconWrap}>
-                      <Pill size={15} color={OrialColors.violetLight} />
-                    </View>
+                    <Pill size={20} color={OrialColors.violetLight} />
                     <View>
-                      <Text style={styles.supplementName}>{log.supplement?.name || 'Supplement'}</Text>
-                      <Text style={styles.supplementDose}>{log.supplement?.dailyDoseMg}mg daily</Text>
+                      <Text style={OrialTypography.bodyMedium}>{log.supplement?.name || 'Supplement'}</Text>
+                      <Text style={OrialTypography.caption}>{log.supplement?.dailyDoseMg}mg daily</Text>
                     </View>
                   </View>
                   <Pressable
-                    style={[styles.supplementButton, log.takenAt ? styles.supplementTaken : styles.supplementPending]}
+                    style={[
+                      styles.supplementButton,
+                      log.takenAt ? styles.supplementTaken : styles.supplementPending
+                    ]}
                     onPress={() => !log.takenAt && handleLogSupplement(log.supplementId)}
                   >
-                    <Text style={[styles.supplementButtonText, log.takenAt && styles.supplementTakenText]}>
+                    <Text style={[
+                      styles.supplementButtonText,
+                      log.takenAt && styles.supplementTakenText
+                    ]}>
                       {log.takenAt ? '✓ Taken' : 'Take'}
                     </Text>
                   </Pressable>
@@ -343,138 +338,326 @@ export default function DashboardScreen() {
         {/* Weight Prediction */}
         {prediction && (
           <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Pressable onPress={() => router.push('/metrics-manual')}>
-                <SectionLabel label="WEIGHT PREDICTION" inline />
+            <View style={styles.sectionHeader}>
+              <Pressable onPress={() => router.push('/metrics-manual')} style={styles.sectionTitlePressable}>
+                <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Weight Prediction <ChevronRight size={16} color={OrialColors.textMuted} /></Text>
               </Pressable>
               <Pressable onPress={() => router.push('/weight-history')}>
-                <Text style={styles.historyLink}>History</Text>
+                <Text style={[OrialTypography.caption, styles.historyLink]}>View History</Text>
               </Pressable>
             </View>
             <GlassCard style={styles.predictionCard}>
               <View style={styles.predictionHeader}>
-                <View style={styles.predictionIconWrap}>
-                  <TrendingDown size={16} color={OrialColors.cyan} />
-                </View>
+                <TrendingDown size={20} color={OrialColors.cyan} />
                 <View style={styles.predictionInfo}>
-                  <Text style={styles.predictionValue}>
+                  <Text style={OrialTypography.headingMedium}>
                     {prediction.predictedWeightKg?.toFixed(2) || '--'} kg
                   </Text>
-                  <Text style={styles.predictionLabel}>PREDICTED TOMORROW</Text>
+                  <Text style={OrialTypography.caption}>
+                    Predicted for tomorrow
+                  </Text>
                 </View>
               </View>
-
+              
               {prediction.predictionRangeLow && prediction.predictionRangeHigh && (
                 <View style={styles.rangeBar}>
                   <View style={styles.rangeTrack}>
                     <View style={styles.rangeFill} />
                   </View>
                   <View style={styles.rangeLabels}>
-                    <Text style={styles.rangeText}>{prediction.predictionRangeLow.toFixed(2)} kg</Text>
-                    <Text style={styles.rangeText}>{prediction.predictionRangeHigh.toFixed(2)} kg</Text>
+                    <Text style={OrialTypography.caption}>{prediction.predictionRangeLow.toFixed(2)}kg</Text>
+                    <Text style={OrialTypography.caption}>{prediction.predictionRangeHigh.toFixed(2)}kg</Text>
                   </View>
                 </View>
               )}
-
+              
               {prediction.factors && (
                 <View style={styles.factorsContainer}>
+                  <Text style={[OrialTypography.caption, styles.factorsTitle]}>Factors:</Text>
                   {JSON.parse(prediction.factors).map((factor: string, index: number) => (
-                    <Text key={index} style={styles.factorItem}>· {factor}</Text>
+                    <Text key={index} style={[OrialTypography.caption, styles.factorItem]}>
+                      • {factor}
+                    </Text>
                   ))}
                 </View>
               )}
             </GlassCard>
           </View>
         )}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function SectionLabel({ label, inline }: { label: string; inline?: boolean }) {
-  return (
-    <View style={[sectionLabelStyles.wrap, inline && sectionLabelStyles.inlineWrap]}>
-      <View style={sectionLabelStyles.dot} />
-      <Text style={sectionLabelStyles.text}>{label}</Text>
-    </View>
-  );
-}
-
-const sectionLabelStyles = StyleSheet.create({
-  wrap: {
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: OrialColors.deepNavy,
+  },
+  header: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 16,
+    marginBottom: 12,
+  },
+  sectionTitlePressable: {
+    flex: 1,
+  },
+  sectionTitle: {
+    paddingHorizontal: 16,
+  },
+  historyLink: {
+    color: OrialColors.cyan,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  metricCard: {
+    width: '23%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  metricIcon: {
+    marginBottom: 4,
+  },
+  detailCard: {
+    margin: 16,
+    marginTop: 8,
+    padding: 12,
+  },
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 16,
-    marginBottom: 10,
+    gap: 8,
+    marginBottom: 8,
   },
-  inlineWrap: {
-    paddingHorizontal: 0,
-    marginBottom: 0,
-  },
-  dot: {
-    width: 3,
-    height: 12,
-    borderRadius: 2,
-    backgroundColor: OrialColors.violetLight,
-  },
-  text: {
-    fontSize: 10,
-    letterSpacing: 1.5,
-    color: OrialColors.textSecondary,
-    fontFamily: 'Inter-Medium',
-  },
-});
-
-function WhoopMetricCard({
-  icon, value, label, accent,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-  accent: string;
-}) {
-  return (
-    <View style={[whoopCardStyles.card, { borderColor: accent + '28' }]}>
-      <View style={[whoopCardStyles.iconPill, { backgroundColor: accent + '18' }]}>
-        {icon}
-      </View>
-      <Text style={[whoopCardStyles.value, { color: accent }]}>{value}</Text>
-      <Text style={whoopCardStyles.label}>{label}</Text>
-    </View>
-  );
-}
-
-const whoopCardStyles = StyleSheet.create({
-  card: {
+  detailValue: {
     flex: 1,
-    backgroundColor: OrialColors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    gap: 6,
+    color: OrialColors.textSecondary,
   },
-  iconPill: {
-    width: 28,
-    height: 28,
+  hydrationCard: {
+    margin: 16,
+    marginTop: 0,
+    padding: 16,
+  },
+  hydrationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  hydrationIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: OrialColors.cyan + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hydrationInfo: {
+    flex: 1,
+  },
+  progressBarContainer: {
+    marginBottom: 12,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  hydrationActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  waterButton: {
+    flex: 1,
+    backgroundColor: OrialColors.cyan + '30',
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  waterButtonSecondary: {
+    backgroundColor: OrialColors.surface,
+  },
+  waterButtonText: {
+    color: OrialColors.cyan,
+    fontWeight: '600',
+  },
+  waterButtonSecondaryText: {
+    color: OrialColors.textSecondary,
+  },
+  nutritionCard: {
+    margin: 16,
+    marginTop: 0,
+    padding: 16,
+  },
+  nutritionGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  nutritionItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  sodiumBadge: {
+    backgroundColor: OrialColors.warning + '20',
+    padding: 8,
     borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  sodiumText: {
+    color: OrialColors.warning,
+    fontSize: 12,
+  },
+  activityCard: {
+    margin: 16,
+    marginTop: 0,
+    padding: 16,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  activityItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  supplementCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+  },
+  supplementRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  supplementInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  supplementButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  supplementPending: {
+    backgroundColor: OrialColors.violet + '30',
+  },
+  supplementTaken: {
+    backgroundColor: OrialColors.success + '20',
+  },
+  supplementButtonText: {
+    color: OrialColors.violetLight,
+    fontWeight: '600',
+  },
+  supplementTakenText: {
+    color: OrialColors.success,
+  },
+  predictionCard: {
+    margin: 16,
+    marginTop: 0,
+    padding: 16,
+  },
+  predictionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  predictionInfo: {
+    flex: 1,
+  },
+  rangeBar: {
+    marginBottom: 12,
+  },
+  rangeTrack: {
+    height: 6,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  rangeFill: {
+    height: '100%',
+    backgroundColor: OrialColors.cyan,
+    borderRadius: 3,
+    width: '100%',
+  },
+  rangeLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  factorsContainer: {
+    marginTop: 8,
+  },
+  factorsTitle: {
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  factorItem: {
     marginBottom: 2,
+    color: OrialColors.textSecondary,
   },
-  value: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -1,
-    fontFamily: 'Inter-Bold',
+  macroMiniBars: {
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 16,
   },
-  label: {
-    fontSize: 9,
-    letterSpacing: 1.4,
+  macroMiniRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  macroMiniLabel: {
+    width: 50,
+    color: OrialColors.textSecondary,
+    fontSize: 11,
+  },
+  macroMiniTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  macroMiniFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  macroMiniValue: {
+    width: 40,
+    textAlign: 'right',
     color: OrialColors.textMuted,
-    fontFamily: 'Inter-Medium',
+    fontSize: 11,
+  },
+  macroDetailLink: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 8,
   },
 });
 
@@ -490,460 +673,3 @@ function MacroMiniBar({ label, current, goal, color }: { label: string; current:
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: OrialColors.deepNavy,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 24,
-  },
-  greeting: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: OrialColors.textPrimary,
-    letterSpacing: -0.8,
-    fontFamily: 'Inter-Bold',
-  },
-  dateLabel: {
-    fontSize: 10,
-    letterSpacing: 1.6,
-    color: OrialColors.textMuted,
-    marginTop: 5,
-    fontFamily: 'Inter-Medium',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  historyLink: {
-    fontSize: 11,
-    color: OrialColors.cyan,
-    fontFamily: 'Inter-Medium',
-    letterSpacing: 0.3,
-  },
-  // WHOOP 2x2 grid
-  whoopGrid: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  whoopRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  whoopDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  whoopDetailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  whoopDetailDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: OrialColors.border,
-  },
-  whoopDetailText: {
-    fontSize: 11,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Regular',
-  },
-  // Hydration
-  hydrationCard: {
-    marginHorizontal: 16,
-    padding: 16,
-  },
-  hydrationTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  hydrationLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  hydrationNums: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  hydrationValue: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: OrialColors.textPrimary,
-    letterSpacing: -1.5,
-    fontFamily: 'Inter-Bold',
-  },
-  hydrationUnit: {
-    fontSize: 14,
-    color: OrialColors.textSecondary,
-    fontFamily: 'Inter-Regular',
-  },
-  pctBadge: {
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    backgroundColor: OrialColors.surfaceElevated,
-  },
-  pctBadgeValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    fontFamily: 'Inter-Bold',
-  },
-  pctBadgeLabel: {
-    fontSize: 8,
-    letterSpacing: 1.2,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Medium',
-    marginTop: 1,
-  },
-  progressBarWrap: {
-    marginBottom: 14,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: OrialColors.surfaceElevated,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  hydrationActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  waterBtn: {
-    flex: 1,
-    backgroundColor: OrialColors.cyan + '18',
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: OrialColors.cyan + '35',
-  },
-  waterBtnSecondary: {
-    backgroundColor: OrialColors.surfaceElevated,
-    borderColor: OrialColors.borderStrong,
-  },
-  waterBtnText: {
-    color: OrialColors.cyan,
-    fontWeight: '600',
-    fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
-  },
-  waterBtnSecondaryText: {
-    color: OrialColors.textSecondary,
-  },
-  // Macros / Nutrition
-  nutritionCard: {
-    marginHorizontal: 16,
-    padding: 16,
-  },
-  calorieRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 8,
-  },
-  calorieValue: {
-    fontSize: 44,
-    fontWeight: '700',
-    color: OrialColors.textPrimary,
-    letterSpacing: -1.5,
-    lineHeight: 48,
-    fontFamily: 'Inter-Bold',
-  },
-  calorieLabel: {
-    fontSize: 9,
-    letterSpacing: 1.2,
-    color: OrialColors.textMuted,
-    marginTop: 3,
-    fontFamily: 'Inter-Medium',
-  },
-  calorieGoal: {
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: OrialColors.surfaceElevated,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: OrialColors.border,
-  },
-  goalLabel: {
-    fontSize: 8,
-    letterSpacing: 1.2,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Medium',
-  },
-  goalValue: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: OrialColors.textSecondary,
-    fontFamily: 'Inter-SemiBold',
-    letterSpacing: -0.3,
-  },
-  calorieTrack: {
-    height: 3,
-    backgroundColor: OrialColors.surfaceElevated,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 14,
-  },
-  calorieFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  macroMiniBars: {
-    gap: 8,
-    marginBottom: 4,
-  },
-  macroMiniRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  macroMiniLabel: {
-    width: 30,
-    color: OrialColors.textMuted,
-    fontSize: 9,
-    letterSpacing: 0.8,
-    fontFamily: 'Inter-Medium',
-  },
-  macroMiniTrack: {
-    flex: 1,
-    height: 3,
-    backgroundColor: OrialColors.surfaceElevated,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  macroMiniFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  macroMiniValue: {
-    width: 56,
-    textAlign: 'right',
-    color: OrialColors.textMuted,
-    fontSize: 10,
-    fontFamily: 'Inter-Regular',
-  },
-  nutritionEmpty: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    gap: 8,
-  },
-  nutritionEmptyText: {
-    color: OrialColors.textSecondary,
-    fontWeight: '600',
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-  },
-  nutritionEmptySubtext: {
-    color: OrialColors.textMuted,
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-  },
-  sodiumBadge: {
-    backgroundColor: OrialColors.warning + '10',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: OrialColors.warning + '22',
-  },
-  sodiumText: {
-    color: OrialColors.warning,
-    fontSize: 11,
-    letterSpacing: 0.3,
-    fontFamily: 'Inter-Regular',
-  },
-  // Activity
-  activityCard: {
-    marginHorizontal: 16,
-    padding: 0,
-  },
-  activityRow: {
-    flexDirection: 'row',
-  },
-  activityItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 18,
-  },
-  activityDivider: {
-    width: 1,
-    backgroundColor: OrialColors.border,
-    marginVertical: 14,
-  },
-  activityNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: OrialColors.textPrimary,
-    letterSpacing: -0.5,
-    fontFamily: 'Inter-Bold',
-  },
-  activityLabel: {
-    fontSize: 9,
-    letterSpacing: 1.2,
-    color: OrialColors.textMuted,
-    marginTop: 4,
-    fontFamily: 'Inter-Medium',
-  },
-  // Supplements
-  supplementCard: {
-    marginHorizontal: 16,
-    marginBottom: 6,
-    padding: 14,
-  },
-  supplementRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  supplementInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  supplementIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: OrialColors.violet + '18',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  supplementName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: OrialColors.textPrimary,
-    fontFamily: 'Inter-SemiBold',
-  },
-  supplementDose: {
-    fontSize: 11,
-    color: OrialColors.textMuted,
-    marginTop: 2,
-    fontFamily: 'Inter-Regular',
-  },
-  supplementButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 72,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  supplementPending: {
-    backgroundColor: OrialColors.violet + '20',
-    borderColor: OrialColors.violet + '45',
-  },
-  supplementTaken: {
-    backgroundColor: OrialColors.success + '12',
-    borderColor: OrialColors.success + '35',
-  },
-  supplementButtonText: {
-    color: OrialColors.violetLight,
-    fontWeight: '600',
-    fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
-  },
-  supplementTakenText: {
-    color: OrialColors.success,
-  },
-  // Weight prediction
-  predictionCard: {
-    marginHorizontal: 16,
-    padding: 16,
-  },
-  predictionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  predictionIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: OrialColors.cyan + '18',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  predictionInfo: {
-    flex: 1,
-  },
-  predictionValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: OrialColors.textPrimary,
-    letterSpacing: -0.8,
-    fontFamily: 'Inter-Bold',
-  },
-  predictionLabel: {
-    fontSize: 9,
-    letterSpacing: 1.2,
-    color: OrialColors.textMuted,
-    marginTop: 3,
-    fontFamily: 'Inter-Medium',
-  },
-  rangeBar: {
-    marginBottom: 10,
-  },
-  rangeTrack: {
-    height: 3,
-    backgroundColor: OrialColors.surfaceElevated,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  rangeFill: {
-    height: '100%',
-    backgroundColor: OrialColors.cyan,
-    borderRadius: 2,
-    width: '100%',
-  },
-  rangeLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 5,
-  },
-  rangeText: {
-    fontSize: 10,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Regular',
-  },
-  factorsContainer: {
-    marginTop: 6,
-    gap: 3,
-  },
-  factorItem: {
-    fontSize: 11,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 18,
-  },
-});
