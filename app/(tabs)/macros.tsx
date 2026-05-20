@@ -1,437 +1,429 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Animated, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
+import { Apple, Beef, Wheat, Droplets, Send, RefreshCw } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
-import { OrialColors } from '../../src/utils/colors';
 import { nutritionService } from '../../src/services/nutritionService';
-import type { NutritionLog } from '../../drizzle/schema';
+import { agentService } from '../../src/services/openclawService';
+import { OrialColors } from '../../src/utils/colors';
+import { OrialTypography } from '../../src/utils/typography';
+
+interface Macros {
+  totalCalories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  sodiumMg: number | null;
+}
 
 const GOALS = { calories: 2100, protein: 160, carbs: 220, fat: 70 };
 
-function SkeletonBlock({ width, height, style }: { width: number | string; height: number; style?: object }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.6, duration: 800, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [opacity]);
-
-  return (
-    <Animated.View
-      style={[{ width, height, backgroundColor: OrialColors.surfaceElevated, borderRadius: 6, opacity }, style]}
-    />
-  );
-}
-
 export default function MacrosScreen() {
+  const [macros, setMacros] = useState<Macros | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [nutrition, setNutrition] = useState<NutritionLog | null>(null);
+  const [showMealInput, setShowMealInput] = useState(false);
+  const [mealText, setMealText] = useState('');
+  const [logging, setLogging] = useState(false);
 
-  const fetchMacros = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    const data = await nutritionService.getTodayNutrition();
-    setNutrition(data);
-    if (isRefresh) setRefreshing(false);
-    else setLoading(false);
+  const loadFromDb = useCallback(async () => {
+    try {
+      const data = await nutritionService.getTodayNutrition();
+      if (data) {
+        setMacros({
+          totalCalories: data.totalCalories || 0,
+          proteinG: data.proteinG || 0,
+          carbsG: data.carbsG || 0,
+          fatG: data.fatG || 0,
+          sodiumMg: data.sodiumMg || null,
+        });
+      } else {
+        setMacros(null);
+      }
+    } catch {
+      setMacros(null);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchMacros(); }, [fetchMacros]));
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      loadFromDb();
+    }, [loadFromDb])
+  );
 
-  const pct = (val: number | null | undefined, goal: number) =>
-    goal > 0 ? Math.min((val ?? 0) / goal, 1) : 0;
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadFromDb();
+  };
 
-  const calPct = pct(nutrition?.totalCalories, GOALS.calories);
-  const remaining = GOALS.calories - (nutrition?.totalCalories ?? 0);
-  const calColor = calPct >= 1 ? OrialColors.success : calPct >= 0.8 ? OrialColors.warning : OrialColors.cyan;
+  const handleLogMeal = async () => {
+    if (!mealText.trim()) return;
+    setLogging(true);
+    try {
+      const configured = await agentService.isConfigured();
+      if (!configured) {
+        Alert.alert('JARVIS not configured', 'Set up JARVIS in Settings first.');
+        setLogging(false);
+        return;
+      }
+
+      const response = await agentService.chat([
+        {
+          role: 'system',
+          content: `You are a nutrition logger. The user will describe what they ate. Parse the meal and add it to their nutrition logs for today (${new Date().toISOString().split('T')[0]}).
+
+IMPORTANT: You have access to the nutrition database at ~/.hermes/data/nutrition.db. Query it to see today's existing logs, then add this new meal.
+
+Respond with a brief confirmation of what was logged and the updated macro totals. Keep it under 3 sentences.`,
+        },
+        { role: 'user', content: mealText.trim() },
+      ]);
+
+      setShowMealInput(false);
+      setMealText('');
+      // Reload from local DB after agent logs
+      setTimeout(() => loadFromDb(), 500);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Failed to log meal');
+    } finally {
+      setLogging(false);
+    }
+  };
+
+  const pct = (current: number, goal: number) => (goal > 0 ? Math.min(current / goal, 1) : 0);
+
+  const hasData = macros && macros.totalCalories > 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchMacros(true)}
-            tintColor={OrialColors.violetLight}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={OrialColors.violetLight} />
         }
       >
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Macros</Text>
-          <Text style={styles.headerDate}>{format(new Date(), 'EEE, MMM d').toUpperCase()}</Text>
+          <View>
+            <Text style={OrialTypography.caption}>{format(new Date(), 'EEE, MMM d').toUpperCase()}</Text>
+            <Text style={OrialTypography.headingMedium}>Macros</Text>
+          </View>
+          <Pressable onPress={handleRefresh} style={styles.refreshBtn}>
+            <RefreshCw size={18} color={OrialColors.textMuted} />
+          </Pressable>
         </View>
 
-        {loading ? (
-          <View style={styles.skeletonContainer}>
-            <GlassCard style={styles.calorieCard}>
-              <SkeletonBlock width={100} height={56} style={{ marginBottom: 10 }} />
-              <SkeletonBlock width={60} height={10} style={{ marginBottom: 14 }} />
-              <SkeletonBlock width="100%" height={3} />
-            </GlassCard>
-            <GlassCard style={styles.macroStripCard}>
-              <View style={styles.macroStrip}>
-                {[1, 2, 3].map(i => (
-                  <View key={i} style={styles.macroStripItem}>
-                    <SkeletonBlock width={36} height={10} style={{ marginBottom: 10 }} />
-                    <SkeletonBlock width={50} height={30} style={{ marginBottom: 6 }} />
-                    <SkeletonBlock width={28} height={8} style={{ marginBottom: 10 }} />
-                    <SkeletonBlock width="70%" height={3} />
-                  </View>
-                ))}
-              </View>
-            </GlassCard>
+        {/* Calories */}
+        <GlassCard style={styles.caloriesCard}>
+          <View style={styles.caloriesRow}>
+            <View>
+              <Text style={styles.caloriesValue}>{macros?.totalCalories ?? 0}</Text>
+              <Text style={styles.caloriesLabel}>KCAL LOGGED</Text>
+            </View>
+            <View style={styles.goalBox}>
+              <Text style={styles.goalLabel}>GOAL</Text>
+              <Text style={styles.goalValue}>{GOALS.calories}</Text>
+              <Text style={styles.goalRemaining}>{Math.max(GOALS.calories - (macros?.totalCalories ?? 0), 0)} left</Text>
+            </View>
           </View>
-        ) : !nutrition ? (
-          <>
-            <GlassCard style={styles.calorieCard}>
-              <View style={styles.calorieHeroRow}>
-                <View>
-                  <Text style={[styles.calorieHero, { color: OrialColors.textMuted }]}>0</Text>
-                  <Text style={styles.calorieSubLabel}>KCAL LOGGED</Text>
-                </View>
-                <View style={styles.calorieGoalBox}>
-                  <Text style={styles.calorieGoalLabel}>GOAL</Text>
-                  <Text style={styles.calorieGoalValue}>{GOALS.calories}</Text>
-                  <Text style={styles.calorieGoalSub}>{GOALS.calories} left</Text>
-                </View>
-              </View>
-              <View style={styles.calorieTrack}>
-                <View style={[styles.calorieFill, { width: '0%' }]} />
-              </View>
-            </GlassCard>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.caloriesProgress,
+                { width: `${(pct(macros?.totalCalories ?? 0, GOALS.calories) * 100).toFixed(0)}%` },
+              ]}
+            />
+          </View>
+        </GlassCard>
 
-            <GlassCard style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Nothing logged yet</Text>
-              <Text style={styles.emptyBody}>
-                Tell Hermes what you ate — it will parse meals and log your macros automatically.
-              </Text>
-              <View style={styles.emptyHint}>
-                <Text style={styles.emptyHintText}>"Breakfast: 3 eggs, toast with butter, OJ"</Text>
-              </View>
-            </GlassCard>
-
-            <GlassCard style={styles.macroStripCard}>
-              <View style={styles.macroStrip}>
-                <MacroStripItem label="PROTEIN" value={0} goal={GOALS.protein} unit="g" color={OrialColors.error} />
-                <View style={styles.macroStripDivider} />
-                <MacroStripItem label="CARBS" value={0} goal={GOALS.carbs} unit="g" color={OrialColors.cyan} />
-                <View style={styles.macroStripDivider} />
-                <MacroStripItem label="FAT" value={0} goal={GOALS.fat} unit="g" color={OrialColors.violetLight} />
-              </View>
-            </GlassCard>
-          </>
+        {/* Meal Input / Log Prompt */}
+        {showMealInput ? (
+          <GlassCard style={styles.inputCard}>
+            <TextInput
+              style={styles.mealInput}
+              placeholder='e.g. "Breakfast: 3 eggs, toast with butter, OJ"'
+              placeholderTextColor={OrialColors.textMuted}
+              value={mealText}
+              onChangeText={setMealText}
+              multiline
+              autoFocus
+            />
+            <View style={styles.inputActions}>
+              <Pressable onPress={() => { setShowMealInput(false); setMealText(''); }} style={styles.cancelBtn}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={handleLogMeal} disabled={logging || !mealText.trim()} style={[styles.logBtn, (!mealText.trim() || logging) && { opacity: 0.5 }]}>
+                {logging ? (
+                  <ActivityIndicator size="small" color={OrialColors.textPrimary} />
+                ) : (
+                  <>
+                    <Send size={16} color={OrialColors.textPrimary} />
+                    <Text style={styles.logBtnText}>Log via JARVIS</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </GlassCard>
         ) : (
-          <>
-            <GlassCard style={styles.calorieCard}>
-              <View style={styles.calorieHeroRow}>
-                <View>
-                  <Text style={[styles.calorieHero, { color: calColor }]}>{nutrition.totalCalories ?? 0}</Text>
-                  <Text style={styles.calorieSubLabel}>KCAL LOGGED</Text>
-                </View>
-                <View style={styles.calorieGoalBox}>
-                  <Text style={styles.calorieGoalLabel}>GOAL</Text>
-                  <Text style={styles.calorieGoalValue}>{GOALS.calories}</Text>
-                  <Text style={[styles.calorieGoalSub, remaining < 0 && { color: OrialColors.error }]}>
-                    {remaining >= 0 ? `${remaining} left` : `${Math.abs(remaining)} over`}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.calorieTrack}>
-                <View style={[styles.calorieFill, { width: `${(calPct * 100).toFixed(0)}%`, backgroundColor: calColor }]} />
-              </View>
-            </GlassCard>
-
-            <GlassCard style={styles.macroStripCard}>
-              <View style={styles.macroStrip}>
-                <MacroStripItem label="PROTEIN" value={nutrition.proteinG ?? 0} goal={GOALS.protein} unit="g" color={OrialColors.error} />
-                <View style={styles.macroStripDivider} />
-                <MacroStripItem label="CARBS" value={nutrition.carbsG ?? 0} goal={GOALS.carbs} unit="g" color={OrialColors.cyan} />
-                <View style={styles.macroStripDivider} />
-                <MacroStripItem label="FAT" value={nutrition.fatG ?? 0} goal={GOALS.fat} unit="g" color={OrialColors.violetLight} />
-              </View>
-            </GlassCard>
-
-            {nutrition.sodiumMg ? (
-              <GlassCard style={styles.microCard}>
-                <View style={styles.microRow}>
-                  <View>
-                    <Text style={styles.microLabel}>SODIUM</Text>
-                    <Text style={[styles.microValue, { color: OrialColors.warning }]}>{nutrition.sodiumMg} mg</Text>
-                  </View>
-                  <Text style={styles.microNote}>
-                    +{(nutrition.sodiumMg / 2300).toFixed(2)} L extra water recommended
-                  </Text>
-                </View>
-              </GlassCard>
-            ) : null}
-
-            {nutrition.fiberG ? (
-              <GlassCard style={styles.microCard}>
-                <Text style={styles.microLabel}>FIBER</Text>
-                <Text style={[styles.microValue, { color: OrialColors.success }]}>{nutrition.fiberG} g</Text>
-              </GlassCard>
-            ) : null}
-          </>
+          <GlassCard style={styles.promptCard}>
+            {hasData ? (
+              <Text style={styles.promptText}>Tap below to log another meal</Text>
+            ) : (
+              <>
+                <Text style={styles.promptTitle}>Nothing logged yet</Text>
+                <Text style={styles.promptSubtitle}>
+                  Tell JARVIS what you ate — it will parse meals and log your macros automatically.
+                </Text>
+              </>
+            )}
+            <Pressable onPress={() => setShowMealInput(true)} style={styles.logMealBtn}>
+              <Text style={styles.logMealBtnText}>
+                {hasData ? 'Log another meal' : '"Breakfast: 3 eggs, toast with butter, OJ"'}
+              </Text>
+            </Pressable>
+          </GlassCard>
         )}
 
-        <Text style={styles.disclaimer}>Pull to refresh · data from Hermes sessions</Text>
+        {/* Macro Breakdown */}
+        <GlassCard style={styles.macroCard}>
+          <View style={styles.macroGrid}>
+            <MacroItem label="PROTEIN" value={macros?.proteinG ?? 0} goal={GOALS.protein} color={OrialColors.error} />
+            <MacroItem label="CARBS" value={macros?.carbsG ?? 0} goal={GOALS.carbs} color={OrialColors.cyan} />
+            <MacroItem label="FAT" value={macros?.fatG ?? 0} goal={GOALS.fat} color={OrialColors.violetLight} />
+          </View>
+        </GlassCard>
+
+        {!loading && macros?.sodiumMg && (
+          <Text style={styles.sodiumNote}>Sodium: {macros.sodiumMg}mg</Text>
+        )}
+
+        <Text style={styles.disclaimer}>Pull to refresh · data from local database</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function MacroStripItem({
-  label, value, goal, unit, color
-}: {
-  label: string; value: number; goal: number; unit: string; color: string;
-}) {
+function MacroItem({ label, value, goal, color }: { label: string; value: number; goal: number; color: string }) {
   const p = goal > 0 ? Math.min(value / goal, 1) : 0;
-  const statusColor = p >= 1 ? OrialColors.success : p >= 0.85 ? OrialColors.warning : color;
   return (
-    <View style={macroStripStyles.item}>
-      <Text style={macroStripStyles.label}>{label}</Text>
-      <Text style={[macroStripStyles.value, { color: statusColor }]}>{value}</Text>
-      <Text style={macroStripStyles.goal}>/ {goal}{unit}</Text>
-      <View style={macroStripStyles.track}>
-        <View style={[macroStripStyles.fill, { width: `${(p * 100).toFixed(0)}%`, backgroundColor: statusColor }]} />
+    <View style={styles.macroItem}>
+      <Text style={styles.macroLabel}>{label}</Text>
+      <Text style={[styles.macroValue, { color }]}>{value}</Text>
+      <Text style={styles.macroGoal}>/ {goal}g</Text>
+      <View style={styles.macroProgressTrack}>
+        <View style={[styles.macroProgressFill, { width: `${(p * 100).toFixed(0)}%`, backgroundColor: color }]} />
       </View>
     </View>
   );
 }
 
-const macroStripStyles = StyleSheet.create({
-  item: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 8,
-  },
-  label: {
-    fontSize: 9,
-    letterSpacing: 1.4,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Medium',
-    marginBottom: 8,
-  },
-  value: {
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -1,
-    fontFamily: 'Inter-Bold',
-  },
-  goal: {
-    fontSize: 11,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Regular',
-    marginTop: 3,
-    marginBottom: 12,
-  },
-  track: {
-    width: '75%',
-    height: 3,
-    backgroundColor: OrialColors.surfaceElevated,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-});
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: OrialColors.deepNavy,
-  },
+  container: { flex: 1, backgroundColor: OrialColors.deepNavy },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: OrialColors.textPrimary,
-    letterSpacing: -0.8,
-    fontFamily: 'Inter-Bold',
-  },
-  headerDate: {
-    fontSize: 10,
-    letterSpacing: 1.6,
-    color: OrialColors.textMuted,
-    marginTop: 4,
-    fontFamily: 'Inter-Medium',
-  },
-  skeletonContainer: {
-    gap: 10,
-  },
-  calorieCard: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 20,
-  },
-  calorieHeroRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 12,
-  },
-  calorieHero: {
-    fontSize: 58,
-    fontWeight: '700',
-    letterSpacing: -2.5,
-    lineHeight: 62,
-    fontFamily: 'Inter-Bold',
-  },
-  calorieSubLabel: {
-    fontSize: 9,
-    letterSpacing: 1.4,
-    color: OrialColors.textMuted,
-    marginTop: 2,
-    fontFamily: 'Inter-Medium',
-  },
-  calorieGoalBox: {
-    alignItems: 'flex-end',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: OrialColors.surfaceElevated,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: OrialColors.border,
-  },
-  calorieGoalLabel: {
-    fontSize: 8,
-    letterSpacing: 1.2,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Medium',
-  },
-  calorieGoalValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: OrialColors.textSecondary,
-    fontFamily: 'Inter-Bold',
-    letterSpacing: -0.5,
-  },
-  calorieGoalSub: {
-    fontSize: 10,
-    color: OrialColors.textMuted,
-    fontFamily: 'Inter-Regular',
-    marginTop: 2,
-  },
-  calorieTrack: {
-    height: 3,
-    backgroundColor: OrialColors.surfaceElevated,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  calorieFill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: OrialColors.cyan,
-  },
-  macroStripCard: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 0,
-  },
-  macroStrip: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  macroStripDivider: {
-    width: 1,
-    backgroundColor: OrialColors.border,
-    marginVertical: 16,
-  },
-  macroStripItem: {
-    flex: 1,
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  emptyCard: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 22,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: OrialColors.textSecondary,
-    fontFamily: 'Inter-SemiBold',
-    marginBottom: 8,
-  },
-  emptyBody: {
-    fontSize: 13,
-    color: OrialColors.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-    fontFamily: 'Inter-Regular',
-  },
-  emptyHint: {
-    marginTop: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: OrialColors.surfaceElevated,
+  refreshBtn: {
+    padding: 8,
+    backgroundColor: OrialColors.surface,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: OrialColors.borderStrong,
   },
-  emptyHintText: {
-    fontSize: 11,
-    color: OrialColors.cyan,
-    fontFamily: 'Inter-Regular',
-    fontStyle: 'italic',
-  },
-  microCard: {
+  // Calories card
+  caloriesCard: {
     marginHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 12,
     padding: 16,
   },
-  microRow: {
+  caloriesRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  microLabel: {
-    fontSize: 9,
-    letterSpacing: 1.4,
-    color: OrialColors.textMuted,
-    marginBottom: 5,
-    fontFamily: 'Inter-Medium',
-  },
-  microValue: {
-    fontSize: 26,
+  caloriesValue: {
+    fontSize: 36,
     fontWeight: '700',
-    letterSpacing: -0.8,
-    fontFamily: 'Inter-Bold',
+    color: OrialColors.textPrimary,
   },
-  microNote: {
+  caloriesLabel: {
+    fontSize: 12,
+    color: OrialColors.textMuted,
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  goalBox: {
+    backgroundColor: OrialColors.surface,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    minWidth: 90,
+  },
+  goalLabel: {
+    fontSize: 10,
+    color: OrialColors.textMuted,
+    letterSpacing: 1,
+  },
+  goalValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: OrialColors.textPrimary,
+  },
+  goalRemaining: {
     fontSize: 11,
     color: OrialColors.textMuted,
-    fontFamily: 'Inter-Regular',
-    maxWidth: '50%',
-    textAlign: 'right',
-    lineHeight: 16,
+    marginTop: 2,
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  caloriesProgress: {
+    height: '100%',
+    backgroundColor: OrialColors.warning,
+    borderRadius: 3,
+  },
+  // Prompt / meal input
+  promptCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  promptTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: OrialColors.textPrimary,
+    marginBottom: 8,
+  },
+  promptSubtitle: {
+    fontSize: 13,
+    color: OrialColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  promptText: {
+    fontSize: 13,
+    color: OrialColors.textSecondary,
+    marginBottom: 16,
+  },
+  logMealBtn: {
+    backgroundColor: OrialColors.surface,
+    borderWidth: 1,
+    borderColor: OrialColors.glassBorder,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    width: '100%',
+  },
+  logMealBtnText: {
+    color: OrialColors.cyan,
+    fontSize: 14,
+  },
+  inputCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 16,
+  },
+  mealInput: {
+    color: OrialColors.textPrimary,
+    fontSize: 15,
+    lineHeight: 22,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  inputActions: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  cancelText: {
+    color: OrialColors.textMuted,
+    fontSize: 14,
+  },
+  logBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: OrialColors.violet,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  logBtnText: {
+    color: OrialColors.textPrimary,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  // Macro breakdown
+  macroCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 16,
+  },
+  macroGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  macroItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  macroLabel: {
+    fontSize: 10,
+    color: OrialColors.textMuted,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  macroValue: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  macroGoal: {
+    fontSize: 12,
+    color: OrialColors.textMuted,
+    marginBottom: 8,
+  },
+  macroProgressTrack: {
+    width: '100%',
+    height: 4,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  macroProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  // Misc
+  sodiumNote: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: OrialColors.warning,
+    marginBottom: 8,
   },
   disclaimer: {
     textAlign: 'center',
-    color: OrialColors.textMuted,
     fontSize: 11,
-    fontFamily: 'Inter-Regular',
+    color: OrialColors.textMuted,
     marginBottom: 32,
-    marginTop: 12,
-    letterSpacing: 0.3,
   },
 });
