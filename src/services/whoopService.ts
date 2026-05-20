@@ -10,7 +10,7 @@ const STORE_KEY_EXPIRES = 'whoop_expires_at';
 
 const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const WHOOP_TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
-const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer/v2';
+const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer';
 
 const CLIENT_ID = 'WHOOP_CLIENT_ID_REMOVED';
 const CLIENT_SECRET = 'WHOOP_CLIENT_SECRET_REMOVED';
@@ -262,7 +262,7 @@ export class WhoopService {
   async fetchTodayCycle(): Promise<CycleResponse | null> {
     const today = new Date().toISOString();
     try {
-      const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/cycles', {
+      const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/v2/cycles', {
         start: today,
         limit: '1',
       });
@@ -274,7 +274,7 @@ export class WhoopService {
 
   async fetchTodayRecovery(cycleId: number): Promise<RecoveryResponse | null> {
     try {
-      return await this.fetchWhoop<RecoveryResponse>(`/cycle/${cycleId}/recovery`);
+      return await this.fetchWhoop<RecoveryResponse>(`/v2/cycle/${cycleId}/recovery`);
     } catch {
       return null;
     }
@@ -282,7 +282,7 @@ export class WhoopService {
 
   async fetchSleepForCycle(cycleId: number): Promise<SleepResponse | null> {
     try {
-      return await this.fetchWhoop<SleepResponse>(`/cycle/${cycleId}/sleep`);
+      return await this.fetchWhoop<SleepResponse>(`/v2/cycle/${cycleId}/sleep`);
     } catch {
       return null;
     }
@@ -291,7 +291,7 @@ export class WhoopService {
   async fetchTodayWorkouts(): Promise<WorkoutResponse[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const data = await this.fetchWhoop<{ records: WorkoutResponse[] }>('/activity/workout', {
+    const data = await this.fetchWhoop<{ records: WorkoutResponse[] }>('/v2/activity/workout', {
       start: today.toISOString(),
       limit: '10',
     });
@@ -300,7 +300,7 @@ export class WhoopService {
 
   async fetchBodyMeasurement(): Promise<BodyMeasurementResponse | null> {
     try {
-      return await this.fetchWhoop<BodyMeasurementResponse>('/user/measurement/body');
+      return await this.fetchWhoop<BodyMeasurementResponse>('/v2/user/measurement/body');
     } catch {
       return null;
     }
