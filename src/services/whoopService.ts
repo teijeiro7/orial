@@ -136,6 +136,27 @@ export class WhoopService {
     await SecureStore.setItemAsync(STORE_KEY_ACCESS, state.accessToken);
     await SecureStore.setItemAsync(STORE_KEY_REFRESH, state.refreshToken);
     await SecureStore.setItemAsync(STORE_KEY_EXPIRES, state.expiresAt.toISOString());
+
+    try {
+      await db.insert(whoopTokens).values({
+        id: 'default',
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        expiresAt: state.expiresAt,
+        scope: state.scope,
+        createdAt: new Date(),
+      }).onConflictDoUpdate({
+        target: whoopTokens.id,
+        set: {
+          accessToken: state.accessToken,
+          refreshToken: state.refreshToken,
+          expiresAt: state.expiresAt,
+          scope: state.scope,
+        },
+      });
+    } catch (dbError) {
+      console.error('[Whoop] Failed to backup tokens to database:', dbError);
+    }
   }
 
   private async clearAuthState(): Promise<void> {
@@ -143,6 +164,11 @@ export class WhoopService {
     await SecureStore.deleteItemAsync(STORE_KEY_ACCESS);
     await SecureStore.deleteItemAsync(STORE_KEY_REFRESH);
     await SecureStore.deleteItemAsync(STORE_KEY_EXPIRES);
+    try {
+      await db.delete(whoopTokens);
+    } catch (dbError) {
+      console.error('[Whoop] Failed to delete tokens from database:', dbError);
+    }
   }
 
   isConnected(): Promise<boolean> {
@@ -187,23 +213,6 @@ export class WhoopService {
       expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
       scope: data.scope,
     });
-
-    // Save to DB for backup
-    await db.insert(whoopTokens).values({
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
-      scope: data.scope,
-      createdAt: new Date(),
-    }).onConflictDoUpdate({
-      target: whoopTokens.id,
-      set: {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
-        scope: data.scope,
-      },
-    });
   }
 
   private async forceRefreshToken(): Promise<string> {
@@ -218,8 +227,7 @@ export class WhoopService {
         refresh_token: state.refreshToken,
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
-        scope: SCOPES,
+        scope: 'offline',
       }).toString(),
     });
 
@@ -404,7 +412,6 @@ export class WhoopService {
       // Revoke may fail if token expired, remove locally anyway
     }
     await this.clearAuthState();
-    await db.delete(whoopTokens);
   }
 }
 
