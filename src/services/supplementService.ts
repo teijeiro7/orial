@@ -146,8 +146,12 @@ export class SupplementService {
   private async scheduleReminder(supplement: Supplement): Promise<void> {
     if (!supplement.reminderTime) return;
 
-    const [hours, minutes] = supplement.reminderTime.split(':').map(Number);
-    
+    const parts = supplement.reminderTime.split(':');
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+
+    if (isNaN(hours) || isNaN(minutes)) return;
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '💊 Suplemento',
