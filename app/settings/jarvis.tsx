@@ -176,7 +176,7 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
                 Run on your VPS:{'\n'}
                 <Text style={styles.code}>cloudflared tunnel --url http://localhost:8642</Text>
                 {'\n\n'}Then paste the URL above. Use a named tunnel for a permanent URL.{'\n\n'}
-                Need to expose Hermes API Server (port 8642). Your Hermes API key is set in {'{'}'.'}env{'}'} as API_SERVER_KEY.
+                Need to expose Hermes API Server (port 8642). Your Hermes API key is set in <Text style={styles.code}>.env</Text> as API_SERVER_KEY.
               </Text>
             </GlassCard>
           </View>
