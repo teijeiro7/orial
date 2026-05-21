@@ -11,7 +11,7 @@ import type { NutritionLog } from '../../drizzle/schema';
 
 const GOALS = { calories: 2100, protein: 160, carbs: 220, fat: 70 };
 
-function SkeletonBlock({ width, height, style }: { width: number | string; height: number; style?: ViewStyle }) {
+function SkeletonBlock({ width, height, style }: { width: any; height: number; style?: ViewStyle }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     const anim = Animated.loop(
@@ -204,7 +204,7 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
                 </View>
               </View>
               <View style={styles.calorieTrack}>
-                <View style={[styles.calorieFill, { width: `${(calPct * 100).toFixed(0)}%`, backgroundColor: calColor }]} />
+                <View style={[styles.calorieFill, { width: `${(calPct * 100).toFixed(0)}%` as any, backgroundColor: calColor }]} />
               </View>
             </GlassCard>
 
@@ -262,7 +262,7 @@ function MacroStripItem({ label, value, goal, unit, color }: { label: string; va
       <Text style={[macroStripStyles.value, { color: statusColor }]}>{value}</Text>
       <Text style={macroStripStyles.goal}>/ {goal}{unit}</Text>
       <View style={macroStripStyles.track}>
-        <View style={[macroStripStyles.fill, { width: `${(p * 100).toFixed(0)}%`, backgroundColor: statusColor }]} />
+        <View style={[macroStripStyles.fill, { width: `${(p * 100).toFixed(0)}%` as any, backgroundColor: statusColor }]} />
       </View>
     </View>
   );
