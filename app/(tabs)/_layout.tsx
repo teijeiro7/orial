@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Calendar, Settings, Flame, Zap, BarChart3 } from 'lucide-react-native';
+import { Home, Calendar, Settings, Flame, BarChart3 } from 'lucide-react-native';
 import { OrialColors } from '../../src/utils/colors';
 
 export default function TabLayout() {
@@ -54,10 +54,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="jarvis"
-        options={{
-          title: 'JARVIS',
-          tabBarIcon: ({ color, size }) => <Zap size={size - 2} color={color} />,
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="settings"
