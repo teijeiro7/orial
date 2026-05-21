@@ -278,12 +278,12 @@ export default function DashboardScreen() {
         </View>
 
         {/* Creatine */}
-        {creatineLogs.length > 0 && (
-          <View style={styles.section}>
-            <Pressable onPress={() => router.push('/supplements')}>
-              <SectionLabel label="CREATINE" />
-            </Pressable>
-            {creatineLogs.map((cl) => (
+        <View style={styles.section}>
+          <Pressable onPress={() => router.push('/supplements')}>
+            <SectionLabel label="CREATINE" />
+          </Pressable>
+          {creatineLogs.length > 0 ? (
+            creatineLogs.map((cl) => (
               <GlassCard key={cl.supplementId} style={styles.hydrationCard}>
                 <View style={styles.hydrationTop}>
                   <View style={styles.hydrationLeft}>
@@ -322,9 +322,18 @@ export default function DashboardScreen() {
                   </Pressable>
                 </View>
               </GlassCard>
-            ))}
-          </View>
-        )}
+            ))
+          ) : (
+            <Pressable onPress={() => router.push('/supplements')}>
+              <GlassCard style={styles.hydrationCard}>
+                <View style={[styles.supplementRow, { justifyContent: 'center', paddingVertical: 8 }]}>
+                  <Pill size={16} color={OrialColors.success} />
+                  <Text style={[styles.nutritionEmptyText, { color: OrialColors.success }]}>Add creatine →</Text>
+                </View>
+              </GlassCard>
+            </Pressable>
+          )}
+        </View>
 
         {/* Macros */}
         <View style={styles.section}>
@@ -402,12 +411,12 @@ export default function DashboardScreen() {
         </View>
 
         {/* Supplements */}
-        {supplementLogs.length > 0 && (
-          <View style={styles.section}>
-            <Pressable onPress={() => router.push('/supplements')}>
-              <SectionLabel label="SUPPLEMENTS" />
-            </Pressable>
-            {supplementLogs.map((log) => (
+        <View style={styles.section}>
+          <Pressable onPress={() => router.push('/supplements')}>
+            <SectionLabel label="SUPPLEMENTS" />
+          </Pressable>
+          {supplementLogs.length > 0 ? (
+            supplementLogs.map((log) => (
               <GlassCard key={log.supplementId} style={styles.supplementCard}>
                 <View style={styles.supplementRow}>
                   <View style={styles.supplementInfo}>
@@ -429,9 +438,18 @@ export default function DashboardScreen() {
                   </Pressable>
                 </View>
               </GlassCard>
-            ))}
-          </View>
-        )}
+            ))
+          ) : (
+            <Pressable onPress={() => router.push('/supplements')}>
+              <GlassCard style={styles.supplementCard}>
+                <View style={[styles.supplementRow, { justifyContent: 'center', paddingVertical: 6 }]}>
+                  <Pill size={16} color={OrialColors.textMuted} />
+                  <Text style={styles.nutritionEmptyText}>Add supplements →</Text>
+                </View>
+              </GlassCard>
+            </Pressable>
+          )}
+        </View>
 
         {/* Weight Prediction */}
         {prediction && (
