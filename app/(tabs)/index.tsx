@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { Activity, Heart, Droplets, Pill, TrendingDown,
@@ -13,7 +13,7 @@ import { supplementService } from '../../src/services/supplementService';
 import { manualMetricsService } from '../../src/services/manualMetricsService';
 import { weightPredictionService } from '../../src/services/weightPredictionService';
 import { nutritionService } from '../../src/services/nutritionService';
-import type { WhoopDaily, SupplementLog, ManualMetric, WeightPrediction, NutritionLog } from '../../drizzle/schema';
+import type { WhoopDaily, ManualMetric, WeightPrediction, NutritionLog } from '../../drizzle/schema';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -34,58 +34,61 @@ export default function DashboardScreen() {
   const [whoopData, setWhoopData] = useState<WhoopDaily | null>(null);
   const [isWhoopConnected, setIsWhoopConnected] = useState(false);
   const [hydrationData, setHydrationData] = useState<{ current: number; target: number; percentage: number }>({ current: 0, target: 3, percentage: 0 });
-  const [supplementLogs, setSupplementLogs] = useState<(SupplementLog & { supplement: { name: string; dailyDoseMg: number } })[]>([]);
+  const [supplements, setSupplements] = useState<{ supplementId: string; name: string; dailyDoseMg: number; takenAt: Date | null; streak: number }[]>([]);
   const [manualData, setManualData] = useState<ManualMetric | null>(null);
   const [prediction, setPrediction] = useState<WeightPrediction | null>(null);
   const [nutritionData, setNutritionData] = useState<NutritionLog | null>(null);
-  const [creatineStreak, setCreatineStreak] = useState(0);
-  const [creatineLogs, setCreatineLogs] = useState<{ supplementId: string; name: string; dailyDoseMg: number; takenAt: Date | null }[]>([]);
   const router = useRouter();
 
   const loadAllData = async () => {
     try {
-      const [connected, whoop, hyd, supps, manual, pred, nutrition] = await Promise.all([
-        whoopService.isConnected(),
+      const today = new Date().toISOString().split('T')[0];
+      const connected = await whoopService.isConnected();
+      if (connected) await whoopService.syncToday();
+      const [whoop, hyd, allSupps, manual, pred, nutrition, todayLogs] = await Promise.all([
         whoopService.getTodayMetrics(),
         hydrationService.getProgress(),
-        supplementService.getTodayLogs(),
+        supplementService.getSupplements(),
         manualMetricsService.getTodayMetrics(),
         weightPredictionService.getTodayPrediction(),
         nutritionService.getTodayNutrition(),
+        supplementService.getTodayLogs(today),
       ]);
       setIsWhoopConnected(connected);
       setWhoopData(whoop);
       setHydrationData(hyd);
-      setSupplementLogs(supps as any);
       setManualData(manual);
       setPrediction(pred);
       setNutritionData(nutrition);
 
-      // Load creatine data
-      const allSupplements = await supplementService.getSupplements();
-      const creatineSupps = allSupplements.filter(s => s.type === 'creatine' || s.name.toLowerCase().includes('creatine'));
-      const today = new Date().toISOString().split('T')[0];
-      const todayLogs = await supplementService.getTodayLogs(today);
-      const creatineLogList: { supplementId: string; name: string; dailyDoseMg: number; takenAt: Date | null }[] = [];
-      let totalStreak = 0;
-      for (const cs of creatineSupps) {
-        const tlog = todayLogs.find(l => l.supplementId === cs.id);
-        creatineLogList.push({
-          supplementId: cs.id,
-          name: cs.name,
-          dailyDoseMg: cs.dailyDoseMg,
-          takenAt: tlog?.takenAt || null,
-        });
-        totalStreak = Math.max(totalStreak, await supplementService.getStreak(cs.id));
-      }
-      setCreatineLogs(creatineLogList);
-      setCreatineStreak(totalStreak);
+      const suppList = await Promise.all(allSupps.map(async (s) => {
+        const tlog = (todayLogs as any[]).find((l: any) => l.supplementId === s.id);
+        const streak = await supplementService.getStreak(s.id);
+        return { supplementId: s.id, name: s.name, dailyDoseMg: s.dailyDoseMg, takenAt: tlog?.takenAt || null, streak };
+      }));
+      setSupplements(suppList);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     }
   };
 
-  useEffect(() => { loadAllData(); }, []);
+  const loadWhoopData = async () => {
+    try {
+      const connected = await whoopService.isConnected();
+      if (connected) await whoopService.syncToday();
+      const whoop = await whoopService.getTodayMetrics();
+      setIsWhoopConnected(connected);
+      setWhoopData(whoop);
+    } catch (error) {
+      console.error('Error syncing WHOOP:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadAllData();
+    const interval = setInterval(loadWhoopData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -102,20 +105,13 @@ export default function DashboardScreen() {
 
   const handleLogSupplement = async (supplementId: string) => {
     const today = new Date().toISOString().split('T')[0];
-    const supplement = supplementLogs.find(s => s.supplementId === supplementId)?.supplement;
-    if (supplement) {
-      await supplementService.logSupplement(supplementId, today, supplement.dailyDoseMg);
-      const logs = await supplementService.getTodayLogs();
-      setSupplementLogs(logs as any);
+    const supp = supplements.find(s => s.supplementId === supplementId);
+    if (supp) {
+      await supplementService.logSupplement(supplementId, today, supp.dailyDoseMg);
+      setSupplements(prev => prev.map(s =>
+        s.supplementId === supplementId ? { ...s, takenAt: new Date() } : s
+      ));
     }
-  };
-
-  const handleLogCreatine = async (supplementId: string, doseMg: number) => {
-    const today = new Date().toISOString().split('T')[0];
-    await supplementService.logSupplement(supplementId, today, doseMg);
-    setCreatineLogs(prev => prev.map(cl =>
-      cl.supplementId === supplementId ? { ...cl, takenAt: new Date() } : cl
-    ));
   };
 
   const hydPct = Math.min(hydrationData.percentage, 100);
@@ -277,64 +273,6 @@ export default function DashboardScreen() {
           </Pressable>
         </View>
 
-        {/* Creatine */}
-        <View style={styles.section}>
-          <Pressable onPress={() => router.push('/supplements')}>
-            <SectionLabel label="CREATINE" />
-          </Pressable>
-          {creatineLogs.length > 0 ? (
-            creatineLogs.map((cl) => (
-              <GlassCard key={cl.supplementId} style={styles.hydrationCard}>
-                <View style={styles.hydrationTop}>
-                  <View style={styles.hydrationLeft}>
-                    <View style={[styles.supplementIconWrap, { backgroundColor: OrialColors.success + '18' }]}>
-                      <Pill size={15} color={OrialColors.success} />
-                    </View>
-                    <View>
-                      <Text style={styles.hydrationValue}>{cl.dailyDoseMg}</Text>
-                      <Text style={styles.hydrationUnit}>mg daily</Text>
-                    </View>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <View style={[styles.pctBadge, { borderColor: (creatineStreak > 0 ? OrialColors.warning : OrialColors.textMuted) + '40' }]}>
-                      <Flame size={16} color={creatineStreak > 0 ? OrialColors.warning : OrialColors.textMuted} />
-                      <Text style={[styles.pctBadgeValue, { color: creatineStreak > 0 ? OrialColors.warning : OrialColors.textMuted, fontSize: 14 }]}>
-                        {creatineStreak}
-                      </Text>
-                      <Text style={styles.pctBadgeLabel}>STREAK</Text>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.hydrationActions}>
-                  <Pressable
-                    style={[styles.waterBtn, !cl.takenAt && { borderColor: OrialColors.success + '45', backgroundColor: OrialColors.success + '18' }, cl.takenAt && { borderColor: OrialColors.textMuted + '35', backgroundColor: OrialColors.surfaceElevated }]}
-                    onPress={() => !cl.takenAt && handleLogCreatine(cl.supplementId, cl.dailyDoseMg)}
-                  >
-                    <Text style={[styles.waterBtnText, !cl.takenAt && { color: OrialColors.success }, cl.takenAt && { color: OrialColors.textSecondary }]}>
-                      {cl.takenAt ? '✓ Taken' : 'Take now'}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.waterBtn, styles.waterBtnSecondary]}
-                    onPress={() => router.push('/supplements')}
-                  >
-                    <Text style={[styles.waterBtnText, styles.waterBtnSecondaryText]}>Details →</Text>
-                  </Pressable>
-                </View>
-              </GlassCard>
-            ))
-          ) : (
-            <Pressable onPress={() => router.push('/supplements')}>
-              <GlassCard style={styles.hydrationCard}>
-                <View style={[styles.supplementRow, { justifyContent: 'center', paddingVertical: 8 }]}>
-                  <Pill size={16} color={OrialColors.success} />
-                  <Text style={[styles.nutritionEmptyText, { color: OrialColors.success }]}>Add creatine →</Text>
-                </View>
-              </GlassCard>
-            </Pressable>
-          )}
-        </View>
-
         {/* Macros */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
@@ -415,29 +353,39 @@ export default function DashboardScreen() {
           <Pressable onPress={() => router.push('/supplements')}>
             <SectionLabel label="SUPPLEMENTS" />
           </Pressable>
-          {supplementLogs.length > 0 ? (
-            supplementLogs.map((log) => (
-              <GlassCard key={log.supplementId} style={styles.supplementCard}>
+          {supplements.length > 0 ? (
+            supplements.map((s) => (
+              <Pressable key={s.supplementId} onPress={() => router.push('/supplements')}>
+              <GlassCard style={styles.supplementCard}>
                 <View style={styles.supplementRow}>
                   <View style={styles.supplementInfo}>
                     <View style={styles.supplementIconWrap}>
                       <Pill size={15} color={OrialColors.violetLight} />
                     </View>
                     <View>
-                      <Text style={styles.supplementName}>{log.supplement?.name || 'Supplement'}</Text>
-                      <Text style={styles.supplementDose}>{log.supplement?.dailyDoseMg}mg daily</Text>
+                      <Text style={styles.supplementName}>{s.name}</Text>
+                      <Text style={styles.supplementDose}>{s.dailyDoseMg}mg daily</Text>
                     </View>
                   </View>
-                  <Pressable
-                    style={[styles.supplementButton, log.takenAt ? styles.supplementTaken : styles.supplementPending]}
-                    onPress={() => !log.takenAt && handleLogSupplement(log.supplementId)}
-                  >
-                    <Text style={[styles.supplementButtonText, log.takenAt && styles.supplementTakenText]}>
-                      {log.takenAt ? '✓ Taken' : 'Take'}
-                    </Text>
-                  </Pressable>
+                  <View style={styles.supplementRight}>
+                    <View style={styles.supplementStreakBadge}>
+                      <Flame size={11} color={s.streak > 0 ? OrialColors.warning : OrialColors.textMuted} />
+                      <Text style={[styles.supplementStreakText, { color: s.streak > 0 ? OrialColors.warning : OrialColors.textMuted }]}>
+                        {s.streak}d
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={[styles.supplementButton, s.takenAt ? styles.supplementTaken : styles.supplementPending]}
+                      onPress={(e) => { e.stopPropagation(); if (!s.takenAt) handleLogSupplement(s.supplementId); }}
+                    >
+                      <Text style={[styles.supplementButtonText, s.takenAt && styles.supplementTakenText]}>
+                        {s.takenAt ? '✓' : 'Take'}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
               </GlassCard>
+              </Pressable>
             ))
           ) : (
             <Pressable onPress={() => router.push('/supplements')}>
@@ -609,7 +557,10 @@ const styles = StyleSheet.create({
   supplementIconWrap: { width: 34, height: 34, borderRadius: 10, backgroundColor: OrialColors.violet + '18', alignItems: 'center', justifyContent: 'center' },
   supplementName: { fontSize: 14, fontWeight: '600', color: OrialColors.textPrimary, fontFamily: 'Inter-SemiBold' },
   supplementDose: { fontSize: 11, color: OrialColors.textMuted, marginTop: 2, fontFamily: 'Inter-Regular' },
-  supplementButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, minWidth: 72, alignItems: 'center', borderWidth: 1 },
+  supplementRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  supplementStreakBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: OrialColors.surfaceElevated, borderWidth: 1, borderColor: OrialColors.border },
+  supplementStreakText: { fontSize: 11, fontWeight: '600', fontFamily: 'Inter-SemiBold' },
+  supplementButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, minWidth: 56, alignItems: 'center', borderWidth: 1 },
   supplementPending: { backgroundColor: OrialColors.violet + '20', borderColor: OrialColors.violet + '45' },
   supplementTaken: { backgroundColor: OrialColors.success + '12', borderColor: OrialColors.success + '35' },
   supplementButtonText: { color: OrialColors.violetLight, fontWeight: '600', fontSize: 12, fontFamily: 'Inter-SemiBold' },
