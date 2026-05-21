@@ -31,6 +31,15 @@ export class SupplementService {
     return result[0];
   }
 
+  async updateSupplement(id: string, data: Partial<Pick<Supplement, 'name' | 'dailyDoseMg' | 'reminderTime' | 'type'>>): Promise<void> {
+    await db.update(supplements).set(data).where(eq(supplements.id, id));
+    if (data.reminderTime !== undefined) {
+      await this.cancelReminders(id);
+      const result = await db.select().from(supplements).where(eq(supplements.id, id)).limit(1);
+      if (result[0]?.reminderTime) await this.scheduleReminder(result[0]);
+    }
+  }
+
   async getSupplements(): Promise<Supplement[]> {
     return db.select().from(supplements).where(eq(supplements.isActive, true));
   }
