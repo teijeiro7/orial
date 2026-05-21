@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Switch } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { Pill, Plus, Clock, Flame, ChevronLeft, TrendingUp, CalendarDays, CheckCircle2, XCircle, Info } from 'lucide-react-native';
+import { Pill, Plus, Clock, Flame, ChevronLeft, TrendingUp, CalendarDays, CheckCircle2, XCircle, Info, Pencil, Check, X } from 'lucide-react-native';
 import { GlassCard } from '@/src/components/GlassCard';
 import { OrialColors } from '@/src/utils/colors';
 import { supplementService } from '@/src/services/supplementService';
@@ -25,6 +25,8 @@ export default function SupplementsScreen() {
     reminderTime: '09:00',
     type: 'daily',
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', dailyDoseMg: '', reminderTime: '' });
 
   const loadSupplements = useCallback(async () => {
     const supps = await supplementService.getSupplements();
@@ -76,6 +78,22 @@ export default function SupplementsScreen() {
   const handleLogToday = async (supplement: Supplement) => {
     const today = new Date().toISOString().split('T')[0];
     await supplementService.logSupplement(supplement.id, today, supplement.dailyDoseMg);
+    loadSupplements();
+  };
+
+  const handleStartEdit = (supplement: Supplement) => {
+    setEditingId(supplement.id);
+    setEditForm({ name: supplement.name, dailyDoseMg: String(supplement.dailyDoseMg), reminderTime: supplement.reminderTime || '' });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editForm.name || !editForm.dailyDoseMg) return;
+    await supplementService.updateSupplement(editingId, {
+      name: editForm.name,
+      dailyDoseMg: parseInt(editForm.dailyDoseMg),
+      reminderTime: editForm.reminderTime || undefined,
+    });
+    setEditingId(null);
     loadSupplements();
   };
 
@@ -168,6 +186,7 @@ export default function SupplementsScreen() {
   const renderSupplementDetail = (supplement: Supplement) => {
     const streak = streaks[supplement.id] || 0;
     const isCreatine = supplement.name.toLowerCase().includes('creatine') || supplement.type === 'creatine';
+    const isEditing = editingId === supplement.id;
 
     return (
       <GlassCard key={supplement.id} style={styles.detailCard}>
@@ -182,15 +201,52 @@ export default function SupplementsScreen() {
               <Text style={styles.detailDose}>{supplement.dailyDoseMg}mg daily</Text>
             </View>
           </View>
-          <Pressable
-            style={[styles.takeButton, todayLogs[supplement.id] ? styles.takeButtonDone : styles.takeButtonPending]}
-            onPress={() => !todayLogs[supplement.id] && handleLogToday(supplement)}
-          >
-            <Text style={[styles.takeButtonText, todayLogs[supplement.id] && styles.takeButtonTextDone]}>
-              {todayLogs[supplement.id] ? '✓ Done' : 'Take now'}
-            </Text>
-          </Pressable>
+          <View style={styles.detailHeaderActions}>
+            <Pressable style={styles.editIconBtn} onPress={() => isEditing ? setEditingId(null) : handleStartEdit(supplement)}>
+              {isEditing ? <X size={16} color={OrialColors.textMuted} /> : <Pencil size={16} color={OrialColors.textMuted} />}
+            </Pressable>
+            <Pressable
+              style={[styles.takeButton, todayLogs[supplement.id] ? styles.takeButtonDone : styles.takeButtonPending]}
+              onPress={() => !todayLogs[supplement.id] && handleLogToday(supplement)}
+            >
+              <Text style={[styles.takeButtonText, todayLogs[supplement.id] && styles.takeButtonTextDone]}>
+                {todayLogs[supplement.id] ? '✓ Done' : 'Take now'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
+
+        {/* Edit form */}
+        {isEditing && (
+          <View style={styles.editForm}>
+            <TextInput
+              style={styles.editInput}
+              value={editForm.name}
+              onChangeText={(t) => setEditForm({ ...editForm, name: t })}
+              placeholder="Name"
+              placeholderTextColor={OrialColors.textMuted}
+            />
+            <TextInput
+              style={styles.editInput}
+              value={editForm.dailyDoseMg}
+              onChangeText={(t) => setEditForm({ ...editForm, dailyDoseMg: t })}
+              placeholder="Dose (mg)"
+              placeholderTextColor={OrialColors.textMuted}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.editInput}
+              value={editForm.reminderTime}
+              onChangeText={(t) => setEditForm({ ...editForm, reminderTime: t })}
+              placeholder="Reminder (HH:MM)"
+              placeholderTextColor={OrialColors.textMuted}
+            />
+            <Pressable style={styles.saveEditBtn} onPress={handleSaveEdit}>
+              <Check size={14} color={OrialColors.deepNavy} />
+              <Text style={styles.saveEditText}>Save</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Streak */}
         <View style={styles.streakRow}>
@@ -366,6 +422,12 @@ const styles = StyleSheet.create({
   detailName: { fontSize: 18, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold' },
   detailDose: { fontSize: 12, color: OrialColors.textMuted, marginTop: 2, fontFamily: 'Inter-Regular' },
 
+  detailHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  editIconBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: OrialColors.surfaceElevated, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: OrialColors.border },
+  editForm: { marginBottom: 12, gap: 8 },
+  editInput: { backgroundColor: OrialColors.surface, borderRadius: 10, padding: 12, color: OrialColors.textPrimary, fontSize: 14, fontFamily: 'Inter-Regular', borderWidth: 1, borderColor: OrialColors.border },
+  saveEditBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: OrialColors.violet, borderRadius: 10, padding: 12 },
+  saveEditText: { color: OrialColors.textPrimary, fontWeight: '600', fontSize: 14, fontFamily: 'Inter-SemiBold' },
   takeButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, minWidth: 90, alignItems: 'center', borderWidth: 1 },
   takeButtonPending: { backgroundColor: OrialColors.violet + '20', borderColor: OrialColors.violet + '45' },
   takeButtonDone: { backgroundColor: OrialColors.success + '12', borderColor: OrialColors.success + '35' },
