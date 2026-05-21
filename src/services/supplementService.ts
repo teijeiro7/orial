@@ -93,6 +93,22 @@ export class SupplementService {
     });
   }
 
+  async getHistory(supplementId: string, days: number = 14): Promise<{ date: string; doseMg: number; takenAt: Date | null; skipped: boolean }[]> {
+    const result = await db
+      .select()
+      .from(supplementLogs)
+      .where(eq(supplementLogs.supplementId, supplementId))
+      .orderBy(desc(supplementLogs.date))
+      .limit(days);
+
+    return result.map(r => ({
+      date: r.date,
+      doseMg: r.doseMg,
+      takenAt: r.takenAt,
+      skipped: r.skipped,
+    }));
+  }
+
   async getStreak(supplementId: string): Promise<number> {
     const logs = await db
       .select()
