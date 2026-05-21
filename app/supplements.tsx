@@ -16,7 +16,7 @@ export default function SupplementsScreen() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showCreatineInfo, setShowCreatineInfo] = useState(false);
   const [streaks, setStreaks] = useState<Record<string, number>>({});
-  const [history, setHistory] = useState<Record<string, { date: string; takenAt: Date | null; skipped: boolean }[]>>({});
+  const [history, setHistory] = useState<Record<string, { date: string; doseMg: number; takenAt: Date | null; skipped: boolean }[]>>({});
   const [selectedSupplement, setSelectedSupplement] = useState<string | null>(null);
   const [todayLogs, setTodayLogs] = useState<Record<string, boolean>>({});
   const [newSupplement, setNewSupplement] = useState({
@@ -48,7 +48,7 @@ export default function SupplementsScreen() {
     }
     setStreaks(streakMap);
 
-    const historyMap: Record<string, { date: string; takenAt: Date | null; skipped: boolean }[]> = {};
+    const historyMap: Record<string, { date: string; doseMg: number; takenAt: Date | null; skipped: boolean }[]> = {};
     for (const s of supps) {
       historyMap[s.id] = await supplementService.getHistory(s.id, 14);
     }
@@ -305,7 +305,7 @@ export default function SupplementsScreen() {
                       {entry.date.split('-').slice(1).join('/')}
                     </Text>
                     <Text style={[styles.historyTableCell, { flex: 1 }]}>{entry.doseMg}mg</Text>
-                    <View style={[styles.historyTableCell, styles.historyTableStatus, { flex: 0.8 }]}>
+                    <View style={[styles.historyTableStatus, { flex: 0.8 }]}>
                       {entry.skipped ? (
                         <>
                           <XCircle size={12} color={OrialColors.error} />
