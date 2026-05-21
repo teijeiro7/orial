@@ -32,6 +32,7 @@ function recoveryColor(score: number | null | undefined): string {
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [whoopData, setWhoopData] = useState<WhoopDaily | null>(null);
+  const [isWhoopConnected, setIsWhoopConnected] = useState(false);
   const [hydrationData, setHydrationData] = useState<{ current: number; target: number; percentage: number }>({ current: 0, target: 3, percentage: 0 });
   const [supplementLogs, setSupplementLogs] = useState<(SupplementLog & { supplement: { name: string; dailyDoseMg: number } })[]>([]);
   const [manualData, setManualData] = useState<ManualMetric | null>(null);
@@ -43,7 +44,8 @@ export default function DashboardScreen() {
 
   const loadAllData = async () => {
     try {
-      const [whoop, hyd, supps, manual, pred, nutrition] = await Promise.all([
+      const [connected, whoop, hyd, supps, manual, pred, nutrition] = await Promise.all([
+        whoopService.isConnected(),
         whoopService.getTodayMetrics(),
         hydrationService.getProgress(),
         supplementService.getTodayLogs(),
@@ -51,6 +53,7 @@ export default function DashboardScreen() {
         weightPredictionService.getTodayPrediction(),
         nutritionService.getTodayNutrition(),
       ]);
+      setIsWhoopConnected(connected);
       setWhoopData(whoop);
       setHydrationData(hyd);
       setSupplementLogs(supps as any);
@@ -59,8 +62,8 @@ export default function DashboardScreen() {
       setNutritionData(nutrition);
 
       // Load creatine data
-      const supps = await supplementService.getSupplements();
-      const creatineSupps = supps.filter(s => s.type === 'creatine' || s.name.toLowerCase().includes('creatine'));
+      const allSupplements = await supplementService.getSupplements();
+      const creatineSupps = allSupplements.filter(s => s.type === 'creatine' || s.name.toLowerCase().includes('creatine'));
       const today = new Date().toISOString().split('T')[0];
       const todayLogs = await supplementService.getTodayLogs(today);
       const creatineLogList: { supplementId: string; name: string; dailyDoseMg: number; takenAt: Date | null }[] = [];
@@ -132,9 +135,25 @@ export default function DashboardScreen() {
         </View>
 
         {/* WHOOP */}
-        {whoopData && (
-          <View style={styles.section}>
-            <SectionLabel label="WHOOP" />
+        <View style={styles.section}>
+          <SectionLabel label="WHOOP" />
+          {!isWhoopConnected ? (
+            <Pressable onPress={() => router.push('/forge')}>
+              <GlassCard style={styles.whoopDisconnectedCard} accentColor={OrialColors.warning}>
+                <View style={styles.whoopDisconnectedRow}>
+                  <View style={styles.warningIconCircle}>
+                    <ZapOff size={20} color={OrialColors.warning} />
+                  </View>
+                  <View style={styles.whoopDisconnectedTextContainer}>
+                    <Text style={styles.whoopDisconnectedTitle}>Connection Required</Text>
+                    <Text style={styles.whoopDisconnectedSubtitle}>
+                      WHOOP is disconnected. Tap here to link your device and sync your strain, recovery, and sleep metrics.
+                    </Text>
+                  </View>
+                </View>
+              </GlassCard>
+            </Pressable>
+          ) : whoopData ? (
             <Pressable onPress={() => router.push('/forge')}>
               <View style={styles.whoopGrid}>
                 <View style={styles.whoopRow}>
@@ -189,8 +208,24 @@ export default function DashboardScreen() {
                 </View>
               </View>
             </Pressable>
-          </View>
-        )}
+          ) : (
+            <Pressable onPress={() => router.push('/forge')}>
+              <GlassCard style={styles.whoopDisconnectedCard} accentColor={OrialColors.violetLight}>
+                <View style={styles.whoopDisconnectedRow}>
+                  <View style={[styles.warningIconCircle, { backgroundColor: OrialColors.violet + '15' }]}>
+                    <Zap size={20} color={OrialColors.violetLight} />
+                  </View>
+                  <View style={styles.whoopDisconnectedTextContainer}>
+                    <Text style={styles.whoopDisconnectedTitle}>Connected · No Sync</Text>
+                    <Text style={styles.whoopDisconnectedSubtitle}>
+                      Connected but no data loaded for today. Pull to refresh or tap to manage your health metrics.
+                    </Text>
+                  </View>
+                </View>
+              </GlassCard>
+            </Pressable>
+          )}
+        </View>
 
         {/* Hydration */}
         <View style={styles.section}>
@@ -315,7 +350,7 @@ export default function DashboardScreen() {
                   </View>
                   <View style={styles.calorieTrack}>
                     <View style={[styles.calorieFill, {
-                      width: `${Math.min(((nutritionData.totalCalories ?? 0) / 2100) * 100, 100).toFixed(0)}%`,
+                      width: `${Math.min(((nutritionData.totalCalories ?? 0) / 2100) * 100, 100).toFixed(0)}%` as any,
                       backgroundColor: (nutritionData.totalCalories ?? 0) >= 2100 ? OrialColors.success : OrialColors.warning,
                     }]} />
                   </View>
@@ -486,7 +521,7 @@ function MacroMiniBar({ label, current, goal, color }: { label: string; current:
     <View style={styles.macroMiniRow}>
       <Text style={styles.macroMiniLabel}>{label}</Text>
       <View style={styles.macroMiniTrack}>
-        <View style={[styles.macroMiniFill, { width: `${(pct * 100).toFixed(0)}%`, backgroundColor: color }]} />
+        <View style={[styles.macroMiniFill, { width: `${(pct * 100).toFixed(0)}%` as any, backgroundColor: color }]} />
       </View>
       <Text style={styles.macroMiniValue}>{current}g/{goal}g</Text>
     </View>
@@ -574,4 +609,10 @@ const styles = StyleSheet.create({
   rangeText: { fontSize: 10, color: OrialColors.textMuted, fontFamily: 'Inter-Regular' },
   factorsContainer: { marginTop: 6, gap: 3 },
   factorItem: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Regular', lineHeight: 18 },
+  whoopDisconnectedCard: { marginHorizontal: 16, padding: 16 },
+  whoopDisconnectedRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  warningIconCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: OrialColors.warning + '15', alignItems: 'center', justifyContent: 'center' },
+  whoopDisconnectedTextContainer: { flex: 1, gap: 4 },
+  whoopDisconnectedTitle: { fontSize: 14, fontWeight: '600', color: OrialColors.textPrimary, fontFamily: 'Inter-SemiBold' },
+  whoopDisconnectedSubtitle: { fontSize: 11, color: OrialColors.textMuted, lineHeight: 16, fontFamily: 'Inter-Regular' },
 });
