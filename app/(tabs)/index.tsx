@@ -3,10 +3,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
-import {
-  Activity, Heart, Droplets, Pill, TrendingDown,
-  Flame, Moon, Zap,
-} from 'lucide-react-native';
+import { Activity, Heart, Droplets, Pill, TrendingDown,
+  Flame, Moon, Zap, ZapOff } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
 import { OrialColors } from '../../src/utils/colors';
 import { whoopService } from '../../src/services/whoopService';
@@ -39,6 +37,8 @@ export default function DashboardScreen() {
   const [manualData, setManualData] = useState<ManualMetric | null>(null);
   const [prediction, setPrediction] = useState<WeightPrediction | null>(null);
   const [nutritionData, setNutritionData] = useState<NutritionLog | null>(null);
+  const [creatineStreak, setCreatineStreak] = useState(0);
+  const [creatineLogs, setCreatineLogs] = useState<{ supplementId: string; name: string; dailyDoseMg: number; takenAt: Date | null }[]>([]);
   const router = useRouter();
 
   const loadAllData = async () => {
@@ -57,6 +57,26 @@ export default function DashboardScreen() {
       setManualData(manual);
       setPrediction(pred);
       setNutritionData(nutrition);
+
+      // Load creatine data
+      const supps = await supplementService.getSupplements();
+      const creatineSupps = supps.filter(s => s.type === 'creatine' || s.name.toLowerCase().includes('creatine'));
+      const today = new Date().toISOString().split('T')[0];
+      const todayLogs = await supplementService.getTodayLogs(today);
+      const creatineLogList: { supplementId: string; name: string; dailyDoseMg: number; takenAt: Date | null }[] = [];
+      let totalStreak = 0;
+      for (const cs of creatineSupps) {
+        const tlog = todayLogs.find(l => l.supplementId === cs.id);
+        creatineLogList.push({
+          supplementId: cs.id,
+          name: cs.name,
+          dailyDoseMg: cs.dailyDoseMg,
+          takenAt: tlog?.takenAt || null,
+        });
+        totalStreak = Math.max(totalStreak, await supplementService.getStreak(cs.id));
+      }
+      setCreatineLogs(creatineLogList);
+      setCreatineStreak(totalStreak);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     }
@@ -85,6 +105,14 @@ export default function DashboardScreen() {
       const logs = await supplementService.getTodayLogs();
       setSupplementLogs(logs as any);
     }
+  };
+
+  const handleLogCreatine = async (supplementId: string, doseMg: number) => {
+    const today = new Date().toISOString().split('T')[0];
+    await supplementService.logSupplement(supplementId, today, doseMg);
+    setCreatineLogs(prev => prev.map(cl =>
+      cl.supplementId === supplementId ? { ...cl, takenAt: new Date() } : cl
+    ));
   };
 
   const hydPct = Math.min(hydrationData.percentage, 100);
@@ -213,6 +241,55 @@ export default function DashboardScreen() {
             </GlassCard>
           </Pressable>
         </View>
+
+        {/* Creatine */}
+        {creatineLogs.length > 0 && (
+          <View style={styles.section}>
+            <Pressable onPress={() => router.push('/supplements')}>
+              <SectionLabel label="CREATINE" />
+            </Pressable>
+            {creatineLogs.map((cl) => (
+              <GlassCard key={cl.supplementId} style={styles.hydrationCard}>
+                <View style={styles.hydrationTop}>
+                  <View style={styles.hydrationLeft}>
+                    <View style={[styles.supplementIconWrap, { backgroundColor: OrialColors.success + '18' }]}>
+                      <Pill size={15} color={OrialColors.success} />
+                    </View>
+                    <View>
+                      <Text style={styles.hydrationValue}>{cl.dailyDoseMg}</Text>
+                      <Text style={styles.hydrationUnit}>mg daily</Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <View style={[styles.pctBadge, { borderColor: (creatineStreak > 0 ? OrialColors.warning : OrialColors.textMuted) + '40' }]}>
+                      <Flame size={16} color={creatineStreak > 0 ? OrialColors.warning : OrialColors.textMuted} />
+                      <Text style={[styles.pctBadgeValue, { color: creatineStreak > 0 ? OrialColors.warning : OrialColors.textMuted, fontSize: 14 }]}>
+                        {creatineStreak}
+                      </Text>
+                      <Text style={styles.pctBadgeLabel}>STREAK</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.hydrationActions}>
+                  <Pressable
+                    style={[styles.waterBtn, !cl.takenAt && { borderColor: OrialColors.success + '45', backgroundColor: OrialColors.success + '18' }, cl.takenAt && { borderColor: OrialColors.textMuted + '35', backgroundColor: OrialColors.surfaceElevated }]}
+                    onPress={() => !cl.takenAt && handleLogCreatine(cl.supplementId, cl.dailyDoseMg)}
+                  >
+                    <Text style={[styles.waterBtnText, !cl.takenAt && { color: OrialColors.success }, cl.takenAt && { color: OrialColors.textSecondary }]}>
+                      {cl.takenAt ? '✓ Taken' : 'Take now'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.waterBtn, styles.waterBtnSecondary]}
+                    onPress={() => router.push('/supplements')}
+                  >
+                    <Text style={[styles.waterBtnText, styles.waterBtnSecondaryText]}>Details →</Text>
+                  </Pressable>
+                </View>
+              </GlassCard>
+            ))}
+          </View>
+        )}
 
         {/* Macros */}
         <View style={styles.section}>
