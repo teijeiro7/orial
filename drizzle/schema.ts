@@ -225,3 +225,147 @@ export type WeightPrediction = typeof weightPredictions.$inferSelect;
 export type NewWeightPrediction = typeof weightPredictions.$inferInsert;
 export type NutritionLog = typeof nutritionLogs.$inferSelect;
 export type NewNutritionLog = typeof nutritionLogs.$inferInsert;
+
+// ── Tasks (Day Tracker + To-Do) ──────────────────────────────────────────────
+
+export const tasks = sqliteTable('tasks', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  date: text('date').notNull(), // YYYY-MM-DD
+  scheduledHour: integer('scheduled_hour'), // 0-23, null = unscheduled
+  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
+  priority: integer('priority').notNull().default(0), // 0=normal 1=high
+  pushedFrom: text('pushed_from'), // original date if migrated via push-to-tomorrow
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// ── Gym (Progressive Overload) ───────────────────────────────────────────────
+
+export const gymRoutines = sqliteTable('gym_routines', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(), // e.g. "Push", "Pull", "Legs"
+  emoji: text('emoji').notNull().default('💪'),
+  days: text('days').notNull().default('[]'), // JSON [1,2,3,4,5,6,7] (1=Mon)
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const gymExercises = sqliteTable('gym_exercises', {
+  id: text('id').primaryKey(),
+  routineId: text('routine_id').notNull().references(() => gymRoutines.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  targetSets: integer('target_sets').notNull().default(3),
+  targetRepsMin: integer('target_reps_min').notNull().default(8),
+  targetRepsMax: integer('target_reps_max').notNull().default(12),
+  currentWeightKg: real('current_weight_kg').notNull().default(0),
+  incrementKg: real('increment_kg').notNull().default(2.5),
+  orderIndex: integer('order_index').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const gymSessions = sqliteTable('gym_sessions', {
+  id: text('id').primaryKey(),
+  routineId: text('routine_id').notNull().references(() => gymRoutines.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // YYYY-MM-DD
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const gymSets = sqliteTable('gym_sets', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull().references(() => gymSessions.id, { onDelete: 'cascade' }),
+  exerciseId: text('exercise_id').notNull().references(() => gymExercises.id, { onDelete: 'cascade' }),
+  setNumber: integer('set_number').notNull(),
+  reps: integer('reps').notNull(),
+  weightKg: real('weight_kg').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// ── Finance ──────────────────────────────────────────────────────────────────
+
+export const financeAccounts = sqliteTable('finance_accounts', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  type: text('type').notNull().default('bank'), // bank | crypto | stocks | real_estate | other
+  balanceAmount: real('balance_amount').notNull().default(0),
+  currency: text('currency').notNull().default('EUR'),
+  icon: text('icon').notNull().default('💳'),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const financeSubscriptions = sqliteTable('finance_subscriptions', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  amount: real('amount').notNull(),
+  currency: text('currency').notNull().default('EUR'),
+  billingDay: integer('billing_day').notNull(), // 1-31
+  billingCycle: text('billing_cycle').notNull().default('monthly'), // monthly | yearly
+  accountId: text('account_id').references(() => financeAccounts.id, { onDelete: 'set null' }),
+  category: text('category').notNull().default('other'), // streaming | software | fitness | other
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  autoDeduct: integer('auto_deduct', { mode: 'boolean' }).notNull().default(false),
+  lastBilledDate: text('last_billed_date'), // YYYY-MM-DD
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const financeOrders = sqliteTable('finance_orders', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  amount: real('amount').notNull(),
+  currency: text('currency').notNull().default('EUR'),
+  accountId: text('account_id').references(() => financeAccounts.id, { onDelete: 'set null' }),
+  orderDate: text('order_date').notNull(), // YYYY-MM-DD
+  estimatedDeliveryDate: text('estimated_delivery_date'), // YYYY-MM-DD
+  deliveredAt: integer('delivered_at', { mode: 'timestamp' }),
+  status: text('status').notNull().default('pending'), // pending | shipped | delivered
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const financeWishlist = sqliteTable('finance_wishlist', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  price: real('price').notNull(),
+  currency: text('currency').notNull().default('EUR'),
+  url: text('url'),
+  notes: text('notes'),
+  priority: integer('priority').notNull().default(0), // 0=normal 1=high
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// ── Hydration Profile (dynamic calculator) ───────────────────────────────────
+
+export const hydrationProfile = sqliteTable('hydration_profile', {
+  id: text('id').primaryKey().default('default'),
+  weightKg: real('weight_kg').notNull().default(70),
+  ageYears: integer('age_years').notNull().default(25),
+  gender: text('gender').notNull().default('male'), // male | female
+  trainingHoursPerDay: real('training_hours_per_day').notNull().default(1),
+  caffeineMgPerDay: integer('caffeine_mg_per_day').notNull().default(0),
+  stimulantMeds: integer('stimulant_meds', { mode: 'boolean' }).notNull().default(false),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// ── New types ────────────────────────────────────────────────────────────────
+
+export type Task = typeof tasks.$inferSelect;
+export type NewTask = typeof tasks.$inferInsert;
+export type GymRoutine = typeof gymRoutines.$inferSelect;
+export type NewGymRoutine = typeof gymRoutines.$inferInsert;
+export type GymExercise = typeof gymExercises.$inferSelect;
+export type NewGymExercise = typeof gymExercises.$inferInsert;
+export type GymSession = typeof gymSessions.$inferSelect;
+export type NewGymSession = typeof gymSessions.$inferInsert;
+export type GymSet = typeof gymSets.$inferSelect;
+export type NewGymSet = typeof gymSets.$inferInsert;
+export type FinanceAccount = typeof financeAccounts.$inferSelect;
+export type NewFinanceAccount = typeof financeAccounts.$inferInsert;
+export type FinanceSubscription = typeof financeSubscriptions.$inferSelect;
+export type NewFinanceSubscription = typeof financeSubscriptions.$inferInsert;
+export type FinanceOrder = typeof financeOrders.$inferSelect;
+export type NewFinanceOrder = typeof financeOrders.$inferInsert;
+export type FinanceWishlistItem = typeof financeWishlist.$inferSelect;
+export type NewFinanceWishlistItem = typeof financeWishlist.$inferInsert;
+export type HydrationProfile = typeof hydrationProfile.$inferSelect;
+export type NewHydrationProfile = typeof hydrationProfile.$inferInsert;
