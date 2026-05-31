@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Calendar, Settings, Flame, BarChart3 } from 'lucide-react-native';
+import { Home, Calendar, Settings, Dumbbell, Wallet } from 'lucide-react-native';
 import { OrialColors } from '../../src/utils/colors';
 
 export default function TabLayout() {
@@ -37,24 +37,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="forge"
+        name="gym"
         options={{
-          href: null,
-          title: 'Forge',
-          tabBarIcon: ({ color, size }) => <Flame size={size - 2} color={color} />,
+          title: 'Gym',
+          tabBarIcon: ({ color, size }) => <Dumbbell size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="macros"
+        name="finance"
         options={{
-          href: null,
-          title: 'Macros',
-          tabBarIcon: ({ color, size }) => <BarChart3 size={size - 2} color={color} />,
+          title: 'Finance',
+          tabBarIcon: ({ color, size }) => <Wallet size={size - 2} color={color} />,
         }}
-      />
-      <Tabs.Screen
-        name="jarvis"
-        options={{ href: null }}
       />
       <Tabs.Screen
         name="settings"
@@ -63,6 +57,9 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <Settings size={size - 2} color={color} />,
         }}
       />
+      <Tabs.Screen name="forge" options={{ href: null }} />
+      <Tabs.Screen name="macros" options={{ href: null }} />
+      <Tabs.Screen name="jarvis" options={{ href: null }} />
     </Tabs>
   );
 }
