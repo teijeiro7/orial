@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { Activity, Heart, Droplets, Pill, TrendingDown,
-  Flame, Moon, Zap, ZapOff } from 'lucide-react-native';
+  Flame, Moon, Zap, ZapOff, Brain } from 'lucide-react-native';
+import { calculatePeakState } from '../../src/services/peakStateService';
+import type { PeakStateResult } from '../../src/services/peakStateService';
 import { GlassCard } from '../../src/components/GlassCard';
 import { OrialColors } from '../../src/utils/colors';
 import { whoopService } from '../../src/services/whoopService';
@@ -38,6 +40,7 @@ export default function DashboardScreen() {
   const [manualData, setManualData] = useState<ManualMetric | null>(null);
   const [prediction, setPrediction] = useState<WeightPrediction | null>(null);
   const [nutritionData, setNutritionData] = useState<NutritionLog | null>(null);
+  const [peakState, setPeakState] = useState<PeakStateResult | null>(null);
   const router = useRouter();
 
   const loadAllData = async () => {
@@ -56,6 +59,7 @@ export default function DashboardScreen() {
       ]);
       setIsWhoopConnected(connected);
       setWhoopData(whoop);
+      if (whoop) setPeakState(calculatePeakState(whoop));
       setHydrationData(hyd);
       setManualData(manual);
       setPrediction(pred);
@@ -222,6 +226,33 @@ export default function DashboardScreen() {
             </Pressable>
           )}
         </View>
+
+        {/* Peak State */}
+        {peakState && (
+          <View style={styles.section}>
+            <SectionLabel label="PEAK STATE" />
+            <GlassCard style={styles.peakCard} accentColor={OrialColors.violetLight}>
+              <View style={styles.peakRow}>
+                <Brain size={18} color={OrialColors.violetLight} />
+                <View style={styles.peakInfo}>
+                  <Text style={styles.peakWindow}>{peakState.label}</Text>
+                  <Text style={styles.peakSubtitle}>Cognitive peak window</Text>
+                </View>
+                <View style={[
+                  styles.peakScoreBadge,
+                  { borderColor: (peakState.score >= 67 ? OrialColors.success : peakState.score >= 34 ? OrialColors.warning : OrialColors.error) + '50' }
+                ]}>
+                  <Text style={[styles.peakScore, {
+                    color: peakState.score >= 67 ? OrialColors.success : peakState.score >= 34 ? OrialColors.warning : OrialColors.error
+                  }]}>
+                    {peakState.score}
+                  </Text>
+                  <Text style={styles.peakScoreLabel}>SCORE</Text>
+                </View>
+              </View>
+            </GlassCard>
+          </View>
+        )}
 
         {/* Hydration */}
         <View style={styles.section}>
@@ -508,6 +539,17 @@ const styles = StyleSheet.create({
   whoopDetailItem: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, justifyContent: 'center' },
   whoopDetailDivider: { width: 1, height: 12, backgroundColor: OrialColors.border },
   whoopDetailText: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Regular' },
+  peakCard: { marginHorizontal: 16, padding: 14 },
+  peakRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  peakInfo: { flex: 1 },
+  peakWindow: { fontSize: 18, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold' },
+  peakSubtitle: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Regular' },
+  peakScoreBadge: {
+    alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderRadius: 10, backgroundColor: OrialColors.surfaceElevated,
+  },
+  peakScore: { fontSize: 18, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter-Bold' },
+  peakScoreLabel: { fontSize: 9, color: OrialColors.textMuted, fontFamily: 'Inter-Regular', letterSpacing: 0.5 },
   hydrationCard: { marginHorizontal: 16, padding: 16 },
   hydrationTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   hydrationLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
