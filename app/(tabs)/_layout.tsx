@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, List, Calendar, Settings, Flame, Zap } from 'lucide-react-native';
+import { Home, Calendar, Settings, Dumbbell, Wallet } from 'lucide-react-native';
 import { OrialColors } from '../../src/utils/colors';
 
 export default function TabLayout() {
@@ -8,56 +8,58 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: OrialColors.deepNavy,
-          borderTopColor: OrialColors.glassBorder,
+          backgroundColor: OrialColors.surface,
+          borderTopColor: OrialColors.border,
           borderTopWidth: 1,
+          paddingTop: 6,
         },
         tabBarActiveTintColor: OrialColors.violetLight,
         tabBarInactiveTintColor: OrialColors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontFamily: 'Inter-Medium',
+          letterSpacing: 0.3,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Home size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
-          tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
+          title: 'Daily',
+          tabBarIcon: ({ color, size }) => <Calendar size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="forge"
+        name="gym"
         options={{
-          title: 'Forge',
-          tabBarIcon: ({ color, size }) => <Flame size={size} color={color} />,
+          title: 'Gym',
+          tabBarIcon: ({ color, size }) => <Dumbbell size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="habits"
+        name="finance"
         options={{
-          title: 'Habits',
-          tabBarIcon: ({ color, size }) => <List size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="jarvis"
-        options={{
-          title: 'JARVIS',
-          tabBarIcon: ({ color, size }) => <Zap size={size} color={color} />,
+          title: 'Finance',
+          tabBarIcon: ({ color, size }) => <Wallet size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Settings size={size - 2} color={color} />,
         }}
       />
+      <Tabs.Screen name="forge" options={{ href: null }} />
+      <Tabs.Screen name="macros" options={{ href: null }} />
+      <Tabs.Screen name="jarvis" options={{ href: null }} />
     </Tabs>
   );
 }

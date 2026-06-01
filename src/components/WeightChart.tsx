@@ -38,7 +38,8 @@ export function WeightChart({ data }: WeightChartProps) {
                 <Text style={styles.barLabel}>{point.date.slice(5)}</Text>
               </View>
             );
-          })}\n        </View>
+          })}
+        </View>
       </View>
     </View>
   );

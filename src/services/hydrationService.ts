@@ -2,8 +2,8 @@ import { db } from './database';
 import { hydration, sodiumIntake, type Hydration, type NewHydration, type NewSodiumIntake } from '../../drizzle/schema';
 import { eq, and, gte, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
+import { hydrationProfileService } from './hydrationProfileService';
 
-const BASE_HYDRATION_LITERS = 3.0;
 const SODIO_PER_LITER_EXTRA = 2300; // mg de sodio que requieren 1L extra
 
 export class HydrationService {
@@ -19,12 +19,13 @@ export class HydrationService {
   async getOrCreateToday(): Promise<Hydration> {
     const today = new Date().toISOString().split('T')[0];
     const existing = await db.select().from(hydration).where(eq(hydration.date, today)).limit(1);
-    
+
     if (existing[0]) return existing[0];
 
+    const baseTarget = await hydrationProfileService.getDynamicBaseTarget();
     const newRecord: NewHydration = {
       date: today,
-      targetLiters: BASE_HYDRATION_LITERS,
+      targetLiters: baseTarget,
       consumedLiters: 0,
       effectiveLiters: 0,
       sodiumMg: 0,
@@ -78,12 +79,13 @@ export class HydrationService {
 
     const totalSodium = sodiumEntries.reduce((sum, entry) => sum + (entry.sodiumMg || 0), 0);
     const extraLiters = Math.max(0, totalSodium / SODIO_PER_LITER_EXTRA);
+    const baseTarget = await hydrationProfileService.getDynamicBaseTarget();
 
     await db.update(hydration)
       .set({
         sodiumMg: totalSodium,
         extraLitersFromSodium: extraLiters,
-        targetLiters: BASE_HYDRATION_LITERS + extraLiters,
+        targetLiters: baseTarget + extraLiters,
         updatedAt: new Date(),
       })
       .where(eq(hydration.date, date));
@@ -95,8 +97,8 @@ export class HydrationService {
 
     return {
       current: record.effectiveLiters || 0,
-      target: record.targetLiters || BASE_HYDRATION_LITERS,
-      percentage: Math.min(100, ((record.effectiveLiters || 0) / (record.targetLiters || BASE_HYDRATION_LITERS)) * 100),
+      target: record.targetLiters || 3.0,
+      percentage: Math.min(100, ((record.effectiveLiters || 0) / (record.targetLiters || 3.0)) * 100),
     };
   }
 
@@ -114,12 +116,13 @@ export class HydrationService {
 
   private async getOrCreateForDate(date: string): Promise<Hydration> {
     const existing = await db.select().from(hydration).where(eq(hydration.date, date)).limit(1);
-    
+
     if (existing[0]) return existing[0];
 
+    const baseTarget = await hydrationProfileService.getDynamicBaseTarget();
     const newRecord: NewHydration = {
       date,
-      targetLiters: BASE_HYDRATION_LITERS,
+      targetLiters: baseTarget,
       consumedLiters: 0,
       effectiveLiters: 0,
       sodiumMg: 0,

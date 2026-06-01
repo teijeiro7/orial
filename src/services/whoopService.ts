@@ -12,8 +12,8 @@ const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const WHOOP_TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
 const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer/v2';
 
-const CLIENT_ID = 'WHOOP_CLIENT_ID_REMOVED';
-const CLIENT_SECRET = 'WHOOP_CLIENT_SECRET_REMOVED';
+const CLIENT_ID = process.env.EXPO_PUBLIC_WHOOP_CLIENT_ID!;
+const CLIENT_SECRET = process.env.EXPO_PUBLIC_WHOOP_CLIENT_SECRET!;
 const REDIRECT_URI = 'orial://whoop/callback';
 
 const SCOPES = [
@@ -136,6 +136,27 @@ export class WhoopService {
     await SecureStore.setItemAsync(STORE_KEY_ACCESS, state.accessToken);
     await SecureStore.setItemAsync(STORE_KEY_REFRESH, state.refreshToken);
     await SecureStore.setItemAsync(STORE_KEY_EXPIRES, state.expiresAt.toISOString());
+
+    try {
+      await db.insert(whoopTokens).values({
+        id: 'default',
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        expiresAt: state.expiresAt,
+        scope: state.scope,
+        createdAt: new Date(),
+      }).onConflictDoUpdate({
+        target: whoopTokens.id,
+        set: {
+          accessToken: state.accessToken,
+          refreshToken: state.refreshToken,
+          expiresAt: state.expiresAt,
+          scope: state.scope,
+        },
+      });
+    } catch (dbError) {
+      console.error('[Whoop] Failed to backup tokens to database:', dbError);
+    }
   }
 
   private async clearAuthState(): Promise<void> {
@@ -143,6 +164,11 @@ export class WhoopService {
     await SecureStore.deleteItemAsync(STORE_KEY_ACCESS);
     await SecureStore.deleteItemAsync(STORE_KEY_REFRESH);
     await SecureStore.deleteItemAsync(STORE_KEY_EXPIRES);
+    try {
+      await db.delete(whoopTokens);
+    } catch (dbError) {
+      console.error('[Whoop] Failed to delete tokens from database:', dbError);
+    }
   }
 
   isConnected(): Promise<boolean> {
@@ -164,14 +190,14 @@ export class WhoopService {
   async handleCallback(code: string): Promise<void> {
     const response = await fetch(WHOOP_TOKEN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         redirect_uri: REDIRECT_URI,
-      }),
+      }).toString(),
     });
 
     if (!response.ok) {
@@ -187,23 +213,39 @@ export class WhoopService {
       expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
       scope: data.scope,
     });
+  }
 
-    // Save to DB for backup
-    await db.insert(whoopTokens).values({
+  private async forceRefreshToken(): Promise<string> {
+    const state = await this.getAuthState();
+    if (!state) throw new Error('Not connected to Whoop');
+
+    const response = await fetch(WHOOP_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: state.refreshToken,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        scope: 'offline',
+      }).toString(),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      console.error('[Whoop] refresh failed', response.status, body);
+      await this.clearAuthState();
+      throw new Error(`Failed to refresh Whoop token: ${response.status} ${body}`);
+    }
+
+    const data = await response.json();
+    await this.saveAuthState({
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
       expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
       scope: data.scope,
-      createdAt: new Date(),
-    }).onConflictDoUpdate({
-      target: whoopTokens.id,
-      set: {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
-        scope: data.scope,
-      },
     });
+    return data.access_token;
   }
 
   private async ensureValidToken(): Promise<string> {
@@ -211,31 +253,7 @@ export class WhoopService {
     if (!state) throw new Error('Not connected to Whoop');
 
     if (new Date() > state.expiresAt) {
-      const response = await fetch(WHOOP_TOKEN_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grant_type: 'refresh_token',
-          refresh_token: state.refreshToken,
-          client_id: CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          scope: 'offline',
-        }),
-      });
-
-      if (!response.ok) {
-        await this.clearAuthState();
-        throw new Error('Failed to refresh Whoop token');
-      }
-
-      const data = await response.json();
-      await this.saveAuthState({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
-        scope: data.scope,
-      });
-      return data.access_token;
+      return this.forceRefreshToken();
     }
 
     return state.accessToken;
@@ -248,11 +266,18 @@ export class WhoopService {
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     }
 
-    const response = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const doFetch = (t: string) =>
+      fetch(url.toString(), { headers: { Authorization: `Bearer ${t}` } });
+
+    let response = await doFetch(token);
+
+    if (response.status === 401) {
+      const newToken = await this.forceRefreshToken();
+      response = await doFetch(newToken);
+    }
 
     if (!response.ok) {
+      if (response.status === 401) await this.clearAuthState();
       throw new Error(`Whoop API ${path}: ${response.status}`);
     }
 
@@ -260,9 +285,10 @@ export class WhoopService {
   }
 
   async fetchTodayCycle(): Promise<CycleResponse | null> {
-    const today = new Date().toISOString();
-    const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/v2/cycle', {
-      start: today,
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const data = await this.fetchWhoop<{ records: CycleResponse[] }>('/cycle', {
+      start: today.toISOString(),
       limit: '1',
     });
     return data.records[0] || null;
@@ -270,7 +296,7 @@ export class WhoopService {
 
   async fetchTodayRecovery(cycleId: number): Promise<RecoveryResponse | null> {
     try {
-      return await this.fetchWhoop<RecoveryResponse>(`/v2/cycle/${cycleId}/recovery`);
+      return await this.fetchWhoop<RecoveryResponse>(`/cycle/${cycleId}/recovery`);
     } catch {
       return null;
     }
@@ -278,7 +304,7 @@ export class WhoopService {
 
   async fetchSleepForCycle(cycleId: number): Promise<SleepResponse | null> {
     try {
-      return await this.fetchWhoop<SleepResponse>(`/v2/cycle/${cycleId}/sleep`);
+      return await this.fetchWhoop<SleepResponse>(`/cycle/${cycleId}/sleep`);
     } catch {
       return null;
     }
@@ -287,7 +313,7 @@ export class WhoopService {
   async fetchTodayWorkouts(): Promise<WorkoutResponse[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const data = await this.fetchWhoop<{ records: WorkoutResponse[] }>('/v2/activity/workout', {
+    const data = await this.fetchWhoop<{ records: WorkoutResponse[] }>('/activity/workout', {
       start: today.toISOString(),
       limit: '10',
     });
@@ -296,7 +322,7 @@ export class WhoopService {
 
   async fetchBodyMeasurement(): Promise<BodyMeasurementResponse | null> {
     try {
-      return await this.fetchWhoop<BodyMeasurementResponse>('/v2/user/measurement/body');
+      return await this.fetchWhoop<BodyMeasurementResponse>('/user/measurement/body');
     } catch {
       return null;
     }
@@ -386,7 +412,6 @@ export class WhoopService {
       // Revoke may fail if token expired, remove locally anyway
     }
     await this.clearAuthState();
-    await db.delete(whoopTokens);
   }
 }
 

@@ -128,6 +128,7 @@ function AppLayout() {
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         <Stack.Screen name="login" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         <Stack.Screen name="habit/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="whoop/callback" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>
   );

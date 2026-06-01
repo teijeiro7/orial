@@ -23,6 +23,7 @@ interface HabitState {
   loadReminders: () => Promise<void>;
   createHabit: (habit: Omit<Habit, 'id' | 'createdAt'>) => Promise<void>;
   toggleHabitToday: (habitId: string) => Promise<void>;
+  toggleHabit: (habitId: string, date: string) => Promise<void>;
   archiveHabit: (habitId: string) => Promise<void>;
   createReminder: (reminder: Omit<Reminder, 'id'>) => Promise<void>;
   deleteReminder: (reminderId: string) => Promise<void>;
@@ -126,6 +127,40 @@ export const useHabitStore = create<HabitState>()(
           // Update widgets
           await widgetService.updateWidgetData();
         } catch (error) {
+          set({ error: 'Failed to toggle habit' });
+        }
+      },
+
+      toggleHabit: async (habitId, dateStr) => {
+        try {
+          const date = new Date(dateStr);
+          await habitRepository.toggleHabitEntry(habitId, date);
+          
+          // Get the updated entry
+          const entries = await habitRepository.getEntriesForHabit(habitId);
+          const entry = entries.find(e => {
+            const entryDate = new Date(e.date);
+            return entryDate.getFullYear() === date.getFullYear() &&
+                   entryDate.getMonth() === date.getMonth() &&
+                   entryDate.getDate() === date.getDate();
+          });
+          
+          if (entry) {
+            // Add to sync queue
+            await syncQueueWorker.addToQueue('create', 'entry', entry.id, {
+              date: entry.date.toISOString(),
+              habitId: habitId,
+              completed: entry.completed,
+              note: entry.note,
+            });
+          }
+          
+          await get().loadTodayEntries();
+          
+          // Update widgets
+          await widgetService.updateWidgetData();
+        } catch (error) {
+          console.error('[habitStore] toggleHabit failed:', error);
           set({ error: 'Failed to toggle habit' });
         }
       },
