@@ -31,6 +31,15 @@ export class SupplementService {
     return result[0];
   }
 
+  async updateSupplement(id: string, data: Partial<Pick<Supplement, 'name' | 'dailyDoseMg' | 'reminderTime' | 'type'>>): Promise<void> {
+    await db.update(supplements).set(data).where(eq(supplements.id, id));
+    if (data.reminderTime !== undefined) {
+      await this.cancelReminders(id);
+      const result = await db.select().from(supplements).where(eq(supplements.id, id)).limit(1);
+      if (result[0]?.reminderTime) await this.scheduleReminder(result[0]);
+    }
+  }
+
   async getSupplements(): Promise<Supplement[]> {
     return db.select().from(supplements).where(eq(supplements.isActive, true));
   }
@@ -93,6 +102,22 @@ export class SupplementService {
     });
   }
 
+  async getHistory(supplementId: string, days: number = 14): Promise<{ date: string; doseMg: number; takenAt: Date | null; skipped: boolean }[]> {
+    const result = await db
+      .select()
+      .from(supplementLogs)
+      .where(eq(supplementLogs.supplementId, supplementId))
+      .orderBy(desc(supplementLogs.date))
+      .limit(days);
+
+    return result.map(r => ({
+      date: r.date,
+      doseMg: r.doseMg,
+      takenAt: r.takenAt,
+      skipped: r.skipped,
+    }));
+  }
+
   async getStreak(supplementId: string): Promise<number> {
     const logs = await db
       .select()
@@ -130,8 +155,12 @@ export class SupplementService {
   private async scheduleReminder(supplement: Supplement): Promise<void> {
     if (!supplement.reminderTime) return;
 
-    const [hours, minutes] = supplement.reminderTime.split(':').map(Number);
-    
+    const parts = supplement.reminderTime.split(':');
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+
+    if (isNaN(hours) || isNaN(minutes)) return;
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '💊 Suplemento',

@@ -88,7 +88,26 @@ export class NutritionService {
   async getTodayNutrition(): Promise<NutritionLog | null> {
     const today = new Date().toISOString().split('T')[0];
     const result = await db.select().from(nutritionLogs).where(eq(nutritionLogs.date, today)).limit(1);
-    return result[0] || null;
+    if (result[0]) return result[0];
+
+    // Fallback: build from manualMetrics if nutrition was logged there directly
+    const manual = await db.select().from(manualMetrics).where(eq(manualMetrics.date, today)).limit(1);
+    const m = manual[0];
+    if (!m || (!m.caloriesIn && !m.proteinG && !m.carbsG && !m.fatG)) return null;
+
+    return {
+      id: `manual-${today}`,
+      date: today,
+      source: 'manual',
+      totalCalories: m.caloriesIn ?? 0,
+      proteinG: m.proteinG ?? 0,
+      carbsG: m.carbsG ?? 0,
+      fatG: m.fatG ?? 0,
+      sodiumMg: m.sodiumMg ?? 0,
+      fiberG: m.fiberG ?? 0,
+      rawData: null,
+      createdAt: m.updatedAt,
+    } as NutritionLog;
   }
 
   async getHistory(days: number = 7): Promise<NutritionLog[]> {
