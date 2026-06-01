@@ -4,6 +4,8 @@ import {
   financeSubscriptions,
   financeOrders,
   financeWishlist,
+  financeExpenses,
+  financeIncome,
 } from '../../drizzle/schema';
 import { eq, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
@@ -12,10 +14,14 @@ import type {
   FinanceSubscription,
   FinanceOrder,
   FinanceWishlistItem,
+  FinanceExpense,
+  FinanceIncome,
   NewFinanceAccount,
   NewFinanceSubscription,
   NewFinanceOrder,
   NewFinanceWishlistItem,
+  NewFinanceExpense,
+  NewFinanceIncome,
 } from '../../drizzle/schema';
 
 export const financeService = {
@@ -223,5 +229,115 @@ export const financeService = {
   wishlistPercentage(itemPrice: number, netWorth: number): number {
     if (netWorth <= 0) return 0;
     return Math.round((itemPrice / netWorth) * 1000) / 10; // 1 decimal
+  },
+
+  // ── Expenses ──────────────────────────────────────────────────────────────
+
+  async getExpenses(month?: string): Promise<FinanceExpense[]> {
+    const all = await db.select().from(financeExpenses).orderBy(desc(financeExpenses.date));
+    if (!month) return all;
+    return all.filter((e) => e.date.startsWith(month));
+  },
+
+  async createExpense(input: {
+    description: string;
+    amount: number;
+    currency?: string;
+    category?: string;
+    date?: string;
+    accountId?: string;
+    notes?: string;
+  }): Promise<FinanceExpense> {
+    const today = new Date().toISOString().split('T')[0];
+    const expense: NewFinanceExpense = {
+      id: generateUUID(),
+      description: input.description,
+      amount: input.amount,
+      currency: input.currency ?? 'EUR',
+      category: input.category ?? 'other',
+      date: input.date ?? today,
+      accountId: input.accountId ?? null,
+      notes: input.notes ?? null,
+      createdAt: new Date(),
+    };
+    await db.insert(financeExpenses).values(expense);
+
+    if (input.accountId) {
+      const [account] = await db
+        .select()
+        .from(financeAccounts)
+        .where(eq(financeAccounts.id, input.accountId));
+      if (account) await this.updateBalance(account.id, account.balanceAmount - input.amount);
+    }
+
+    return expense as FinanceExpense;
+  },
+
+  async deleteExpense(id: string): Promise<void> {
+    await db.delete(financeExpenses).where(eq(financeExpenses.id, id));
+  },
+
+  getMonthlyExpenseTotal(expenses: FinanceExpense[]): number {
+    return expenses.reduce((sum, e) => sum + e.amount, 0);
+  },
+
+  getExpensesByCategory(expenses: FinanceExpense[]): Record<string, number> {
+    return expenses.reduce((acc, e) => {
+      acc[e.category] = (acc[e.category] ?? 0) + e.amount;
+      return acc;
+    }, {} as Record<string, number>);
+  },
+
+  // ── Income ────────────────────────────────────────────────────────────────
+
+  async getIncome(month?: string): Promise<FinanceIncome[]> {
+    const all = await db.select().from(financeIncome).orderBy(desc(financeIncome.date));
+    if (!month) return all;
+    return all.filter((e) => e.date.startsWith(month));
+  },
+
+  async createIncome(input: {
+    description: string;
+    amount: number;
+    currency?: string;
+    category?: string;
+    date?: string;
+    accountId?: string;
+    notes?: string;
+  }): Promise<FinanceIncome> {
+    const today = new Date().toISOString().split('T')[0];
+    const entry: NewFinanceIncome = {
+      id: generateUUID(),
+      description: input.description,
+      amount: input.amount,
+      currency: input.currency ?? 'EUR',
+      category: input.category ?? 'other',
+      date: input.date ?? today,
+      accountId: input.accountId ?? null,
+      notes: input.notes ?? null,
+      createdAt: new Date(),
+    };
+    await db.insert(financeIncome).values(entry);
+
+    if (input.accountId) {
+      const [account] = await db
+        .select()
+        .from(financeAccounts)
+        .where(eq(financeAccounts.id, input.accountId));
+      if (account) await this.updateBalance(account.id, account.balanceAmount + input.amount);
+    }
+
+    return entry as FinanceIncome;
+  },
+
+  async deleteIncome(id: string): Promise<void> {
+    await db.delete(financeIncome).where(eq(financeIncome.id, id));
+  },
+
+  getIncomeByCategory(income: FinanceIncome[]): Record<string, number> {
+    return income.reduce((acc, e) => {
+      acc[e.category] = (acc[e.category] ?? 0) + e.amount;
+      return acc;
+    }, {} as Record<string, number>);
   },
 };
