@@ -268,6 +268,14 @@ export const gymSessions = sqliteTable('gym_sessions', {
   id: text('id').primaryKey(),
   routineId: text('routine_id').notNull().references(() => gymRoutines.id, { onDelete: 'cascade' }),
   date: text('date').notNull(), // YYYY-MM-DD
+  // WHOOP data
+  strainScore: real('strain_score'),
+  kilojoule: real('kilojoule'),
+  durationMin: integer('duration_min'),
+  avgHeartRate: real('avg_heart_rate'),
+  maxHeartRate: real('max_heart_rate'),
+  zonesJson: text('zones_json'), // JSON {z1,z2,z3,z4,z5} percentages
+  // Manual tracking
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
@@ -334,6 +342,30 @@ export const financeWishlist = sqliteTable('finance_wishlist', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const financeIncome = sqliteTable('finance_income', {
+  id: text('id').primaryKey(),
+  description: text('description').notNull(),
+  amount: real('amount').notNull(),
+  currency: text('currency').notNull().default('EUR'),
+  category: text('category').notNull().default('other'), // salario | freelance | inversiones | regalo | other
+  date: text('date').notNull(), // YYYY-MM-DD
+  accountId: text('account_id').references(() => financeAccounts.id, { onDelete: 'set null' }),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const financeExpenses = sqliteTable('finance_expenses', {
+  id: text('id').primaryKey(),
+  description: text('description').notNull(),
+  amount: real('amount').notNull(),
+  currency: text('currency').notNull().default('EUR'),
+  category: text('category').notNull().default('other'), // comida | transporte | ocio | salud | compras | hogar | other
+  date: text('date').notNull(), // YYYY-MM-DD
+  accountId: text('account_id').references(() => financeAccounts.id, { onDelete: 'set null' }),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 // ── Hydration Profile (dynamic calculator) ───────────────────────────────────
 
 export const hydrationProfile = sqliteTable('hydration_profile', {
@@ -369,3 +401,7 @@ export type FinanceWishlistItem = typeof financeWishlist.$inferSelect;
 export type NewFinanceWishlistItem = typeof financeWishlist.$inferInsert;
 export type HydrationProfile = typeof hydrationProfile.$inferSelect;
 export type NewHydrationProfile = typeof hydrationProfile.$inferInsert;
+export type FinanceExpense = typeof financeExpenses.$inferSelect;
+export type NewFinanceExpense = typeof financeExpenses.$inferInsert;
+export type FinanceIncome = typeof financeIncome.$inferSelect;
+export type NewFinanceIncome = typeof financeIncome.$inferInsert;
