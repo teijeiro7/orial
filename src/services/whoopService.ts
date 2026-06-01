@@ -114,9 +114,9 @@ export class WhoopService {
   private async getAuthState(): Promise<WhoopAuthState | null> {
     if (this.authState) return this.authState;
 
-    const accessToken = await SecureStore.getItemAsync(STORE_KEY_ACCESS);
-    const refreshToken = await SecureStore.getItemAsync(STORE_KEY_REFRESH);
-    const expiresAt = await SecureStore.getItemAsync(STORE_KEY_EXPIRES);
+    let accessToken = await SecureStore.getItemAsync(STORE_KEY_ACCESS);
+    let refreshToken = await SecureStore.getItemAsync(STORE_KEY_REFRESH);
+    let expiresAt = await SecureStore.getItemAsync(STORE_KEY_EXPIRES);
 
     if (accessToken && refreshToken && expiresAt) {
       this.authState = {
@@ -126,6 +126,32 @@ export class WhoopService {
         scope: 'offline read:recovery read:cycles read:workout read:sleep read:profile read:body_measurement',
       };
       return this.authState;
+    }
+
+    // Fall back to SQLite database backup if SecureStore was cleared or blocked
+    try {
+      const backup = await db.select().from(whoopTokens).where(eq(whoopTokens.id, 'default')).limit(1);
+      if (backup[0] && backup[0].accessToken && backup[0].refreshToken && backup[0].expiresAt) {
+        accessToken = backup[0].accessToken;
+        refreshToken = backup[0].refreshToken;
+        const expiresAtDate = backup[0].expiresAt;
+
+        // Restore back to SecureStore so they remain synchronized
+        await SecureStore.setItemAsync(STORE_KEY_ACCESS, accessToken);
+        await SecureStore.setItemAsync(STORE_KEY_REFRESH, refreshToken);
+        await SecureStore.setItemAsync(STORE_KEY_EXPIRES, expiresAtDate.toISOString());
+
+        this.authState = {
+          accessToken,
+          refreshToken,
+          expiresAt: expiresAtDate,
+          scope: backup[0].scope || 'offline read:recovery read:cycles read:workout read:sleep read:profile read:body_measurement',
+        };
+        console.log('[Whoop] Successfully restored authentication state from SQLite database backup.');
+        return this.authState;
+      }
+    } catch (dbError) {
+      console.error('[Whoop] Failed to read token backup from database:', dbError);
     }
 
     return null;
@@ -234,7 +260,10 @@ export class WhoopService {
     if (!response.ok) {
       const body = await response.text().catch(() => '');
       console.error('[Whoop] refresh failed', response.status, body);
-      await this.clearAuthState();
+      // Only clear credentials if the server explicitly tells us the token is invalid/revoked (e.g., 400 Bad Request or 401 Unauthorized)
+      if (response.status === 400 || response.status === 401) {
+        await this.clearAuthState();
+      }
       throw new Error(`Failed to refresh Whoop token: ${response.status} ${body}`);
     }
 

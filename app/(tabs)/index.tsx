@@ -1,10 +1,12 @@
+import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Activity, Heart, Droplets, Pill, TrendingDown,
-  Flame, Moon, Zap, ZapOff, Brain } from 'lucide-react-native';
+  Flame, Moon, Zap, ZapOff, Brain, Check } from 'lucide-react-native';
 import { calculatePeakState } from '../../src/services/peakStateService';
 import type { PeakStateResult } from '../../src/services/peakStateService';
 import { GlassCard } from '../../src/components/GlassCard';
@@ -19,9 +21,9 @@ import type { WhoopDaily, ManualMetric, WeightPrediction, NutritionLog } from '.
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return 'Buenos días';
+  if (hour < 18) return 'Buenas tardes';
+  return 'Buenas noches';
 }
 
 function recoveryColor(score: number | null | undefined): string {
@@ -131,7 +133,7 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.dateLabel}>{format(new Date(), 'EEEE, MMMM d').toUpperCase()}</Text>
+          <Text style={styles.dateLabel}>{format(new Date(), 'EEEE, d MMMM', { locale: es }).toUpperCase()}</Text>
         </View>
 
         {/* WHOOP */}
@@ -145,9 +147,9 @@ export default function DashboardScreen() {
                     <ZapOff size={20} color={OrialColors.warning} />
                   </View>
                   <View style={styles.whoopDisconnectedTextContainer}>
-                    <Text style={styles.whoopDisconnectedTitle}>Connection Required</Text>
+                    <Text style={styles.whoopDisconnectedTitle}>Sin conexión</Text>
                     <Text style={styles.whoopDisconnectedSubtitle}>
-                      WHOOP is disconnected. Tap here to link your device and sync your strain, recovery, and sleep metrics.
+                      WHOOP desconectada. Pulsa para vincular tu dispositivo y sincronizar esfuerzo, recuperación y sueño.
                     </Text>
                   </View>
                 </View>
@@ -216,9 +218,9 @@ export default function DashboardScreen() {
                     <Zap size={20} color={OrialColors.violetLight} />
                   </View>
                   <View style={styles.whoopDisconnectedTextContainer}>
-                    <Text style={styles.whoopDisconnectedTitle}>Connected · No Sync</Text>
+                    <Text style={styles.whoopDisconnectedTitle}>Conectada · Sin datos</Text>
                     <Text style={styles.whoopDisconnectedSubtitle}>
-                      Connected but no data loaded for today. Pull to refresh or tap to manage your health metrics.
+                      Conectada pero sin datos de hoy. Desliza para actualizar o pulsa para gestionar tus métricas.
                     </Text>
                   </View>
                 </View>
@@ -230,13 +232,13 @@ export default function DashboardScreen() {
         {/* Peak State */}
         {peakState && (
           <View style={styles.section}>
-            <SectionLabel label="PEAK STATE" />
+            <SectionLabel label="ESTADO PEAK" />
             <GlassCard style={styles.peakCard} accentColor={OrialColors.violetLight}>
               <View style={styles.peakRow}>
                 <Brain size={18} color={OrialColors.violetLight} />
                 <View style={styles.peakInfo}>
                   <Text style={styles.peakWindow}>{peakState.label}</Text>
-                  <Text style={styles.peakSubtitle}>Cognitive peak window</Text>
+                  <Text style={styles.peakSubtitle}>Ventana cognitiva óptima</Text>
                 </View>
                 <View style={[
                   styles.peakScoreBadge,
@@ -257,9 +259,9 @@ export default function DashboardScreen() {
         {/* Hydration */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <SectionLabel label="HYDRATION" inline />
+            <SectionLabel label="HIDRATACIÓN" inline />
             <Pressable onPress={() => router.push('/hydration-history')}>
-              <Text style={styles.historyLink}>History</Text>
+              <Text style={styles.historyLink}>Historial</Text>
             </Pressable>
           </View>
           <Pressable onPress={() => router.push('/hydration')}>
@@ -309,7 +311,7 @@ export default function DashboardScreen() {
           <View style={styles.sectionHeaderRow}>
             <SectionLabel label="MACROS" inline />
             <Pressable onPress={() => router.push('/nutrition-history')}>
-              <Text style={styles.historyLink}>History</Text>
+              <Text style={styles.historyLink}>Historial</Text>
             </Pressable>
           </View>
           <Pressable onPress={() => router.push('/macros')}>
@@ -319,10 +321,10 @@ export default function DashboardScreen() {
                   <View style={styles.calorieRow}>
                     <View>
                       <Text style={styles.calorieValue}>{nutritionData.totalCalories ?? 0}</Text>
-                      <Text style={styles.calorieLabel}>KCAL TODAY</Text>
+                      <Text style={styles.calorieLabel}>KCAL HOY</Text>
                     </View>
                     <View style={styles.calorieGoal}>
-                      <Text style={styles.goalLabel}>GOAL</Text>
+                      <Text style={styles.goalLabel}>META</Text>
                       <Text style={styles.goalValue}>2100</Text>
                     </View>
                   </View>
@@ -346,8 +348,8 @@ export default function DashboardScreen() {
               ) : (
                 <View style={styles.nutritionEmpty}>
                   <Flame size={20} color={OrialColors.textMuted} />
-                  <Text style={styles.nutritionEmptyText}>No macros logged today</Text>
-                  <Text style={styles.nutritionEmptySubtext}>Chat with Hermes to log meals</Text>
+                  <Text style={styles.nutritionEmptyText}>Sin macros hoy</Text>
+                  <Text style={styles.nutritionEmptySubtext}>Habla con Hermes para registrar comidas</Text>
                 </View>
               )}
             </GlassCard>
@@ -357,7 +359,7 @@ export default function DashboardScreen() {
         {/* Activity */}
         <View style={styles.section}>
           <Pressable onPress={() => router.push('/metrics-manual')}>
-            <SectionLabel label="ACTIVITY" />
+            <SectionLabel label="ACTIVIDAD" />
           </Pressable>
           <GlassCard style={styles.activityCard}>
             <View style={styles.activityRow}>
@@ -368,7 +370,7 @@ export default function DashboardScreen() {
               <View style={styles.activityDivider} />
               <View style={styles.activityItem}>
                 <Text style={styles.activityNumber}>{manualData?.workoutMinutes || '--'}</Text>
-                <Text style={styles.activityLabel}>MIN WORKOUT</Text>
+                <Text style={styles.activityLabel}>MIN EJERCICIO</Text>
               </View>
               <View style={styles.activityDivider} />
               <View style={styles.activityItem}>
@@ -382,48 +384,40 @@ export default function DashboardScreen() {
         {/* Supplements */}
         <View style={styles.section}>
           <Pressable onPress={() => router.push('/supplements')}>
-            <SectionLabel label="SUPPLEMENTS" />
+            <SectionLabel label="SUPLEMENTOS" />
           </Pressable>
           {supplements.length > 0 ? (
-            supplements.map((s) => (
-              <Pressable key={s.supplementId} onPress={() => router.push('/supplements')}>
-              <GlassCard style={styles.supplementCard}>
-                <View style={styles.supplementRow}>
-                  <View style={styles.supplementInfo}>
+            <View style={[styles.flatList, { marginHorizontal: 16 }]}>
+              {supplements.map((s, idx) => (
+                <React.Fragment key={s.supplementId}>
+                  <Pressable style={styles.supplementRow} onPress={() => router.push('/supplements')}>
                     <View style={styles.supplementIconWrap}>
-                      <Pill size={15} color={OrialColors.violetLight} />
+                      <Pill size={15} color={OrialColors.violetLight} strokeWidth={1.5} />
                     </View>
-                    <View>
+                    <View style={{ flex: 1 }}>
                       <Text style={styles.supplementName}>{s.name}</Text>
-                      <Text style={styles.supplementDose}>{s.dailyDoseMg}mg daily</Text>
-                    </View>
-                  </View>
-                  <View style={styles.supplementRight}>
-                    <View style={styles.supplementStreakBadge}>
-                      <Flame size={11} color={s.streak > 0 ? OrialColors.warning : OrialColors.textMuted} />
-                      <Text style={[styles.supplementStreakText, { color: s.streak > 0 ? OrialColors.warning : OrialColors.textMuted }]}>
-                        {s.streak}d
-                      </Text>
+                      <Text style={styles.supplementDose}>{s.dailyDoseMg}mg · {s.streak > 0 ? `${s.streak}d racha` : 'Sin racha'}</Text>
                     </View>
                     <Pressable
                       style={[styles.supplementButton, s.takenAt ? styles.supplementTaken : styles.supplementPending]}
                       onPress={(e) => { e.stopPropagation(); if (!s.takenAt) handleLogSupplement(s.supplementId); }}
                     >
-                      <Text style={[styles.supplementButtonText, s.takenAt && styles.supplementTakenText]}>
-                        {s.takenAt ? '✓' : 'Take'}
-                      </Text>
+                      {s.takenAt
+                        ? <Check size={13} color={OrialColors.success} strokeWidth={2} />
+                        : <Text style={styles.supplementButtonText}>Tomar</Text>
+                      }
                     </Pressable>
-                  </View>
-                </View>
-              </GlassCard>
-              </Pressable>
-            ))
+                  </Pressable>
+                  {idx < supplements.length - 1 && <View style={{ height: 1, backgroundColor: OrialColors.border }} />}
+                </React.Fragment>
+              ))}
+            </View>
           ) : (
             <Pressable onPress={() => router.push('/supplements')}>
               <GlassCard style={styles.supplementCard}>
                 <View style={[styles.supplementRow, { justifyContent: 'center', paddingVertical: 6 }]}>
                   <Pill size={16} color={OrialColors.textMuted} />
-                  <Text style={styles.nutritionEmptyText}>Add supplements →</Text>
+                  <Text style={styles.nutritionEmptyText}>Añadir suplementos →</Text>
                 </View>
               </GlassCard>
             </Pressable>
@@ -435,10 +429,10 @@ export default function DashboardScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Pressable onPress={() => router.push('/metrics-manual')}>
-                <SectionLabel label="WEIGHT PREDICTION" inline />
+                <SectionLabel label="PREDICCIÓN PESO" inline />
               </Pressable>
               <Pressable onPress={() => router.push('/weight-history')}>
-                <Text style={styles.historyLink}>History</Text>
+                <Text style={styles.historyLink}>Historial</Text>
               </Pressable>
             </View>
             <GlassCard style={styles.predictionCard}>
@@ -448,7 +442,7 @@ export default function DashboardScreen() {
                 </View>
                 <View style={styles.predictionInfo}>
                   <Text style={styles.predictionValue}>{prediction.predictedWeightKg?.toFixed(2) || '--'} kg</Text>
-                  <Text style={styles.predictionLabel}>PREDICTED TOMORROW</Text>
+                  <Text style={styles.predictionLabel}>PREDICCIÓN MAÑANA</Text>
                 </View>
               </View>
               {prediction.predictionRangeLow && prediction.predictionRangeHigh && (
@@ -481,18 +475,14 @@ export default function DashboardScreen() {
 
 function SectionLabel({ label, inline }: { label: string; inline?: boolean }) {
   return (
-    <View style={[sectionLabelStyles.wrap, inline && sectionLabelStyles.inlineWrap]}>
-      <View style={sectionLabelStyles.dot} />
-      <Text style={sectionLabelStyles.text}>{label}</Text>
-    </View>
+    <Text style={[sectionLabelStyles.text, !inline && { paddingHorizontal: 16, marginBottom: 10 }]}>
+      {label}
+    </Text>
   );
 }
 
 const sectionLabelStyles = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 16, marginBottom: 10 },
-  inlineWrap: { paddingHorizontal: 0, marginBottom: 0 },
-  dot: { width: 3, height: 12, borderRadius: 2, backgroundColor: OrialColors.violetLight },
-  text: { fontSize: 10, letterSpacing: 1.5, color: OrialColors.textSecondary, fontFamily: 'Inter-Medium' },
+  text: { fontSize: 10, letterSpacing: 1.5, color: OrialColors.textMuted, fontFamily: 'Inter-Medium', textTransform: 'uppercase' as const },
 });
 
 function WhoopMetricCard({ icon, value, label, accent }: { icon: React.ReactNode; value: string; label: string; accent: string }) {
@@ -593,20 +583,16 @@ const styles = StyleSheet.create({
   activityDivider: { width: 1, backgroundColor: OrialColors.border, marginVertical: 14 },
   activityNumber: { fontSize: 24, fontWeight: '700', color: OrialColors.textPrimary, letterSpacing: -0.5, fontFamily: 'Inter-Bold' },
   activityLabel: { fontSize: 9, letterSpacing: 1.2, color: OrialColors.textMuted, marginTop: 4, fontFamily: 'Inter-Medium' },
+  flatList: { backgroundColor: OrialColors.surface, borderRadius: 14, borderWidth: 1, borderColor: OrialColors.border, overflow: 'hidden' },
   supplementCard: { marginHorizontal: 16, marginBottom: 6, padding: 14 },
-  supplementRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  supplementInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  supplementRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, gap: 12 },
   supplementIconWrap: { width: 34, height: 34, borderRadius: 10, backgroundColor: OrialColors.violet + '18', alignItems: 'center', justifyContent: 'center' },
   supplementName: { fontSize: 14, fontWeight: '600', color: OrialColors.textPrimary, fontFamily: 'Inter-SemiBold' },
   supplementDose: { fontSize: 11, color: OrialColors.textMuted, marginTop: 2, fontFamily: 'Inter-Regular' },
-  supplementRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  supplementStreakBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: OrialColors.surfaceElevated, borderWidth: 1, borderColor: OrialColors.border },
-  supplementStreakText: { fontSize: 11, fontWeight: '600', fontFamily: 'Inter-SemiBold' },
-  supplementButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, minWidth: 56, alignItems: 'center', borderWidth: 1 },
+  supplementButton: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, minWidth: 52, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   supplementPending: { backgroundColor: OrialColors.violet + '20', borderColor: OrialColors.violet + '45' },
   supplementTaken: { backgroundColor: OrialColors.success + '12', borderColor: OrialColors.success + '35' },
   supplementButtonText: { color: OrialColors.violetLight, fontWeight: '600', fontSize: 12, fontFamily: 'Inter-SemiBold' },
-  supplementTakenText: { color: OrialColors.success },
   predictionCard: { marginHorizontal: 16, padding: 16 },
   predictionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   predictionIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: OrialColors.cyan + '18', alignItems: 'center', justifyContent: 'center' },
