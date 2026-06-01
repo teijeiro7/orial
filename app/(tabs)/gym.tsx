@@ -5,499 +5,213 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  TextInput,
-  Alert,
-  Modal,
-  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  Plus,
-  Dumbbell,
-  ChevronRight,
-  ChevronDown,
-  Trash2,
-  TrendingUp,
-  Check,
-  X,
-} from 'lucide-react-native';
-import { GlassCard } from '../../src/components/GlassCard';
+import { useRouter } from 'expo-router';
+import { format, isToday } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Dumbbell, ChevronRight, Clock, Heart, Zap, Flame, Activity } from 'lucide-react-native';
 import { gymService } from '../../src/services/gymService';
+import type { Zones } from '../../src/services/gymService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
-import type { GymRoutine, GymExercise, GymSession, GymSet } from '../../drizzle/schema';
-import type { OverloadAlert } from '../../src/services/gymService';
+import { StrainBar } from '../../src/components/gym/StrainBar';
+import { ZoneBadge } from '../../src/components/gym/ZoneBadge';
+import type { GymSession } from '../../drizzle/schema';
 
-type ScreenView = 'routines' | 'session';
+type SessionSummary = GymSession & {
+  routineName: string;
+  exerciseCount: number;
+  totalVolume: number;
+};
 
-const DAY_LABELS = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+function parseZones(zonesJson: string | null): Zones | null {
+  if (!zonesJson) return null;
+  try { return JSON.parse(zonesJson) as Zones; }
+  catch { return null; }
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return <Text style={styles.sectionLabel}>{children}</Text>;
+}
+
+function TodayCard({ session }: { session: SessionSummary | null }) {
+  const router = useRouter();
+  const zones = session ? parseZones(session.zonesJson) : null;
+
+  const strainPct = session?.strainScore != null ? Math.min(100, (session.strainScore / 21) * 100) : 0;
+  const strainColor = (session?.strainScore ?? 0) >= 15
+    ? OrialColors.error
+    : (session?.strainScore ?? 0) >= 10
+    ? OrialColors.warning
+    : OrialColors.success;
+
+  return (
+    <Pressable
+      style={todayStyles.card}
+      onPress={session ? () => {} : undefined}
+    >
+      <View style={todayStyles.header}>
+        <View style={todayStyles.titleRow}>
+          <View style={[todayStyles.iconWrap, { backgroundColor: strainColor + '20' }]}>
+            <Flame size={18} color={strainColor} strokeWidth={2} />
+          </View>
+          <View>
+            <Text style={todayStyles.title}>
+              {session ? session.routineName : 'Sin sesión hoy'}
+            </Text>
+            <Text style={todayStyles.subtitle}>
+              {session
+                ? format(new Date(session.date), 'HH:mm', { locale: es })
+                : 'Esperando datos de WHOOP'}
+            </Text>
+          </View>
+        </View>
+
+        {session?.strainScore != null && (
+          <View style={[todayStyles.strainRing, { borderColor: strainColor }]}>
+            <Text style={[todayStyles.strainValue, { color: strainColor }]}>
+              {session.strainScore.toFixed(1)}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {session ? (
+        <>
+          <View style={todayStyles.statsGrid}>
+            <View style={todayStyles.statBox}>
+              <Clock size={14} color={OrialColors.textMuted} strokeWidth={1.5} />
+              <Text style={todayStyles.statValue}>
+                {session.durationMin ? `${session.durationMin}m` : '—'}
+              </Text>
+              <Text style={todayStyles.statLabel}>Duración</Text>
+            </View>
+            <View style={todayStyles.statBox}>
+              <Zap size={14} color={OrialColors.textMuted} strokeWidth={1.5} />
+              <Text style={todayStyles.statValue}>
+                {session.kilojoule ? Math.round(session.kilojoule).toLocaleString('es') : '—'}
+              </Text>
+              <Text style={todayStyles.statLabel}>kJ</Text>
+            </View>
+            <View style={todayStyles.statBox}>
+              <Heart size={14} color={OrialColors.textMuted} strokeWidth={1.5} />
+              <Text style={todayStyles.statValue}>
+                {session.avgHeartRate ? Math.round(session.avgHeartRate) : '—'}
+              </Text>
+              <Text style={todayStyles.statLabel}>bpm avg</Text>
+            </View>
+          </View>
+
+          {zones && (
+            <View style={todayStyles.zonesContainer}>
+              <Text style={todayStyles.zonesLabel}>ZONAS DE ESFUERZO</Text>
+              <View style={todayStyles.zonesRow}>
+                {([1, 2, 3, 4, 5] as const).map(z => {
+                  const pct = zones[`z${z}` as keyof Zones] as number;
+                  if (!pct || pct === 0) return null;
+                  return <ZoneBadge key={z} zone={z} pct={Math.round(pct)} />;
+                })}
+              </View>
+            </View>
+          )}
+
+          <View style={todayStyles.strainBarContainer}>
+            <View style={todayStyles.strainBarTrack}>
+              <View style={[todayStyles.strainBarFill, { width: `${strainPct}%`, backgroundColor: strainColor }]} />
+            </View>
+            <Text style={todayStyles.strainBarLabel}>Strain {session.strainScore?.toFixed(1) ?? '—'} / 21</Text>
+          </View>
+        </>
+      ) : (
+        <View style={todayStyles.emptyState}>
+          <Activity size={32} color={OrialColors.textMuted} strokeWidth={1} />
+          <Text style={todayStyles.emptyText}>
+            Tu entrenamiento de hoy aparecerá aquí cuando Hermes lo procese
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
 export default function GymScreen() {
-  const [view, setView] = useState<ScreenView>('routines');
-  const [routines, setRoutines] = useState<GymRoutine[]>([]);
-  const [activeRoutine, setActiveRoutine] = useState<GymRoutine | null>(null);
-  const [exercises, setExercises] = useState<GymExercise[]>([]);
-  const [activeSession, setActiveSession] = useState<GymSession | null>(null);
-  const [sessionSets, setSessionSets] = useState<GymSet[]>([]);
-  const [overloadAlerts, setOverloadAlerts] = useState<OverloadAlert[]>([]);
+  const router = useRouter();
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Modal states
-  const [showAddRoutine, setShowAddRoutine] = useState(false);
-  const [showAddExercise, setShowAddExercise] = useState(false);
-  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
-  const [logReps, setLogReps] = useState<Record<string, string>>({});
-  const [logWeight, setLogWeight] = useState<Record<string, string>>({});
-
-  // New routine form
-  const [newRoutineName, setNewRoutineName] = useState('');
-  const [newRoutineEmoji, setNewRoutineEmoji] = useState('💪');
-  const [newRoutineDays, setNewRoutineDays] = useState<number[]>([]);
-
-  // New exercise form
-  const [newExName, setNewExName] = useState('');
-  const [newExSets, setNewExSets] = useState('3');
-  const [newExRepsMin, setNewExRepsMin] = useState('8');
-  const [newExRepsMax, setNewExRepsMax] = useState('12');
-  const [newExWeight, setNewExWeight] = useState('0');
-  const [newExIncrement, setNewExIncrement] = useState('2.5');
-
-  const loadRoutines = useCallback(async () => {
-    setLoading(true);
-    const r = await gymService.getRoutines();
-    setRoutines(r);
+  const loadData = useCallback(async () => {
+    const s = await gymService.getAllSessionsWithRoutines();
+    setSessions(s);
     setLoading(false);
   }, []);
 
-  const loadRoutineDetail = useCallback(async (routine: GymRoutine) => {
-    const [exs, alerts, session] = await Promise.all([
-      gymService.getExercisesForRoutine(routine.id),
-      gymService.checkOverloadAlerts(routine.id),
-      gymService.getTodaySession(routine.id),
-    ]);
-    setExercises(exs);
-    setOverloadAlerts(alerts);
-    if (session) {
-      const sets = await gymService.getSetsForSession(session.id);
-      setActiveSession(session);
-      setSessionSets(sets);
-    } else {
-      setActiveSession(null);
-      setSessionSets([]);
-    }
-  }, []);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  useEffect(() => {
-    loadRoutines();
-  }, []);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
-  useEffect(() => {
-    if (activeRoutine) loadRoutineDetail(activeRoutine);
-  }, [activeRoutine]);
-
-  async function handleCreateRoutine() {
-    if (!newRoutineName.trim()) return;
-    await gymService.createRoutine(newRoutineName.trim(), newRoutineEmoji, newRoutineDays);
-    setNewRoutineName('');
-    setNewRoutineEmoji('💪');
-    setNewRoutineDays([]);
-    setShowAddRoutine(false);
-    loadRoutines();
-  }
-
-  async function handleCreateExercise() {
-    if (!activeRoutine || !newExName.trim()) return;
-    await gymService.createExercise({
-      routineId: activeRoutine.id,
-      name: newExName.trim(),
-      targetSets: parseInt(newExSets) || 3,
-      targetRepsMin: parseInt(newExRepsMin) || 8,
-      targetRepsMax: parseInt(newExRepsMax) || 12,
-      currentWeightKg: parseFloat(newExWeight) || 0,
-      incrementKg: parseFloat(newExIncrement) || 2.5,
-    });
-    setNewExName('');
-    setNewExSets('3');
-    setNewExRepsMin('8');
-    setNewExRepsMax('12');
-    setNewExWeight('0');
-    setNewExIncrement('2.5');
-    setShowAddExercise(false);
-    loadRoutineDetail(activeRoutine);
-  }
-
-  async function handleStartSession() {
-    if (!activeRoutine) return;
-    const session = await gymService.startSession(activeRoutine.id);
-    setActiveSession(session);
-    setSessionSets([]);
-  }
-
-  async function handleLogSet(exercise: GymExercise) {
-    if (!activeSession) return;
-    const reps = parseInt(logReps[exercise.id] || '0');
-    const weight = parseFloat(logWeight[exercise.id] || String(exercise.currentWeightKg));
-    if (!reps) return;
-
-    const setsForExercise = sessionSets.filter((s) => s.exerciseId === exercise.id);
-    const set = await gymService.logSet({
-      sessionId: activeSession.id,
-      exerciseId: exercise.id,
-      setNumber: setsForExercise.length + 1,
-      reps,
-      weightKg: weight,
-    });
-
-    setSessionSets((prev) => [...prev, set]);
-    setLogReps((prev) => ({ ...prev, [exercise.id]: '' }));
-  }
-
-  async function handleAcceptOverload(alert: OverloadAlert) {
-    await gymService.updateExerciseWeight(alert.exerciseId, alert.nextWeightKg);
-    setOverloadAlerts((prev) => prev.filter((a) => a.exerciseId !== alert.exerciseId));
-    if (activeRoutine) loadRoutineDetail(activeRoutine);
-    Alert.alert('Weight updated!', `${alert.exerciseName}: ${alert.nextWeightKg} kg`);
-  }
-
-  function getExerciseSets(exerciseId: string) {
-    return sessionSets.filter((s) => s.exerciseId === exerciseId);
-  }
+  const todaySession = sessions.find(s => isToday(new Date(s.date)));
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator color={OrialColors.violet} style={{ marginTop: 40 }} />
-      </SafeAreaView>
-    );
-  }
-
-  // ── Routine list view ────────────────────────────────────────────────────
-  if (view === 'routines' || !activeRoutine) {
-    return (
-      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={OrialTypography.headingMedium}>Gym</Text>
-          <Pressable style={styles.addButton} onPress={() => setShowAddRoutine(true)}>
-            <Plus size={20} color={OrialColors.textPrimary} />
-          </Pressable>
+          <Text style={styles.screenTitle}>Gym</Text>
         </View>
-
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {routines.length === 0 ? (
-            <GlassCard style={styles.emptyCard}>
-              <Dumbbell size={32} color={OrialColors.textMuted} />
-              <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>
-                No routines yet. Create your first.
-              </Text>
-            </GlassCard>
-          ) : (
-            <View style={styles.section}>
-              {routines.map((r) => {
-                const days: number[] = JSON.parse(r.days || '[]');
-                return (
-                  <Pressable key={r.id} onPress={() => { setActiveRoutine(r); setView('session'); }}>
-                    <GlassCard style={styles.routineCard}>
-                      <View style={styles.routineRow}>
-                        <Text style={styles.routineEmoji}>{r.emoji}</Text>
-                        <View style={styles.routineInfo}>
-                          <Text style={OrialTypography.bodyMedium}>{r.name}</Text>
-                          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                            {days.map((d) => DAY_LABELS[d]).join(', ') || 'No days set'}
-                          </Text>
-                        </View>
-                        <ChevronRight size={18} color={OrialColors.textMuted} />
-                      </View>
-                    </GlassCard>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Add Routine Modal */}
-        <Modal visible={showAddRoutine} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <GlassCard style={styles.modalCard}>
-              <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Routine</Text>
-
-              <TextInput
-                style={styles.input}
-                placeholder="Routine name (e.g. Push)"
-                placeholderTextColor={OrialColors.textMuted}
-                value={newRoutineName}
-                onChangeText={setNewRoutineName}
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Emoji"
-                placeholderTextColor={OrialColors.textMuted}
-                value={newRoutineEmoji}
-                onChangeText={setNewRoutineEmoji}
-                maxLength={2}
-              />
-
-              <Text style={[OrialTypography.caption, { color: OrialColors.textMuted, marginBottom: 8 }]}>
-                Days
-              </Text>
-              <View style={styles.daysRow}>
-                {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                  <Pressable
-                    key={d}
-                    style={[
-                      styles.dayChip,
-                      newRoutineDays.includes(d) && styles.dayChipActive,
-                    ]}
-                    onPress={() =>
-                      setNewRoutineDays((prev) =>
-                        prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
-                      )
-                    }
-                  >
-                    <Text
-                      style={[
-                        OrialTypography.caption,
-                        { color: newRoutineDays.includes(d) ? '#fff' : OrialColors.textMuted },
-                      ]}
-                    >
-                      {DAY_LABELS[d].slice(0, 2)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <View style={styles.modalActions}>
-                <Pressable style={styles.cancelBtn} onPress={() => setShowAddRoutine(false)}>
-                  <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>
-                    Cancel
-                  </Text>
-                </Pressable>
-                <Pressable style={styles.saveBtn} onPress={handleCreateRoutine}>
-                  <Text style={OrialTypography.bodyMedium}>Create</Text>
-                </Pressable>
-              </View>
-            </GlassCard>
-          </View>
-        </Modal>
+        <View style={styles.loadingState}>
+          <Text style={styles.loadingText}>Cargando...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
-  // ── Session view ──────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => { setView('routines'); setActiveRoutine(null); }}>
-          <X size={22} color={OrialColors.textMuted} />
-        </Pressable>
-        <Text style={OrialTypography.headingMedium}>
-          {activeRoutine.emoji} {activeRoutine.name}
-        </Text>
-        <Pressable style={styles.addButton} onPress={() => setShowAddExercise(true)}>
-          <Plus size={18} color={OrialColors.textPrimary} />
-        </Pressable>
+        <Text style={styles.screenTitle}>Gym</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Overload alerts */}
-        {overloadAlerts.length > 0 && (
-          <View style={styles.section}>
-            {overloadAlerts.map((alert) => (
-              <GlassCard key={alert.exerciseId} style={styles.alertCard}>
-                <TrendingUp size={16} color={OrialColors.success} />
-                <View style={styles.alertBody}>
-                  <Text style={[OrialTypography.bodyMedium, { color: OrialColors.success }]}>
-                    Increase {alert.exerciseName}
-                  </Text>
-                  <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                    {alert.currentWeightKg} kg → {alert.nextWeightKg} kg
-                  </Text>
-                </View>
-                <Pressable
-                  style={styles.acceptBtn}
-                  onPress={() => handleAcceptOverload(alert)}
-                >
-                  <Check size={16} color={OrialColors.textPrimary} />
-                </Pressable>
-              </GlassCard>
-            ))}
-          </View>
-        )}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={OrialColors.textMuted} />
+        }
+      >
+        <View style={{ marginHorizontal: 20 }}>
+          <TodayCard session={todaySession ?? null} />
+        </View>
 
-        {/* Start session button */}
-        {!activeSession && (
-          <View style={styles.section}>
-            <Pressable style={styles.startSessionBtn} onPress={handleStartSession}>
-              <Dumbbell size={20} color={OrialColors.textPrimary} />
-              <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textPrimary }]}>
-                Start Today's Session
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        <View style={styles.navButtons}>
+          <Pressable style={styles.navButton} onPress={() => router.push('/gym/sessions')}>
+            <View style={styles.navIconWrap}>
+              <Activity size={20} color={OrialColors.cyan} strokeWidth={1.5} />
+            </View>
+            <View style={styles.navTextGroup}>
+              <Text style={styles.navTitle}>Sesiones</Text>
+              <Text style={styles.navSubtitle}>Historial y estadísticas</Text>
+            </View>
+            <ChevronRight size={18} color={OrialColors.textMuted} strokeWidth={1.5} />
+          </Pressable>
 
-        {activeSession && (
-          <GlassCard style={[styles.sessionBadge, { marginHorizontal: 16 }]}>
-            <Check size={14} color={OrialColors.success} />
-            <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>
-              Session active — {sessionSets.length} sets logged
-            </Text>
-          </GlassCard>
-        )}
-
-        {/* Exercises */}
-        <View style={styles.section}>
-          {exercises.length === 0 ? (
-            <GlassCard style={styles.emptyCard}>
-              <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>
-                No exercises. Tap + to add.
-              </Text>
-            </GlassCard>
-          ) : (
-            exercises.map((ex) => {
-              const isExpanded = expandedExercise === ex.id;
-              const exSets = getExerciseSets(ex.id);
-              const alert = overloadAlerts.find((a) => a.exerciseId === ex.id);
-
-              return (
-                <GlassCard key={ex.id} style={styles.exerciseCard}>
-                  <Pressable
-                    style={styles.exerciseHeader}
-                    onPress={() => setExpandedExercise(isExpanded ? null : ex.id)}
-                  >
-                    <View style={styles.exerciseInfo}>
-                      <Text style={OrialTypography.bodyMedium}>{ex.name}</Text>
-                      <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                        {ex.targetSets}×{ex.targetRepsMin}–{ex.targetRepsMax} @ {ex.currentWeightKg} kg
-                      </Text>
-                    </View>
-                    <View style={styles.exerciseMeta}>
-                      {exSets.length > 0 && (
-                        <View style={styles.setsBadge}>
-                          <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>
-                            {exSets.length}/{ex.targetSets}
-                          </Text>
-                        </View>
-                      )}
-                      {isExpanded ? (
-                        <ChevronDown size={18} color={OrialColors.textMuted} />
-                      ) : (
-                        <ChevronRight size={18} color={OrialColors.textMuted} />
-                      )}
-                    </View>
-                  </Pressable>
-
-                  {isExpanded && (
-                    <View style={styles.exerciseBody}>
-                      {/* Previous sets */}
-                      {exSets.length > 0 && (
-                        <View style={styles.previousSets}>
-                          {exSets.map((s) => (
-                            <View key={s.id} style={styles.setRow}>
-                              <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                                Set {s.setNumber}
-                              </Text>
-                              <Text style={[OrialTypography.caption, { color: OrialColors.textPrimary }]}>
-                                {s.reps} reps × {s.weightKg} kg
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      {/* Log set inputs */}
-                      {activeSession && exSets.length < ex.targetSets && (
-                        <View style={styles.logRow}>
-                          <TextInput
-                            style={[styles.miniInput, { flex: 1 }]}
-                            placeholder="Reps"
-                            placeholderTextColor={OrialColors.textMuted}
-                            keyboardType="numeric"
-                            value={logReps[ex.id] || ''}
-                            onChangeText={(v) => setLogReps((p) => ({ ...p, [ex.id]: v }))}
-                          />
-                          <TextInput
-                            style={[styles.miniInput, { flex: 1 }]}
-                            placeholder={`${ex.currentWeightKg} kg`}
-                            placeholderTextColor={OrialColors.textMuted}
-                            keyboardType="numeric"
-                            value={logWeight[ex.id] || ''}
-                            onChangeText={(v) => setLogWeight((p) => ({ ...p, [ex.id]: v }))}
-                          />
-                          <Pressable style={styles.logBtn} onPress={() => handleLogSet(ex)}>
-                            <Check size={16} color={OrialColors.textPrimary} />
-                          </Pressable>
-                        </View>
-                      )}
-
-                      {/* All sets done */}
-                      {activeSession && exSets.length >= ex.targetSets && (
-                        <Text style={[OrialTypography.caption, { color: OrialColors.success, marginTop: 8 }]}>
-                          All sets complete
-                        </Text>
-                      )}
-                    </View>
-                  )}
-                </GlassCard>
-              );
-            })
-          )}
+          <Pressable style={styles.navButton} onPress={() => router.push('/gym/routines')}>
+            <View style={[styles.navIconWrap, { backgroundColor: OrialColors.violet + '20' }]}>
+              <Dumbbell size={20} color={OrialColors.violetLight} strokeWidth={1.5} />
+            </View>
+            <View style={styles.navTextGroup}>
+              <Text style={styles.navTitle}>Rutinas</Text>
+              <Text style={styles.navSubtitle}>Ejercicios por rutina</Text>
+            </View>
+            <ChevronRight size={18} color={OrialColors.textMuted} strokeWidth={1.5} />
+          </Pressable>
         </View>
       </ScrollView>
-
-      {/* Add Exercise Modal */}
-      <Modal visible={showAddExercise} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
-            <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Exercise</Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Exercise name"
-              placeholderTextColor={OrialColors.textMuted}
-              value={newExName}
-              onChangeText={setNewExName}
-              autoFocus
-            />
-
-            <View style={styles.formRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[OrialTypography.caption, styles.fieldLabel]}>Sets</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={newExSets} onChangeText={setNewExSets} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[OrialTypography.caption, styles.fieldLabel]}>Reps min</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={newExRepsMin} onChangeText={setNewExRepsMin} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[OrialTypography.caption, styles.fieldLabel]}>Reps max</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={newExRepsMax} onChangeText={setNewExRepsMax} />
-              </View>
-            </View>
-
-            <View style={styles.formRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[OrialTypography.caption, styles.fieldLabel]}>Starting weight (kg)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={newExWeight} onChangeText={setNewExWeight} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[OrialTypography.caption, styles.fieldLabel]}>Increment (kg)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={newExIncrement} onChangeText={setNewExIncrement} />
-              </View>
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable style={styles.cancelBtn} onPress={() => setShowAddExercise(false)}>
-                <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.saveBtn} onPress={handleCreateExercise}>
-                <Text style={OrialTypography.bodyMedium}>Add</Text>
-              </Pressable>
-            </View>
-          </GlassCard>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -506,88 +220,196 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: OrialColors.deepNavy },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
-  addButton: { padding: 8, backgroundColor: OrialColors.violet, borderRadius: 12 },
-  section: { padding: 16, paddingTop: 8, gap: 10 },
-  emptyCard: { alignItems: 'center', padding: 32, gap: 12 },
-  emptyText: { color: OrialColors.textMuted, textAlign: 'center' },
-  routineCard: { padding: 14 },
-  routineRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  routineEmoji: { fontSize: 28 },
-  routineInfo: { flex: 1 },
-  alertCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderColor: OrialColors.success + '40', borderWidth: 1 },
-  alertBody: { flex: 1 },
-  acceptBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: OrialColors.success,
-    justifyContent: 'center', alignItems: 'center',
+  screenTitle: {
+    ...OrialTypography.headingMedium,
+    fontSize: 18,
+    letterSpacing: -0.3,
   },
-  startSessionBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, padding: 14,
-    backgroundColor: OrialColors.violet,
-    borderRadius: 14,
-  },
-  sessionBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginBottom: 8, padding: 10,
-  },
-  exerciseCard: { padding: 0, overflow: 'hidden' },
-  exerciseHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: 14, gap: 12,
-  },
-  exerciseInfo: { flex: 1 },
-  exerciseMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  setsBadge: {
-    paddingHorizontal: 8, paddingVertical: 2,
-    backgroundColor: OrialColors.success + '20',
-    borderRadius: 8,
-  },
-  exerciseBody: { paddingHorizontal: 14, paddingBottom: 14 },
-  previousSets: { gap: 4, marginBottom: 10 },
-  setRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  logRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  miniInput: {
-    backgroundColor: OrialColors.surface,
-    borderRadius: 8, padding: 8,
+  sectionLabel: {
     ...OrialTypography.caption,
-    color: OrialColors.textPrimary,
-    borderWidth: 1, borderColor: OrialColors.glassBorder,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: OrialColors.textMuted,
+    marginBottom: 8,
+    marginHorizontal: 20,
   },
-  logBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: OrialColors.violet,
-    justifyContent: 'center', alignItems: 'center',
+  loadingState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { ...OrialTypography.bodySmall, color: OrialColors.textMuted },
+  navButtons: {
+    marginTop: 24,
+    marginHorizontal: 20,
+    gap: 12,
   },
-  // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalCard: { margin: 16, padding: 20 },
-  input: {
-    backgroundColor: OrialColors.surface,
-    borderRadius: 10, padding: 12,
+  navButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: OrialColors.darkBlue,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
+    padding: 16,
+    gap: 14,
+  },
+  navIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: OrialColors.success + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navTextGroup: { flex: 1 },
+  navTitle: {
     ...OrialTypography.bodyMedium,
+    fontSize: 15,
     color: OrialColors.textPrimary,
-    marginBottom: 12,
-    borderWidth: 1, borderColor: OrialColors.glassBorder,
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  formRow: { flexDirection: 'row', gap: 10 },
-  fieldLabel: { color: OrialColors.textMuted, marginBottom: 4 },
-  daysRow: { flexDirection: 'row', gap: 6, marginBottom: 16 },
-  dayChip: {
-    width: 36, height: 36, borderRadius: 18,
-    justifyContent: 'center', alignItems: 'center',
+  navSubtitle: {
+    ...OrialTypography.caption,
+    fontSize: 11,
+    color: OrialColors.textMuted,
+  },
+});
+
+const todayStyles = StyleSheet.create({
+  card: {
+    backgroundColor: OrialColors.darkBlue,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
+    padding: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    ...OrialTypography.headingSmall,
+    fontSize: 17,
+    color: OrialColors.textPrimary,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    ...OrialTypography.caption,
+    fontSize: 11,
+    color: OrialColors.textMuted,
+    marginTop: 2,
+  },
+  strainRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 3,
+    borderColor: OrialColors.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  strainValue: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 16,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 0,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
     backgroundColor: OrialColors.surface,
-    borderWidth: 1, borderColor: OrialColors.glassBorder,
+    borderRadius: 10,
+    marginHorizontal: 4,
   },
-  dayChipActive: { backgroundColor: OrialColors.violet, borderColor: OrialColors.violet },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
-  cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
-  saveBtn: {
-    paddingHorizontal: 24, paddingVertical: 10,
-    backgroundColor: OrialColors.violet, borderRadius: 10,
+  statValue: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 18,
+    fontWeight: '600',
+    color: OrialColors.textPrimary,
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
+    marginTop: 6,
+  },
+  statLabel: {
+    ...OrialTypography.caption,
+    fontSize: 9,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: OrialColors.textMuted,
+    marginTop: 2,
+  },
+  zonesContainer: {
+    marginBottom: 16,
+  },
+  zonesLabel: {
+    ...OrialTypography.caption,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: OrialColors.textMuted,
+    marginBottom: 8,
+  },
+  zonesRow: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  strainBarContainer: {
+    marginTop: 4,
+  },
+  strainBarTrack: {
+    height: 6,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  strainBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  strainBarLabel: {
+    ...OrialTypography.caption,
+    fontSize: 10,
+    color: OrialColors.textMuted,
+    marginTop: 6,
+    textAlign: 'right',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 12,
+  },
+  emptyText: {
+    ...OrialTypography.bodySmall,
+    fontSize: 13,
+    color: OrialColors.textMuted,
+    textAlign: 'center',
+    maxWidth: 260,
+    lineHeight: 18,
   },
 });
