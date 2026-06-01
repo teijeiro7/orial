@@ -41,3 +41,6 @@ yarn-error.*
 /ios
 /android
 build-ios.log
+
+# CodeGraph local index
+.codegraph/
