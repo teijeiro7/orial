@@ -29,6 +29,20 @@
       "when": 1780245802874,
       "tag": "0003_grey_the_call",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1748780400000,
+      "tag": "0004_finance_expenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1780305591651,
+      "tag": "0005_equal_wither",
+      "breakpoints": true
     }
   ]
 }

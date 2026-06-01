@@ -5,6 +5,8 @@ import m0000 from './0000_parched_joshua_kane.sql';
 import m0001 from './0001_closed_switch.sql';
 import m0002 from './0002_thankful_vertigo.sql';
 import m0003 from './0003_grey_the_call.sql';
+import m0004 from './0004_finance_expenses.sql';
+import m0005 from './0005_equal_wither.sql';
 
   export default {
     journal,
@@ -12,7 +14,9 @@ import m0003 from './0003_grey_the_call.sql';
       m0000,
 m0001,
 m0002,
-m0003
+m0003,
+m0004,
+m0005
     }
   }
   
