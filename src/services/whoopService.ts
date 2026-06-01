@@ -12,8 +12,8 @@ const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const WHOOP_TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
 const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer/v2';
 
-const CLIENT_ID = 'WHOOP_CLIENT_ID_REMOVED';
-const CLIENT_SECRET = 'WHOOP_CLIENT_SECRET_REMOVED';
+const CLIENT_ID = process.env.EXPO_PUBLIC_WHOOP_CLIENT_ID!;
+const CLIENT_SECRET = process.env.EXPO_PUBLIC_WHOOP_CLIENT_SECRET!;
 const REDIRECT_URI = 'orial://whoop/callback';
 
 const SCOPES = [
