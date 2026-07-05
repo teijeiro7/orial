@@ -102,6 +102,7 @@ export default {
       'expo-calendar',
       'expo-background-fetch',
       './plugins/withReactNativeDefaultPreference',
+      './plugins/withWidgetExtension',
       [
         'expo-build-properties',
         {
