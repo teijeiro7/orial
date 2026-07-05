@@ -6,8 +6,9 @@ import {
   ScrollView,
   Dimensions,
   TextInput,
-  Alert,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -16,10 +17,10 @@ import {
   Plus,
   Flame,
   Check,
-  Clock,
   ArrowRight,
   Trash2,
   Star,
+  X,
 } from 'lucide-react-native';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -35,7 +36,7 @@ import {
   subMonths,
   getDate,
 } from 'date-fns';
-import { GlassCard } from '../../src/components/GlassCard';
+import { es } from 'date-fns/locale';
 import { HabitCreationSheet } from '../../src/components/HabitCreationSheet';
 import { calendarService } from '../../src/services/calendarService';
 import { taskService } from '../../src/services/taskService';
@@ -43,37 +44,54 @@ import { useHabitStore } from '../../src/stores/habitStore';
 import { habitRepository } from '../../src/repositories/habitRepository';
 import { calculateStreak } from '../../src/utils/streakCalculator';
 import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
-import type { Habit, Task } from '../../drizzle/schema';
+import type { Task } from '../../drizzle/schema';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const DAY_SIZE = (SCREEN_WIDTH - 64) / 7;
+const CAL_PAD = 16;
 
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 8); // 8..24
+const SCHEDULE_HOURS = Array.from({ length: 17 }, (_, i) => i + 7);
 
 const CATEGORIES = [
-  { value: 'all', label: 'All', color: OrialColors.textSecondary },
-  { value: 'health', label: 'Health', color: OrialColors.categoryHealth },
-  { value: 'mind', label: 'Mind', color: OrialColors.categoryMind },
-  { value: 'work', label: 'Work', color: OrialColors.categoryWork },
+  { value: 'all', label: 'Todos', color: OrialColors.textSecondary },
+  { value: 'health', label: 'Salud', color: OrialColors.categoryHealth },
+  { value: 'mind', label: 'Mente', color: OrialColors.categoryMind },
+  { value: 'work', label: 'Trabajo', color: OrialColors.categoryWork },
   { value: 'social', label: 'Social', color: OrialColors.categorySocial },
   { value: 'fitness', label: 'Fitness', color: OrialColors.categoryFitness },
-  { value: 'learning', label: 'Learning', color: OrialColors.categoryLearn },
+  { value: 'learning', label: 'Aprender', color: OrialColors.categoryLearn },
 ];
 
-type Tab = 'calendar' | 'habits' | 'tasks';
+type Tab = 'tasks' | 'calendar' | 'habits';
+
+function formatHour(h: number) {
+  if (h === 0) return '12am';
+  if (h < 12) return `${h}am`;
+  if (h === 12) return '12pm';
+  return `${h - 12}pm`;
+}
+
+function getCategoryColor(category: string): string {
+  const map: Record<string, string> = {
+    health: OrialColors.categoryHealth,
+    mind: OrialColors.categoryMind,
+    work: OrialColors.categoryWork,
+    social: OrialColors.categorySocial,
+    fitness: OrialColors.categoryFitness,
+    learning: OrialColors.categoryLearn,
+  };
+  return map[category] ?? OrialColors.categoryOther;
+}
 
 export default function DailyScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [events, setEvents] = useState<any[]>([]);
+
   const { habits, todayEntries, loadHabits, createHabit, toggleHabit } = useHabitStore();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isCreationVisible, setIsCreationVisible] = useState(false);
   const [habitStreaks, setHabitStreaks] = useState<Map<string, ReturnType<typeof calculateStreak>>>(new Map());
 
-  // Tasks state
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskStreak, setTaskStreak] = useState(0);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -82,21 +100,17 @@ export default function DailyScreen() {
   const [showAddTask, setShowAddTask] = useState(false);
   const [taskDate, setTaskDate] = useState(new Date().toISOString().split('T')[0]);
 
-  useEffect(() => {
-    loadHabits();
-    loadEvents();
-  }, [currentMonth]);
+  useEffect(() => { loadHabits(); loadEvents(); }, [currentMonth]);
 
   useEffect(() => {
     async function loadStreaks() {
-      const streaks = new Map();
-      for (const habit of habits) {
-        const entries = await habitRepository.getEntriesForHabit(habit.id);
-        const targetDays = JSON.parse(habit.targetDays);
-        const streak = calculateStreak(entries, targetDays);
-        streaks.set(habit.id, streak);
+      const map = new Map();
+      for (const h of habits) {
+        const entries = await habitRepository.getEntriesForHabit(h.id);
+        const targetDays = JSON.parse(h.targetDays);
+        map.set(h.id, calculateStreak(entries, targetDays));
       }
-      setHabitStreaks(streaks);
+      setHabitStreaks(map);
     }
     if (activeTab === 'habits') loadStreaks();
   }, [habits, activeTab]);
@@ -148,429 +162,369 @@ export default function DailyScreen() {
   }
 
   async function handlePushToTomorrow() {
-    const count = await taskService.pushRemainingToTomorrow(taskDate);
-    if (count === 0) {
-      Alert.alert('Nothing to push', 'All tasks are completed.');
-    } else {
-      Alert.alert('Pushed', `${count} task${count === 1 ? '' : 's'} moved to tomorrow.`);
-      loadTasks();
-    }
+    await taskService.pushRemainingToTomorrow(taskDate);
+    loadTasks();
   }
 
-  // Group tasks by hour for the schedule panel
-  const scheduledTasks = tasks.filter((t) => t.scheduledHour !== null && t.scheduledHour !== undefined);
-  const unscheduledTasks = tasks.filter((t) => t.scheduledHour === null || t.scheduledHour === undefined);
-  const completedCount = tasks.filter((t) => t.completed).length;
+  // Derived values
+  const scheduledTasks = tasks.filter(t => t.scheduledHour != null);
+  const unscheduledTasks = tasks.filter(t => t.scheduledHour == null);
+  const completedCount = tasks.filter(t => t.completed).length;
+  const progressRatio = tasks.length > 0 ? completedCount / tasks.length : 0;
+  const occupiedHours = SCHEDULE_HOURS.filter(h => scheduledTasks.some(t => t.scheduledHour === h));
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const taskDateLabel = taskDate === todayStr
+    ? format(new Date(), "EEEE, d MMM", { locale: es })
+    : format(new Date(taskDate + 'T12:00:00'), "EEEE, d MMM", { locale: es });
 
   const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(monthStart);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-
-  const selectedDateEvents = events.filter((event) =>
-    isSameDay(new Date(event.startDate), selectedDate)
-  );
-
-  const selectedDateHabits = habits.filter((habit) => {
-    const targetDays = JSON.parse(habit.targetDays || '[]');
-    const dayOfWeek = selectedDate.getDay() || 7;
-    return targetDays.includes(dayOfWeek);
+  const calendarDays = eachDayOfInterval({
+    start: startOfWeek(monthStart, { weekStartsOn: 1 }),
+    end: endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 }),
   });
 
-  const isHabitCompleted = (habitId: string) =>
-    todayEntries.some(
-      (entry) =>
-        entry.habitId === habitId &&
-        entry.completed &&
-        isSameDay(new Date(entry.date), selectedDate)
-    );
+  const selectedDateEvents = events.filter(e => isSameDay(new Date(e.startDate), selectedDate));
+  const selectedDateHabits = habits.filter(h => {
+    const targetDays = JSON.parse(h.targetDays || '[]');
+    return targetDays.includes(selectedDate.getDay() || 7);
+  });
+  const isHabitCompleted = (id: string) =>
+    todayEntries.some(e => e.habitId === id && e.completed && isSameDay(new Date(e.date), selectedDate));
 
-  const getEventsForDay = (day: Date) =>
-    events.filter((event) => isSameDay(new Date(event.startDate), day));
-  const hasEvents = (day: Date) => getEventsForDay(day).length > 0;
-
-  const filteredHabits =
-    selectedCategory === 'all' ? habits : habits.filter((h) => h.category === selectedCategory);
-
-  const totalStreaks = Array.from(habitStreaks.values()).reduce(
-    (sum, s) => sum + s.currentStreak,
-    0
-  );
-
-  function getCategoryColor(category: string): string {
-    switch (category) {
-      case 'health': return OrialColors.categoryHealth;
-      case 'mind': return OrialColors.categoryMind;
-      case 'work': return OrialColors.categoryWork;
-      case 'social': return OrialColors.categorySocial;
-      case 'fitness': return OrialColors.categoryFitness;
-      case 'learning': return OrialColors.categoryLearn;
-      default: return OrialColors.categoryOther;
-    }
-  }
-
-  function formatHour(h: number) {
-    if (h === 0) return '12 AM';
-    if (h < 12) return `${h} AM`;
-    if (h === 12) return '12 PM';
-    return `${h - 12} PM`;
-  }
+  const filteredHabits = selectedCategory === 'all'
+    ? habits
+    : habits.filter(h => h.category === selectedCategory);
+  const totalStreaks = Array.from(habitStreaks.values()).reduce((s, h) => s + h.currentStreak, 0);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Tab Switcher */}
+    <SafeAreaView style={styles.root}>
+
+      {/* ── Tab Bar ─────────────────────────────────────────────── */}
       <View style={styles.tabBar}>
-        <Pressable
-          style={[styles.tab, activeTab === 'tasks' && styles.tabActive]}
-          onPress={() => setActiveTab('tasks')}
-        >
-          <Text style={[styles.tabText, activeTab === 'tasks' && styles.tabTextActive]}>Tasks</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, activeTab === 'calendar' && styles.tabActive]}
-          onPress={() => setActiveTab('calendar')}
-        >
-          <Text style={[styles.tabText, activeTab === 'calendar' && styles.tabTextActive]}>
-            Calendar
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, activeTab === 'habits' && styles.tabActive]}
-          onPress={() => setActiveTab('habits')}
-        >
-          <Text style={[styles.tabText, activeTab === 'habits' && styles.tabTextActive]}>Habits</Text>
-        </Pressable>
+        {(['tasks', 'calendar', 'habits'] as Tab[]).map(tab => (
+          <Pressable key={tab} style={styles.tabItem} onPress={() => setActiveTab(tab)}>
+            <Text style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>
+              {tab === 'tasks' ? 'TAREAS' : tab === 'calendar' ? 'CALENDARIO' : 'HÁBITOS'}
+            </Text>
+            {activeTab === tab && <View style={styles.tabUnderline} />}
+          </Pressable>
+        ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* ── TASKS TAB ────────────────────────────────────────── */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+        {/* ── TASKS ───────────────────────────────────────────────── */}
         {activeTab === 'tasks' && (
-          <>
-            {/* Header row */}
-            <View style={styles.header}>
-              <View>
-                <Text style={OrialTypography.headingMedium}>
-                  {taskDate === new Date().toISOString().split('T')[0]
-                    ? 'Today'
-                    : format(new Date(taskDate + 'T12:00:00'), 'EEE, MMM d')}
-                </Text>
-                <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                  {completedCount}/{tasks.length} done
-                </Text>
-              </View>
-              <View style={styles.headerActions}>
+          <View>
+            {/* Date header */}
+            <View style={styles.taskHeader}>
+              <View style={styles.dateRow}>
                 <Pressable
-                  style={styles.iconBtn}
-                  onPress={handlePushToTomorrow}
+                  style={styles.navChevron}
+                  onPress={() => {
+                    const d = new Date(taskDate + 'T12:00:00');
+                    d.setDate(d.getDate() - 1);
+                    setTaskDate(d.toISOString().split('T')[0]);
+                  }}
                 >
-                  <ArrowRight size={18} color={OrialColors.warning} />
+                  <ChevronLeft size={20} color={OrialColors.textMuted} />
                 </Pressable>
-                <Pressable style={styles.addButton} onPress={() => setShowAddTask(true)}>
-                  <Plus size={20} color={OrialColors.textPrimary} />
+
+                <Pressable onPress={() => setTaskDate(todayStr)}>
+                  <Text style={styles.dateLabel}>{taskDateLabel}</Text>
+                  {taskDate !== todayStr && (
+                    <Text style={styles.dateSub}>toca para volver a hoy</Text>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={styles.navChevron}
+                  onPress={() => {
+                    const d = new Date(taskDate + 'T12:00:00');
+                    d.setDate(d.getDate() + 1);
+                    setTaskDate(d.toISOString().split('T')[0]);
+                  }}
+                >
+                  <ChevronRight size={20} color={OrialColors.textMuted} />
+                </Pressable>
+              </View>
+
+              <View style={styles.headerRight}>
+                {taskStreak > 0 && (
+                  <View style={styles.streakBadge}>
+                    <Flame size={13} color={OrialColors.warning} />
+                    <Text style={styles.streakBadgeText}>{taskStreak}</Text>
+                  </View>
+                )}
+                <Pressable style={styles.addBtn} onPress={() => setShowAddTask(true)}>
+                  <Plus size={18} color="#fff" strokeWidth={2.5} />
                 </Pressable>
               </View>
             </View>
 
-            {/* Streak + date nav */}
-            <GlassCard style={styles.streakCard}>
-              <View style={styles.streakRow}>
-                <Flame size={20} color={OrialColors.warning} />
-                <Text style={[OrialTypography.bodyMedium, { color: OrialColors.warning }]}>
-                  {taskStreak} day streak
-                </Text>
-                <View style={styles.dateNav}>
-                  <Pressable
-                    onPress={() => {
-                      const d = new Date(taskDate + 'T12:00:00');
-                      d.setDate(d.getDate() - 1);
-                      setTaskDate(d.toISOString().split('T')[0]);
-                    }}
-                  >
-                    <ChevronLeft size={20} color={OrialColors.textMuted} />
-                  </Pressable>
-                  <Pressable onPress={() => setTaskDate(new Date().toISOString().split('T')[0])}>
-                    <Text style={[OrialTypography.caption, { color: OrialColors.violetLight }]}>
-                      Today
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      const d = new Date(taskDate + 'T12:00:00');
-                      d.setDate(d.getDate() + 1);
-                      setTaskDate(d.toISOString().split('T')[0]);
-                    }}
-                  >
-                    <ChevronRight size={20} color={OrialColors.textMuted} />
-                  </Pressable>
+            {/* Completion progress */}
+            {tasks.length > 0 && (
+              <View style={styles.progressSection}>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.round(progressRatio * 100)}%` as any }]} />
                 </View>
+                <Text style={styles.progressLabel}>
+                  {completedCount} de {tasks.length} completadas
+                </Text>
               </View>
-            </GlassCard>
-
-            {/* Hourly schedule panel */}
-            {scheduledTasks.length > 0 && (
-              <GlassCard style={styles.scheduleCard}>
-                <Text style={[OrialTypography.caption, styles.sectionLabel]}>SCHEDULE</Text>
-                {HOURS.map((h) => {
-                  const hourTasks = scheduledTasks.filter((t) => t.scheduledHour === h);
-                  return (
-                    <View key={h} style={styles.hourRow}>
-                      <Text style={styles.hourLabel}>{formatHour(h)}</Text>
-                      <View style={styles.hourLine} />
-                      <View style={styles.hourTasks}>
-                        {hourTasks.map((t) => (
-                          <Pressable
-                            key={t.id}
-                            style={[
-                              styles.hourTask,
-                              t.completed && styles.hourTaskDone,
-                              t.priority === 1 && styles.hourTaskHighPriority,
-                            ]}
-                            onPress={() => handleToggleTask(t.id)}
-                          >
-                            <Text
-                              style={[
-                                styles.hourTaskText,
-                                t.completed && styles.taskDoneText,
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {t.title}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    </View>
-                  );
-                })}
-              </GlassCard>
             )}
 
-            {/* Unscheduled To-Do list */}
+            {/* Scheduled tasks */}
+            {occupiedHours.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionHeading}>PROGRAMADO</Text>
+                <View style={styles.scheduleList}>
+                  {occupiedHours.map(h =>
+                    scheduledTasks
+                      .filter(t => t.scheduledHour === h)
+                      .map(t => (
+                        <Pressable
+                          key={t.id}
+                          style={[styles.scheduledRow, t.completed && styles.scheduledRowDone]}
+                          onPress={() => handleToggleTask(t.id)}
+                        >
+                          <Text style={styles.scheduleTime}>{formatHour(h)}</Text>
+                          <View style={[
+                            styles.scheduleDot,
+                            { backgroundColor: t.priority === 1 ? OrialColors.warning : OrialColors.violet },
+                            t.completed && { backgroundColor: OrialColors.success },
+                          ]} />
+                          <Text
+                            style={[styles.scheduleTaskText, t.completed && styles.strikeText]}
+                            numberOfLines={1}
+                          >
+                            {t.title}
+                          </Text>
+                          {t.completed && (
+                            <Check size={13} color={OrialColors.success} />
+                          )}
+                        </Pressable>
+                      ))
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Unscheduled tasks */}
             <View style={styles.section}>
               {unscheduledTasks.length > 0 && (
-                <Text style={[OrialTypography.caption, styles.sectionLabel]}>TO-DO</Text>
+                <View style={styles.sectionRow}>
+                  <Text style={styles.sectionHeading}>SIN HORA</Text>
+                  <Pressable onPress={handlePushToTomorrow} style={styles.pushBtn}>
+                    <ArrowRight size={13} color={OrialColors.textMuted} />
+                    <Text style={styles.pushBtnText}>aplazar al mañana</Text>
+                  </Pressable>
+                </View>
               )}
+
               {tasks.length === 0 ? (
-                <GlassCard style={styles.emptyCard}>
-                  <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>
-                    No tasks. Tap + to add one.
-                  </Text>
-                </GlassCard>
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>Sin tareas. Toca + para añadir.</Text>
+                </View>
               ) : (
-                unscheduledTasks.map((t) => (
-                  <GlassCard key={t.id} style={[styles.taskCard, t.completed && styles.taskCardDone]}>
-                    <View style={styles.taskRow}>
-                      <Pressable
-                        style={[styles.taskCheck, t.completed && styles.taskCheckDone]}
-                        onPress={() => handleToggleTask(t.id)}
-                      >
-                        {t.completed && <Check size={14} color="#fff" />}
-                      </Pressable>
-                      <View style={styles.taskBody}>
-                        <Text
-                          style={[
-                            OrialTypography.bodyMedium,
-                            t.completed && styles.taskDoneText,
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {t.priority === 1 && (
-                            <Star
-                              size={12}
-                              color={OrialColors.warning}
-                              fill={OrialColors.warning}
-                            />
-                          )}{' '}
+                unscheduledTasks.map(t => (
+                  <View key={t.id} style={[styles.taskRow, t.completed && styles.taskRowDone]}>
+                    <Pressable
+                      style={[styles.checkbox, t.completed && styles.checkboxDone]}
+                      onPress={() => handleToggleTask(t.id)}
+                    >
+                      {t.completed && <Check size={11} color="#fff" strokeWidth={3} />}
+                    </Pressable>
+                    <View style={styles.taskBody}>
+                      {t.priority === 1 && !t.completed && (
+                        <View style={styles.priorityDot} />
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.taskText, t.completed && styles.strikeText]} numberOfLines={2}>
                           {t.title}
                         </Text>
                         {t.pushedFrom && (
-                          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                            Pushed from {t.pushedFrom}
-                          </Text>
+                          <Text style={styles.pushedLabel}>aplazada</Text>
                         )}
                       </View>
-                      <Pressable onPress={() => handleDeleteTask(t.id)} style={styles.deleteBtn}>
-                        <Trash2 size={16} color={OrialColors.textMuted} />
-                      </Pressable>
                     </View>
-                  </GlassCard>
+                    <Pressable onPress={() => handleDeleteTask(t.id)} style={styles.deleteBtn}>
+                      <Trash2 size={15} color={OrialColors.textMuted} />
+                    </Pressable>
+                  </View>
                 ))
               )}
             </View>
-          </>
+          </View>
         )}
 
-        {/* ── CALENDAR TAB ─────────────────────────────────────── */}
+        {/* ── CALENDAR ────────────────────────────────────────────── */}
         {activeTab === 'calendar' && (
-          <>
-            <GlassCard style={styles.calendarCard}>
-              <View style={styles.monthHeader}>
-                <Pressable onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                  <ChevronLeft size={24} color={OrialColors.textPrimary} />
+          <View>
+            <View style={styles.calendarCard}>
+              {/* Month navigation */}
+              <View style={styles.monthNav}>
+                <Pressable onPress={() => setCurrentMonth(subMonths(currentMonth, 1))} style={styles.navChevron}>
+                  <ChevronLeft size={22} color={OrialColors.textSecondary} />
                 </Pressable>
-                <Text style={OrialTypography.headingSmall}>
-                  {format(currentMonth, 'MMMM yyyy')}
+                <Text style={styles.monthTitle}>
+                  {format(currentMonth, 'MMMM', { locale: es }).toUpperCase()}
+                  {'  '}
+                  <Text style={styles.monthYear}>{format(currentMonth, 'yyyy')}</Text>
                 </Text>
-                <Pressable onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                  <ChevronRight size={24} color={OrialColors.textPrimary} />
+                <Pressable onPress={() => setCurrentMonth(addMonths(currentMonth, 1))} style={styles.navChevron}>
+                  <ChevronRight size={22} color={OrialColors.textSecondary} />
                 </Pressable>
               </View>
 
-              <View style={styles.weekDaysHeader}>
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                  <View key={day} style={styles.weekDayCell}>
-                    <Text style={[OrialTypography.caption, styles.weekDayText]}>{day}</Text>
+              {/* Weekday headers */}
+              <View style={styles.weekRow}>
+                {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
+                  <View key={d} style={styles.dayCell}>
+                    <Text style={styles.weekDayLabel}>{d}</Text>
                   </View>
                 ))}
               </View>
 
-              <View style={styles.daysGrid}>
-                {calendarDays.map((day, index) => {
-                  const isCurrentMonth = isSameMonth(day, currentMonth);
-                  const isSelected = isSameDay(day, selectedDate);
-                  const isToday = isSameDay(day, new Date());
-                  const dayHasEvents = hasEvents(day);
+              {/* Days — grouped by week so flex:1 fills exactly 7 columns */}
+              {Array.from({ length: calendarDays.length / 7 }, (_, wi) =>
+                calendarDays.slice(wi * 7, wi * 7 + 7)
+              ).map((week, wi) => (
+                <View key={wi} style={styles.weekRow}>
+                  {week.map((day, di) => {
+                    const inMonth = isSameMonth(day, currentMonth);
+                    const isSelected = isSameDay(day, selectedDate);
+                    const isToday = isSameDay(day, new Date());
+                    const hasEvt = events.some(e => isSameDay(new Date(e.startDate), day));
 
-                  return (
-                    <Pressable
-                      key={index}
-                      style={[
-                        styles.dayCell,
-                        { width: DAY_SIZE, height: DAY_SIZE },
-                        isSelected && styles.selectedDay,
-                        isToday && styles.todayDay,
-                      ]}
-                      onPress={() => setSelectedDate(day)}
-                    >
-                      <Text
+                    return (
+                      <Pressable
+                        key={di}
                         style={[
-                          OrialTypography.bodyMedium,
-                          styles.dayText,
-                          !isCurrentMonth && styles.otherMonthDay,
-                          isSelected && styles.selectedDayText,
-                          isToday && styles.todayDayText,
+                          styles.dayCell,
+                          styles.dayCellSquare,
+                          isSelected && styles.dayCellSelected,
+                          isToday && !isSelected && styles.dayCellToday,
                         ]}
+                        onPress={() => setSelectedDate(day)}
                       >
-                        {getDate(day)}
-                      </Text>
-                      {dayHasEvents && <View style={styles.eventDot} />}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </GlassCard>
+                        <Text style={[
+                          styles.dayNumber,
+                          !inMonth && styles.dayNumberMuted,
+                          isSelected && styles.dayNumberSelected,
+                          isToday && !isSelected && styles.dayNumberToday,
+                        ]}>
+                          {getDate(day)}
+                        </Text>
+                        {hasEvt && (
+                          <View style={[styles.eventDot, isSelected && { backgroundColor: 'rgba(255,255,255,0.5)' }]} />
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
 
+            {/* Selected day detail */}
             <View style={styles.section}>
-              <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>
-                {format(selectedDate, 'EEEE, MMM d')}
+              <Text style={styles.dayDetailTitle}>
+                {format(selectedDate, "EEEE, d 'de' MMMM", { locale: es })}
               </Text>
 
               {selectedDateHabits.length > 0 && (
-                <View style={styles.habitsSection}>
-                  <Text style={[OrialTypography.caption, styles.subSectionTitle]}>Habits</Text>
-                  {selectedDateHabits.map((habit) => (
+                <View style={styles.daySection}>
+                  <Text style={styles.sectionHeading}>HÁBITOS</Text>
+                  {selectedDateHabits.map(habit => (
                     <Pressable
                       key={habit.id}
+                      style={styles.dayHabitRow}
                       onPress={() => toggleHabit(habit.id, selectedDate.toISOString().split('T')[0])}
                     >
-                      <GlassCard style={styles.habitItem}>
-                        <View style={styles.habitRow}>
-                          <Text style={styles.habitEmoji}>{habit.emoji}</Text>
-                          <Text style={OrialTypography.bodyMedium}>{habit.name}</Text>
-                          <View
-                            style={[
-                              styles.checkIndicator,
-                              isHabitCompleted(habit.id) && { backgroundColor: OrialColors.success },
-                            ]}
-                          >
-                            {isHabitCompleted(habit.id) && (
-                              <Check size={14} color={OrialColors.textPrimary} />
-                            )}
-                          </View>
-                        </View>
-                      </GlassCard>
+                      <Text style={styles.habitEmojiSmall}>{habit.emoji}</Text>
+                      <Text style={styles.dayHabitName}>{habit.name}</Text>
+                      <View style={[styles.habitCheck, isHabitCompleted(habit.id) && styles.habitCheckDone]}>
+                        {isHabitCompleted(habit.id) && (
+                          <Check size={11} color="#fff" strokeWidth={3} />
+                        )}
+                      </View>
                     </Pressable>
                   ))}
                 </View>
               )}
 
-              {selectedDateEvents.length > 0 ? (
-                <View style={styles.eventsSection}>
-                  <Text style={[OrialTypography.caption, styles.subSectionTitle]}>Events</Text>
-                  {selectedDateEvents.map((event, index) => (
-                    <GlassCard key={index} style={styles.eventItem}>
-                      <View style={styles.eventRow}>
-                        <View style={styles.eventTime}>
-                          <Text style={OrialTypography.caption}>
-                            {format(new Date(event.startDate), 'HH:mm')}
-                          </Text>
-                        </View>
-                        <View style={styles.eventInfo}>
-                          <Text style={OrialTypography.bodyMedium}>{event.title}</Text>
-                          {event.notes && (
-                            <Text style={OrialTypography.caption}>{event.notes}</Text>
-                          )}
-                        </View>
+              {selectedDateEvents.length > 0 && (
+                <View style={styles.daySection}>
+                  <Text style={styles.sectionHeading}>EVENTOS</Text>
+                  {selectedDateEvents.map((event, i) => (
+                    <View key={i} style={styles.eventRow}>
+                      <Text style={styles.eventTime}>
+                        {format(new Date(event.startDate), 'HH:mm')}
+                      </Text>
+                      <View style={styles.eventDivider} />
+                      <View style={styles.eventInfo}>
+                        <Text style={styles.eventTitle}>{event.title}</Text>
+                        {event.notes && (
+                          <Text style={styles.eventNotes}>{event.notes}</Text>
+                        )}
                       </View>
-                    </GlassCard>
+                    </View>
                   ))}
                 </View>
-              ) : (
-                <GlassCard style={styles.emptyCard}>
-                  <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>
-                    No events for this day
-                  </Text>
-                </GlassCard>
+              )}
+
+              {selectedDateHabits.length === 0 && selectedDateEvents.length === 0 && (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>Sin hábitos ni eventos este día.</Text>
+                </View>
               )}
             </View>
-          </>
+          </View>
         )}
 
-        {/* ── HABITS TAB ───────────────────────────────────────── */}
+        {/* ── HABITS ──────────────────────────────────────────────── */}
         {activeTab === 'habits' && (
-          <>
-            <View style={styles.header}>
-              <Text style={OrialTypography.headingMedium}>My Habits</Text>
-              <Pressable style={styles.addButton} onPress={() => setIsCreationVisible(true)}>
-                <Plus size={20} color={OrialColors.textPrimary} />
+          <View>
+            <View style={styles.habitsHeader}>
+              <Text style={styles.habitsTitle}>Mis Hábitos</Text>
+              <Pressable style={styles.addBtn} onPress={() => setIsCreationVisible(true)}>
+                <Plus size={18} color="#fff" strokeWidth={2.5} />
               </Pressable>
             </View>
 
-            <GlassCard style={styles.streakCard}>
-              <View style={styles.streakRow}>
-                <Flame size={24} color={OrialColors.warning} />
-                <Text style={OrialTypography.headingMedium}>{totalStreaks} day streaks</Text>
+            {totalStreaks > 0 && (
+              <View style={styles.streakHero}>
+                <Text style={styles.streakHeroNumber}>{totalStreaks}</Text>
+                <View style={styles.streakHeroMeta}>
+                  <Flame size={16} color={OrialColors.warning} />
+                  <Text style={styles.streakHeroLabel}>días de racha total</Text>
+                </View>
               </View>
-            </GlassCard>
+            )}
 
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={styles.categoriesScroll}
-              contentContainerStyle={styles.categoriesContainer}
+              style={styles.categoryScroll}
+              contentContainerStyle={styles.categoryList}
             >
-              {CATEGORIES.map((cat) => (
+              {CATEGORIES.map(cat => (
                 <Pressable
                   key={cat.value}
-                  onPress={() => setSelectedCategory(cat.value)}
                   style={[
                     styles.categoryChip,
                     selectedCategory === cat.value && {
-                      backgroundColor: cat.color + '30',
                       borderColor: cat.color,
+                      backgroundColor: cat.color + '18',
                     },
                   ]}
+                  onPress={() => setSelectedCategory(cat.value)}
                 >
-                  <Text
-                    style={[
-                      OrialTypography.caption,
-                      {
-                        color:
-                          selectedCategory === cat.value ? cat.color : OrialColors.textSecondary,
-                      },
-                    ]}
-                  >
+                  <Text style={[
+                    styles.categoryChipLabel,
+                    { color: selectedCategory === cat.value ? cat.color : OrialColors.textMuted },
+                  ]}>
                     {cat.label}
                   </Text>
                 </Pressable>
@@ -578,160 +532,121 @@ export default function DailyScreen() {
             </ScrollView>
 
             {filteredHabits.length === 0 ? (
-              <GlassCard style={styles.emptyCard}>
-                <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>
-                  {habits.length === 0
-                    ? 'No habits yet. Create your first habit!'
-                    : 'No habits in this category.'}
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  {habits.length === 0 ? 'Sin hábitos. Crea el primero.' : 'Sin hábitos en esta categoría.'}
                 </Text>
-              </GlassCard>
+              </View>
             ) : (
               <View style={styles.habitsList}>
-                {filteredHabits.map((habit) => {
+                {filteredHabits.map(habit => {
                   const streak = habitStreaks.get(habit.id);
+                  const catColor = getCategoryColor(habit.category);
                   return (
-                    <GlassCard key={habit.id} style={styles.habitItem}>
-                      <View style={styles.habitRow}>
-                        <Text style={styles.habitEmoji}>{habit.emoji}</Text>
-                        <View style={styles.habitInfo}>
-                          <Text style={OrialTypography.bodyMedium}>{habit.name}</Text>
-                          <View style={styles.habitMeta}>
-                            <Text style={OrialTypography.caption}>
-                              Streak: {streak?.currentStreak || 0} | Best:{' '}
-                              {streak?.bestStreak || 0} | {streak?.completionRate || 0}%
-                            </Text>
-                          </View>
-                        </View>
-                        <View
-                          style={[
-                            styles.categoryBadge,
-                            { backgroundColor: getCategoryColor(habit.category) + '30' },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              OrialTypography.caption,
-                              { color: getCategoryColor(habit.category) },
-                            ]}
-                          >
-                            {habit.category}
-                          </Text>
-                        </View>
+                    <View key={habit.id} style={styles.habitCard}>
+                      <Text style={styles.habitEmoji}>{habit.emoji}</Text>
+                      <View style={styles.habitInfo}>
+                        <Text style={styles.habitName}>{habit.name}</Text>
+                        <Text style={styles.habitMeta}>
+                          {streak?.currentStreak || 0} días
+                          {streak?.bestStreak ? ` · máx. ${streak.bestStreak}` : ''}
+                          {streak?.completionRate ? ` · ${streak.completionRate}%` : ''}
+                        </Text>
                       </View>
-                    </GlassCard>
+                      <View style={[styles.catBadge, { backgroundColor: catColor + '20' }]}>
+                        <Text style={[styles.catBadgeLabel, { color: catColor }]}>
+                          {habit.category}
+                        </Text>
+                      </View>
+                    </View>
                   );
                 })}
               </View>
             )}
-          </>
+          </View>
         )}
       </ScrollView>
 
-      {/* ── Add Task Modal ───────────────────────────────────────── */}
+      {/* ── Add Task Bottom Sheet ────────────────────────────────── */}
       <Modal visible={showAddTask} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
-            <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Task</Text>
+        <KeyboardAvoidingView
+          style={styles.sheetContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddTask(false)} />
+          <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Nueva tarea</Text>
+            <Pressable onPress={() => setShowAddTask(false)}>
+              <X size={20} color={OrialColors.textMuted} />
+            </Pressable>
+          </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Task title..."
-              placeholderTextColor={OrialColors.textMuted}
-              value={newTaskTitle}
-              onChangeText={setNewTaskTitle}
-              autoFocus
-            />
+          <TextInput
+            style={styles.sheetInput}
+            placeholder="¿Qué tienes que hacer?"
+            placeholderTextColor={OrialColors.textMuted}
+            value={newTaskTitle}
+            onChangeText={setNewTaskTitle}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleAddTask}
+          />
 
-            {/* Priority toggle */}
-            <View style={styles.modalRow}>
-              <Text style={OrialTypography.bodyMedium}>Priority</Text>
+          <View style={styles.sheetOptions}>
+            <Pressable
+              style={[styles.optionChip, newTaskPriority === 1 && styles.optionChipActive]}
+              onPress={() => setNewTaskPriority(newTaskPriority === 1 ? 0 : 1)}
+            >
+              <Star
+                size={13}
+                color={newTaskPriority === 1 ? OrialColors.warning : OrialColors.textMuted}
+                fill={newTaskPriority === 1 ? OrialColors.warning : 'transparent'}
+              />
+              <Text style={[styles.optionChipLabel, newTaskPriority === 1 && { color: OrialColors.warning }]}>
+                Prioritaria
+              </Text>
+            </Pressable>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hourScroll}>
+            <Pressable
+              style={[styles.optionChip, newTaskHour === null && styles.optionChipActive]}
+              onPress={() => setNewTaskHour(null)}
+            >
+              <Text style={[styles.optionChipLabel, newTaskHour === null && { color: OrialColors.textPrimary }]}>
+                Sin hora
+              </Text>
+            </Pressable>
+            {SCHEDULE_HOURS.map(h => (
               <Pressable
-                style={[styles.priorityBtn, newTaskPriority === 1 && styles.priorityBtnActive]}
-                onPress={() => setNewTaskPriority(newTaskPriority === 1 ? 0 : 1)}
+                key={h}
+                style={[styles.optionChip, styles.hourChip, newTaskHour === h && styles.optionChipActive]}
+                onPress={() => setNewTaskHour(h)}
               >
-                <Star
-                  size={16}
-                  color={newTaskPriority === 1 ? OrialColors.warning : OrialColors.textMuted}
-                  fill={newTaskPriority === 1 ? OrialColors.warning : 'transparent'}
-                />
-                <Text
-                  style={[
-                    OrialTypography.caption,
-                    { color: newTaskPriority === 1 ? OrialColors.warning : OrialColors.textMuted },
-                  ]}
-                >
-                  High
+                <Text style={[styles.optionChipLabel, newTaskHour === h && { color: OrialColors.textPrimary }]}>
+                  {formatHour(h)}
                 </Text>
               </Pressable>
-            </View>
+            ))}
+          </ScrollView>
 
-            {/* Hour picker */}
-            <View style={styles.modalRow}>
-              <Text style={OrialTypography.bodyMedium}>Schedule</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <Pressable
-                  style={[styles.hourChip, newTaskHour === null && styles.hourChipActive]}
-                  onPress={() => setNewTaskHour(null)}
-                >
-                  <Text
-                    style={[
-                      OrialTypography.caption,
-                      { color: newTaskHour === null ? OrialColors.textPrimary : OrialColors.textMuted },
-                    ]}
-                  >
-                    None
-                  </Text>
-                </Pressable>
-                {HOURS.map((h) => (
-                  <Pressable
-                    key={h}
-                    style={[styles.hourChip, newTaskHour === h && styles.hourChipActive]}
-                    onPress={() => setNewTaskHour(h)}
-                  >
-                    <Text
-                      style={[
-                        OrialTypography.caption,
-                        { color: newTaskHour === h ? OrialColors.textPrimary : OrialColors.textMuted },
-                      ]}
-                    >
-                      {h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={styles.cancelBtn}
-                onPress={() => {
-                  setShowAddTask(false);
-                  setNewTaskTitle('');
-                  setNewTaskHour(null);
-                  setNewTaskPriority(0);
-                }}
-              >
-                <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable style={styles.saveBtn} onPress={handleAddTask}>
-                <Text style={OrialTypography.bodyMedium}>Add</Text>
-              </Pressable>
-            </View>
-          </GlassCard>
+          <Pressable
+            style={[styles.sheetConfirm, !newTaskTitle.trim() && styles.sheetConfirmDisabled]}
+            onPress={handleAddTask}
+          >
+            <Text style={styles.sheetConfirmText}>Añadir tarea</Text>
+          </Pressable>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <HabitCreationSheet
         visible={isCreationVisible}
         onClose={() => setIsCreationVisible(false)}
         onSave={(habitData: any) => {
-          createHabit({
-            ...habitData,
-            isArchived: false,
-            isAiSuggested: false,
-          } as any);
+          createHabit({ ...habitData, isArchived: false, isAiSuggested: false } as any);
         }}
       />
     </SafeAreaView>
@@ -739,159 +654,607 @@ export default function DailyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: OrialColors.deepNavy },
+  root: {
+    flex: 1,
+    backgroundColor: OrialColors.deepNavy,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+
+  // ── Tab bar
   tabBar: {
     flexDirection: 'row',
-    margin: 16,
-    marginBottom: 0,
-    backgroundColor: OrialColors.surface,
-    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: OrialColors.border,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingBottom: 12,
+    position: 'relative',
+  },
+  tabLabel: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: OrialColors.textMuted,
+  },
+  tabLabelActive: {
+    color: OrialColors.textPrimary,
+  },
+  tabUnderline: {
+    position: 'absolute',
+    bottom: 0,
+    height: 2,
+    width: 40,
+    backgroundColor: OrialColors.violetLight,
+    borderRadius: 1,
+  },
+
+  // ── Shared
+  navChevron: {
     padding: 4,
   },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: OrialColors.violet },
-  tabText: { ...OrialTypography.bodyMedium, color: OrialColors.textMuted },
-  tabTextActive: { color: OrialColors.textPrimary, fontWeight: '600' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  iconBtn: {
-    padding: 8,
-    backgroundColor: OrialColors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: OrialColors.glassBorder,
-  },
-  addButton: { padding: 8, backgroundColor: OrialColors.violet, borderRadius: 12 },
-  streakCard: { marginHorizontal: 16, marginBottom: 8 },
-  streakRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dateNav: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 'auto' },
-  scheduleCard: { marginHorizontal: 16, marginBottom: 8 },
-  sectionLabel: {
-    color: OrialColors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  hourRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, minHeight: 28 },
-  hourLabel: {
-    ...OrialTypography.caption,
-    color: OrialColors.textMuted,
-    width: 50,
-    paddingTop: 4,
-  },
-  hourLine: {
-    width: 1,
-    backgroundColor: OrialColors.glassBorder,
-    marginHorizontal: 8,
-    alignSelf: 'stretch',
-  },
-  hourTasks: { flex: 1, gap: 4 },
-  hourTask: {
-    backgroundColor: OrialColors.violet + '40',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderLeftWidth: 2,
-    borderLeftColor: OrialColors.violet,
-  },
-  hourTaskDone: { opacity: 0.5 },
-  hourTaskHighPriority: { borderLeftColor: OrialColors.warning },
-  hourTaskText: { ...OrialTypography.caption, color: OrialColors.textPrimary },
-  section: { padding: 16, paddingTop: 0 },
-  taskCard: { marginBottom: 8, padding: 12 },
-  taskCardDone: { opacity: 0.6 },
-  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  taskCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: OrialColors.glassBorder,
+  addBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: OrialColors.violet,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  taskCheckDone: { backgroundColor: OrialColors.success, borderColor: OrialColors.success },
-  taskBody: { flex: 1 },
-  taskDoneText: { textDecorationLine: 'line-through', color: OrialColors.textMuted },
-  deleteBtn: { padding: 4 },
-  // Calendar styles
-  calendarCard: { margin: 16, marginTop: 12, padding: 16 },
-  monthHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  weekDaysHeader: { flexDirection: 'row', marginBottom: 8 },
-  weekDayCell: { width: DAY_SIZE, alignItems: 'center' },
-  weekDayText: { color: OrialColors.textMuted },
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayCell: { justifyContent: 'center', alignItems: 'center', borderRadius: 8, marginBottom: 4 },
-  dayText: { color: OrialColors.textPrimary },
-  otherMonthDay: { color: OrialColors.textMuted, opacity: 0.5 },
-  selectedDay: { backgroundColor: OrialColors.violet },
-  selectedDayText: { color: OrialColors.textPrimary, fontWeight: 'bold' },
-  todayDay: { borderWidth: 2, borderColor: OrialColors.violetLight },
-  todayDayText: { color: OrialColors.violetLight, fontWeight: 'bold' },
-  eventDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: OrialColors.warning, marginTop: 2 },
-  sectionTitle: { marginBottom: 12 },
-  subSectionTitle: { marginBottom: 8, textTransform: 'uppercase', color: OrialColors.textMuted },
-  habitsSection: { marginBottom: 16 },
-  habitItem: { marginBottom: 8, padding: 12 },
-  habitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  habitEmoji: { fontSize: 24 },
-  checkIndicator: {
-    width: 24, height: 24, borderRadius: 12,
+  section: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionHeading: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 10,
+    letterSpacing: 2,
+    color: OrialColors.textMuted,
+    marginBottom: 12,
+  },
+  emptyState: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 14,
+    color: OrialColors.textMuted,
+    textAlign: 'center',
+  },
+
+  // ── Tasks
+  taskHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 8,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dateLabel: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 22,
+    color: OrialColors.textPrimary,
+    letterSpacing: 0.3,
+    textTransform: 'capitalize',
+  },
+  dateSub: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 11,
+    color: OrialColors.textMuted,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     backgroundColor: OrialColors.surface,
-    justifyContent: 'center', alignItems: 'center', marginLeft: 'auto',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
   },
-  eventsSection: { gap: 8 },
-  eventItem: { padding: 12 },
-  eventRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  eventTime: { minWidth: 50 },
-  eventInfo: { flex: 1 },
-  emptyCard: { margin: 16, marginTop: 0, alignItems: 'center', padding: 24 },
-  emptyText: { textAlign: 'center', color: OrialColors.textMuted },
-  categoriesScroll: { maxHeight: 50, marginBottom: 16 },
-  categoriesContainer: { paddingHorizontal: 16, gap: 8 },
-  categoryChip: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: OrialColors.surface, borderWidth: 1, borderColor: OrialColors.glassBorder,
+  streakBadgeText: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 14,
+    color: OrialColors.warning,
   },
-  habitsList: { padding: 16, gap: 12 },
-  habitInfo: { flex: 1 },
-  habitMeta: { marginTop: 4 },
-  categoryBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  // Modal styles
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalCard: { margin: 16, padding: 20 },
-  input: {
+  progressSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 4,
+    gap: 6,
+  },
+  progressTrack: {
+    height: 2,
+    backgroundColor: OrialColors.border,
+    borderRadius: 1,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 2,
+    backgroundColor: OrialColors.violetLight,
+    borderRadius: 1,
+  },
+  progressLabel: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 12,
+    color: OrialColors.textMuted,
+  },
+  scheduleList: {
+    gap: 6,
+  },
+  scheduledRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
     backgroundColor: OrialColors.surface,
     borderRadius: 10,
-    padding: 12,
-    ...OrialTypography.bodyMedium,
-    color: OrialColors.textPrimary,
-    marginBottom: 16,
     borderWidth: 1,
-    borderColor: OrialColors.glassBorder,
+    borderColor: OrialColors.border,
   },
-  modalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 },
-  priorityBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
-    backgroundColor: OrialColors.surface, borderWidth: 1, borderColor: OrialColors.glassBorder,
+  scheduledRowDone: {
+    opacity: 0.45,
   },
-  priorityBtnActive: { borderColor: OrialColors.warning, backgroundColor: OrialColors.warning + '20' },
+  scheduleTime: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 13,
+    color: OrialColors.textMuted,
+    width: 36,
+  },
+  scheduleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    flexShrink: 0,
+  },
+  scheduleTaskText: {
+    flex: 1,
+    fontFamily: 'Manrope-Regular',
+    fontSize: 14,
+    color: OrialColors.textPrimary,
+  },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: OrialColors.border,
+  },
+  taskRowDone: {
+    opacity: 0.5,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: OrialColors.borderStrong,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  checkboxDone: {
+    backgroundColor: OrialColors.success,
+    borderColor: OrialColors.success,
+  },
+  taskBody: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  priorityDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: OrialColors.warning,
+    flexShrink: 0,
+  },
+  taskText: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 15,
+    color: OrialColors.textPrimary,
+    flex: 1,
+  },
+  pushedLabel: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 11,
+    color: OrialColors.textMuted,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  strikeText: {
+    textDecorationLine: 'line-through',
+    color: OrialColors.textMuted,
+  },
+  deleteBtn: {
+    padding: 4,
+    opacity: 0.6,
+  },
+  pushBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pushBtnText: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 12,
+    color: OrialColors.textMuted,
+  },
+
+  // ── Calendar
+  calendarCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
+    padding: CAL_PAD,
+    paddingBottom: 12,
+  },
+  monthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  monthTitle: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 20,
+    color: OrialColors.textPrimary,
+    letterSpacing: 1.5,
+  },
+  monthYear: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 20,
+    color: OrialColors.textMuted,
+    letterSpacing: 1.5,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  dayCell: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingVertical: 6,
+  },
+  dayCellSquare: {
+    aspectRatio: 1,
+    paddingVertical: 0,
+  },
+  dayCellSelected: {
+    backgroundColor: OrialColors.violet,
+  },
+  dayCellToday: {
+    borderWidth: 1,
+    borderColor: OrialColors.violetLight + '60',
+  },
+  weekDayLabel: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 11,
+    color: OrialColors.textMuted,
+    textAlign: 'center',
+  },
+  dayNumber: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 15,
+    color: OrialColors.textPrimary,
+    textAlign: 'center',
+  },
+  dayNumberMuted: {
+    color: OrialColors.textMuted,
+    opacity: 0.35,
+  },
+  dayNumberSelected: {
+    color: '#fff',
+  },
+  dayNumberToday: {
+    color: OrialColors.violetLight,
+  },
+  eventDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: OrialColors.warning,
+    position: 'absolute',
+    bottom: 3,
+  },
+  dayDetailTitle: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 20,
+    color: OrialColors.textPrimary,
+    letterSpacing: 0.3,
+    textTransform: 'capitalize',
+    marginBottom: 20,
+  },
+  daySection: {
+    marginBottom: 24,
+  },
+  dayHabitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: OrialColors.border,
+  },
+  habitEmojiSmall: {
+    fontSize: 18,
+  },
+  dayHabitName: {
+    flex: 1,
+    fontFamily: 'Manrope-Regular',
+    fontSize: 15,
+    color: OrialColors.textPrimary,
+  },
+  habitCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: OrialColors.borderStrong,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  habitCheckDone: {
+    backgroundColor: OrialColors.success,
+    borderColor: OrialColors.success,
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: OrialColors.border,
+  },
+  eventTime: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 14,
+    color: OrialColors.textMuted,
+    width: 44,
+    paddingTop: 1,
+    letterSpacing: 0.3,
+  },
+  eventDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: OrialColors.border,
+  },
+  eventInfo: {
+    flex: 1,
+  },
+  eventTitle: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 15,
+    color: OrialColors.textPrimary,
+  },
+  eventNotes: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 12,
+    color: OrialColors.textMuted,
+    marginTop: 2,
+  },
+
+  // ── Habits
+  habitsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 8,
+  },
+  habitsTitle: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 26,
+    color: OrialColors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  streakHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  streakHeroNumber: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 56,
+    color: OrialColors.textPrimary,
+    lineHeight: 60,
+    letterSpacing: -1,
+  },
+  streakHeroMeta: {
+    gap: 3,
+  },
+  streakHeroLabel: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 14,
+    color: OrialColors.textMuted,
+  },
+  categoryScroll: {
+    maxHeight: 46,
+    marginBottom: 8,
+  },
+  categoryList: {
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: OrialColors.surface,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
+  },
+  categoryChipLabel: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 12,
+  },
+  habitsList: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+  },
+  habitCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: OrialColors.border,
+  },
+  habitEmoji: {
+    fontSize: 22,
+    width: 30,
+    textAlign: 'center',
+  },
+  habitInfo: {
+    flex: 1,
+  },
+  habitName: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 15,
+    color: OrialColors.textPrimary,
+  },
+  habitMeta: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 12,
+    color: OrialColors.textMuted,
+    marginTop: 2,
+  },
+  catBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  catBadgeLabel: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 11,
+  },
+
+  // ── Add task sheet
+  sheetContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  sheet: {
+    backgroundColor: OrialColors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderTopColor: OrialColors.border,
+    padding: 24,
+    paddingBottom: 44,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: OrialColors.borderStrong,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  sheetTitle: {
+    fontFamily: 'BarlowCondensed-Bold',
+    fontSize: 22,
+    color: OrialColors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  sheetInput: {
+    backgroundColor: OrialColors.deepNavy,
+    borderRadius: 10,
+    padding: 14,
+    fontFamily: 'Manrope-Regular',
+    fontSize: 16,
+    color: OrialColors.textPrimary,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
+    marginBottom: 14,
+  },
+  sheetOptions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  hourScroll: {
+    marginBottom: 20,
+  },
+  optionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: OrialColors.deepNavy,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
+  },
   hourChip: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
-    backgroundColor: OrialColors.surface, borderWidth: 1, borderColor: OrialColors.glassBorder,
     marginRight: 6,
   },
-  hourChipActive: { backgroundColor: OrialColors.violet, borderColor: OrialColors.violet },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
-  cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
-  saveBtn: {
-    paddingHorizontal: 24, paddingVertical: 10,
-    backgroundColor: OrialColors.violet, borderRadius: 10,
+  optionChipActive: {
+    borderColor: OrialColors.violetLight,
+    backgroundColor: OrialColors.violet + '22',
+  },
+  optionChipLabel: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 12,
+    color: OrialColors.textMuted,
+  },
+  sheetConfirm: {
+    backgroundColor: OrialColors.violet,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  sheetConfirmDisabled: {
+    opacity: 0.35,
+  },
+  sheetConfirmText: {
+    fontFamily: 'Manrope-SemiBold',
+    fontSize: 15,
+    color: '#fff',
+    letterSpacing: 0.3,
   },
 });
