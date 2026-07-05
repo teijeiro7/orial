@@ -59,7 +59,6 @@ export default function TabLayout() {
       />
       <Tabs.Screen name="forge" options={{ href: null }} />
       <Tabs.Screen name="macros" options={{ href: null }} />
-      <Tabs.Screen name="jarvis" options={{ href: null }} />
     </Tabs>
   );
 }
