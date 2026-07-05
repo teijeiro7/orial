@@ -405,3 +405,30 @@ export type FinanceExpense = typeof financeExpenses.$inferSelect;
 export type NewFinanceExpense = typeof financeExpenses.$inferInsert;
 export type FinanceIncome = typeof financeIncome.$inferSelect;
 export type NewFinanceIncome = typeof financeIncome.$inferInsert;
+
+// ── Hermes Inbox (generic typed pull from Hermes server) ────────────────────
+
+export const hermesInboxLog = sqliteTable('hermes_inbox_log', {
+  id: text('id').primaryKey(),
+  externalId: text('external_id').notNull().unique(), // server-side id, idempotency
+  type: text('type').notNull(), // nutrition | weight | hydration | habit_checkin | expense | workout | whoop_extra
+  status: text('status').notNull().default('pending'), // pending | consumed | error
+  payloadJson: text('payload_json').notNull(),
+  error: text('error'),
+  receivedAt: integer('received_at', { mode: 'timestamp' }).notNull(),
+  consumedAt: integer('consumed_at', { mode: 'timestamp' }),
+});
+
+export const whoopExtras = sqliteTable('whoop_extras', {
+  id: text('id').primaryKey(),
+  date: text('date').notNull(), // YYYY-MM-DD
+  source: text('source').notNull(), // sleep_detail | stress | health_monitor | target_strain | journal | workout_detail
+  dataJson: text('data_json').notNull(), // raw parsed payload from Hermes
+  capturedAt: integer('captured_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type HermesInboxEntry = typeof hermesInboxLog.$inferSelect;
+export type NewHermesInboxEntry = typeof hermesInboxLog.$inferInsert;
+export type WhoopExtra = typeof whoopExtras.$inferSelect;
+export type NewWhoopExtra = typeof whoopExtras.$inferInsert;

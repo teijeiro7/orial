@@ -8,10 +8,10 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Check, AlertTriangle, Zap } from 'lucide-react-native';
-import * as SecureStore from 'expo-secure-store';
+import { X, Check, AlertTriangle, Zap, Database } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
 import { agentService } from '../../src/services/openclawService';
 import { OrialColors } from '../../src/utils/colors';
@@ -25,8 +25,11 @@ interface JarvisSettingsScreenProps {
 export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenProps) {
   const [apiUrl, setApiUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [inboxUrl, setInboxUrl] = useState('');
   const [testing, setTesting] = useState(false);
+  const [testingInbox, setTestingInbox] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [inboxStatus, setInboxStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,6 +43,8 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
       setApiUrl(config.apiUrl);
       setApiKey(config.apiKey);
     }
+    const iUrl = await agentService.getHermesServerUrl();
+    if (iUrl) setInboxUrl(iUrl);
     setLoading(false);
   }
 
@@ -77,17 +82,46 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
     }
   }
 
+  async function saveInboxUrl() {
+    if (!inboxUrl.trim()) {
+      Alert.alert('Error', 'Enter the Hermes server URL');
+      return;
+    }
+    setInboxStatus('idle');
+    const normalizedUrl = inboxUrl.trim().replace(/\/$/, '');
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(`${normalizedUrl}/inbox/pending`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      // 200 = items pending (or empty array), 204 = nothing pending — both OK
+      if (res.ok || res.status === 204) {
+        await agentService.saveHermesServerUrl(normalizedUrl);
+        setInboxStatus('success');
+      } else {
+        setInboxStatus('error');
+      }
+    } catch {
+      setInboxStatus('error');
+    }
+  }
+
   async function disconnect() {
-    Alert.alert('Disconnect JARVIS', 'Remove Hermes credentials?', [
+    Alert.alert('Disconnect Hermes', 'Remove credentials?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Disconnect',
         style: 'destructive',
         onPress: async () => {
           await agentService.clearConfig();
+          await agentService.clearHermesServerUrl();
           setApiUrl('');
           setApiKey('');
+          setInboxUrl('');
           setStatus('idle');
+          setInboxStatus('idle');
         },
       },
     ]);
@@ -100,7 +134,7 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
           <View style={styles.headerIcon}>
             <Zap size={20} color={OrialColors.cyan} />
           </View>
-          <Text style={OrialTypography.headingMedium}>JARVIS / Hermes Agent</Text>
+          <Text style={OrialTypography.headingMedium}>Hermes Agent</Text>
           <Pressable onPress={onClose} style={styles.closeBtn}>
             <X size={22} color={OrialColors.textMuted} />
           </Pressable>
@@ -109,7 +143,56 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
         {loading ? (
           <ActivityIndicator color={OrialColors.violetLight} style={{ marginTop: 40 }} />
         ) : (
-          <View style={styles.content}>
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+            {/* Hermes Inbox (generic typed pull) */}
+            <Text style={styles.sectionTitle}>SERVIDOR HERMES — INBOX (puerto 8642)</Text>
+            <GlassCard style={styles.card}>
+              <View style={styles.inputGroup}>
+                <Text style={[OrialTypography.caption, styles.label]}>URL del servidor</Text>
+                <TextInput
+                  style={styles.input}
+                  value={inboxUrl}
+                  onChangeText={(t) => { setInboxUrl(t); setInboxStatus('idle'); }}
+                  placeholder="https://xxx.trycloudflare.com"
+                  placeholderTextColor={OrialColors.textMuted}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+              </View>
+
+              <Pressable
+                style={[
+                  styles.testBtn,
+                  inboxStatus === 'success' && styles.testBtnSuccess,
+                  inboxStatus === 'error' && styles.testBtnError,
+                ]}
+                onPress={saveInboxUrl}
+                disabled={testingInbox}
+              >
+                {testingInbox ? (
+                  <ActivityIndicator size="small" color={OrialColors.textPrimary} />
+                ) : inboxStatus === 'success' ? (
+                  <>
+                    <Check size={18} color={OrialColors.success} />
+                    <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>Conectado</Text>
+                  </>
+                ) : inboxStatus === 'error' ? (
+                  <>
+                    <AlertTriangle size={18} color={OrialColors.error} />
+                    <Text style={[OrialTypography.caption, { color: OrialColors.error }]}>No responde</Text>
+                  </>
+                ) : (
+                  <>
+                    <Database size={16} color={OrialColors.textPrimary} />
+                    <Text style={[OrialTypography.caption, { color: OrialColors.textPrimary }]}>Test y guardar</Text>
+                  </>
+                )}
+              </Pressable>
+            </GlassCard>
+
+            {/* Chat API (legacy, optional) */}
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>API CHAT (opcional, puerto 8642)</Text>
             <GlassCard style={styles.card}>
               <View style={styles.inputGroup}>
                 <Text style={[OrialTypography.caption, styles.label]}>API URL</Text>
@@ -125,12 +208,12 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[OrialTypography.caption, styles.label]}>API Key (Bearer token)</Text>
+                <Text style={[OrialTypography.caption, styles.label]}>API Key</Text>
                 <TextInput
                   style={styles.input}
                   value={apiKey}
                   onChangeText={(t) => { setApiKey(t); setStatus('idle'); }}
-                  placeholder="sk-... or your gateway token"
+                  placeholder="sk-... or gateway token"
                   placeholderTextColor={OrialColors.textMuted}
                   secureTextEntry
                 />
@@ -150,36 +233,34 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
                 ) : status === 'success' ? (
                   <>
                     <Check size={18} color={OrialColors.success} />
-                    <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>Saved & Connected</Text>
+                    <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>Guardado y conectado</Text>
                   </>
                 ) : status === 'error' ? (
                   <>
                     <AlertTriangle size={18} color={OrialColors.error} />
-                    <Text style={[OrialTypography.caption, { color: OrialColors.error }]}>Connection failed</Text>
+                    <Text style={[OrialTypography.caption, { color: OrialColors.error }]}>Conexión fallida</Text>
                   </>
                 ) : (
-                  <Text style={[OrialTypography.caption, { color: OrialColors.textPrimary }]}>
-                    Test & Save
-                  </Text>
+                  <Text style={[OrialTypography.caption, { color: OrialColors.textPrimary }]}>Test y guardar</Text>
                 )}
               </Pressable>
             </GlassCard>
 
-            {apiUrl.length > 0 && (
-              <Pressable style={styles.disconnectBtn} onPress={disconnect}>
-                <Text style={[OrialTypography.caption, { color: OrialColors.error }]}>Disconnect</Text>
-              </Pressable>
-            )}
-
             <GlassCard style={styles.hintCard}>
               <Text style={[OrialTypography.caption, styles.hint]}>
-                Run on your VPS:{'\n'}
+                Túnel Cloudflare:{'\n'}
                 <Text style={styles.code}>cloudflared tunnel --url http://localhost:8642</Text>
-                {'\n\n'}Then paste the URL above. Use a named tunnel for a permanent URL.{'\n\n'}
-                Need to expose Hermes API Server (port 8642). Your Hermes API key is set in <Text style={styles.code}>.env</Text> as API_SERVER_KEY.
+                {'\n\n'}
+                El inbox de Hermes entrega payloads tipados a Orial (workout, nutrition, weight, hydration, habit_checkin, expense, whoop_extra). Orial procesa automáticamente cada 5 minutos en background y al abrir la app.
               </Text>
             </GlassCard>
-          </View>
+
+            {(apiUrl.length > 0 || inboxUrl.length > 0) && (
+              <Pressable style={styles.disconnectBtn} onPress={disconnect}>
+                <Text style={[OrialTypography.caption, { color: OrialColors.error }]}>Desconectar todo</Text>
+              </Pressable>
+            )}
+          </ScrollView>
         )}
       </SafeAreaView>
     </Modal>
@@ -214,7 +295,15 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    gap: 16,
+    paddingBottom: 40,
+  },
+  sectionTitle: {
+    ...OrialTypography.caption,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: OrialColors.textMuted,
+    marginBottom: 10,
   },
   card: {
     padding: 20,
@@ -256,10 +345,12 @@ const styles = StyleSheet.create({
   },
   disconnectBtn: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
+    marginTop: 8,
   },
   hintCard: {
     padding: 16,
+    marginTop: 16,
   },
   hint: {
     lineHeight: 20,

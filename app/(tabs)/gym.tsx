@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,19 +6,23 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Dumbbell, ChevronRight, Clock, Heart, Zap, Flame, Activity } from 'lucide-react-native';
+import { Dumbbell, ChevronRight, Clock, Heart, Zap, Flame, Activity, RefreshCw, Check } from 'lucide-react-native';
 import { gymService } from '../../src/services/gymService';
 import type { Zones } from '../../src/services/gymService';
+import { hermesInboxService } from '../../src/services/hermesInboxService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
 import { StrainBar } from '../../src/components/gym/StrainBar';
 import { ZoneBadge } from '../../src/components/gym/ZoneBadge';
 import type { GymSession } from '../../drizzle/schema';
+
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 type SessionSummary = GymSession & {
   routineName: string;
@@ -64,7 +68,7 @@ function TodayCard({ session }: { session: SessionSummary | null }) {
             <Text style={todayStyles.subtitle}>
               {session
                 ? format(new Date(session.date), 'HH:mm', { locale: es })
-                : 'Esperando datos de WHOOP'}
+                : 'Esperando datos de Hermes'}
             </Text>
           </View>
         </View>
@@ -141,6 +145,9 @@ export default function GymScreen() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ count: number; ts: number } | null>(null);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadData = useCallback(async () => {
     const s = await gymService.getAllSessionsWithRoutines();
@@ -148,7 +155,55 @@ export default function GymScreen() {
     setLoading(false);
   }, []);
 
+  const syncWorkouts = useCallback(async (silent = false) => {
+    if (!silent) setSyncing(true);
+    try {
+      // The generic inbox processes ALL types (workout, nutrition, weight,
+      // hydration, etc.). We snapshot the session count before & after so the
+      // badge can report how many new gym sessions showed up — the user only
+      // cares about sessions on this screen.
+      const before = await gymService.getAllSessionsWithRoutines();
+      const beforeCount = before.length;
+
+      const result = await hermesInboxService.pullAndProcess({ silent });
+
+      const after = await gymService.getAllSessionsWithRoutines();
+      const newSessions = Math.max(0, after.length - beforeCount);
+
+      if (newSessions > 0) {
+        await loadData();
+        setSyncResult({ count: newSessions, ts: Date.now() });
+      } else if (!silent) {
+        setSyncResult({ count: 0, ts: Date.now() });
+      } else if (result.fetched > 0) {
+        // silent run consumed non-workout items (nutrition, etc.) — give a
+        // softer hint so the user knows the inbox is alive
+        setSyncResult({ count: 0, ts: Date.now() });
+      }
+    } catch (e) {
+      console.warn('[Gym] Sync failed:', e);
+    } finally {
+      if (!silent) setSyncing(false);
+    }
+  }, [loadData]);
+
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Auto-sync every 5 minutes, silently
+  useEffect(() => {
+    syncWorkouts(true);
+    syncIntervalRef.current = setInterval(() => syncWorkouts(true), SYNC_INTERVAL_MS);
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+    };
+  }, [syncWorkouts]);
+
+  // Clear sync result badge after 4 seconds
+  useEffect(() => {
+    if (!syncResult) return;
+    const t = setTimeout(() => setSyncResult(null), 4000);
+    return () => clearTimeout(t);
+  }, [syncResult]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -175,6 +230,24 @@ export default function GymScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.screenTitle}>Gym</Text>
+        <Pressable
+          style={styles.syncBtn}
+          onPress={() => syncWorkouts(false)}
+          disabled={syncing}
+        >
+          {syncing ? (
+            <ActivityIndicator size="small" color={OrialColors.cyan} />
+          ) : syncResult !== null ? (
+            <View style={styles.syncResultRow}>
+              <Check size={14} color={OrialColors.success} strokeWidth={2.5} />
+              <Text style={styles.syncResultText}>
+                {syncResult.count > 0 ? `+${syncResult.count}` : 'Al día'}
+              </Text>
+            </View>
+          ) : (
+            <RefreshCw size={18} color={OrialColors.textMuted} strokeWidth={1.5} />
+          )}
+        </Pressable>
       </View>
 
       <ScrollView
@@ -229,6 +302,26 @@ const styles = StyleSheet.create({
     ...OrialTypography.headingMedium,
     fontSize: 18,
     letterSpacing: -0.3,
+  },
+  syncBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: OrialColors.darkBlue,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  syncResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  syncResultText: {
+    fontFamily: 'Manrope-SemiBold',
+    fontSize: 11,
+    color: OrialColors.success,
   },
   sectionLabel: {
     ...OrialTypography.caption,
@@ -328,7 +421,7 @@ const todayStyles = StyleSheet.create({
     alignItems: 'center',
   },
   strainValue: {
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'BarlowCondensed-Bold',
     fontSize: 16,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
@@ -347,9 +440,9 @@ const todayStyles = StyleSheet.create({
     marginHorizontal: 4,
   },
   statValue: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'BarlowCondensed-Bold',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: OrialColors.textPrimary,
     letterSpacing: -0.5,
     fontVariant: ['tabular-nums'],
