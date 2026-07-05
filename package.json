@@ -13,7 +13,9 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@expo-google-fonts/barlow-condensed": "^0.4.1",
     "@expo-google-fonts/inter": "^0.2.3",
+    "@expo-google-fonts/manrope": "^0.4.2",
     "@invertase/react-native-apple-authentication": "^2.5.1",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "^9.1.0",
@@ -32,6 +34,7 @@
     "expo-dev-client": "~6.0.21",
     "expo-device": "^55.0.16",
     "expo-haptics": "~15.0.8",
+    "expo-image-picker": "^56.0.15",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.12",
     "expo-local-authentication": "~17.0.8",
