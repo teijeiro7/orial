@@ -95,7 +95,8 @@ const TAB_LABELS: Record<SubTab, string> = {
 const SUB_CATEGORIES = ['streaming', 'software', 'fitness', 'other'];
 
 function getCurrentMonth() {
-  return new Date().toISOString().slice(0, 7);
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function getMonthLabel(month: string) {
@@ -253,7 +254,7 @@ export default function FinanceScreen() {
   function shiftMonth(delta: number) {
     const [y, m] = month.split('-').map(Number);
     const d = new Date(y, m - 1 + delta, 1);
-    setMonth(d.toISOString().slice(0, 7));
+    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
   return (
@@ -477,14 +478,18 @@ export default function FinanceScreen() {
                         <Text style={s.subName}>{sub.name}</Text>
                         <View style={s.subMeta}>
                           <View style={s.catPill}><Text style={s.catPillText}>{sub.category}</Text></View>
-                          <Text style={s.subCycleText}>{sub.billingCycle === 'monthly' ? '/mes' : '/año'}</Text>
+                          <Text style={s.subCycleText}>
+                            {sub.billingCycle === 'monthly'
+                              ? `día ${sub.billingDay} · /mes`
+                              : `día ${sub.billingDay} · /año`}
+                          </Text>
                         </View>
                       </View>
                       <View style={s.subRight}>
                         <Text style={s.subAmount}>{fmt(sub.amount, sub.currency)}</Text>
                         <View style={[s.daysChip, { backgroundColor: (urgentColor ?? OrialColors.textMuted) + '1A' }]}>
                           <Text style={[s.daysChipText, { color: urgentColor ?? OrialColors.textMuted }]}>
-                            {days <= 0 ? 'hoy' : `${days}d`}
+                            {days <= 0 ? 'hoy' : days === 1 ? 'mañana' : `${days}d`}
                           </Text>
                         </View>
                       </View>
@@ -624,7 +629,7 @@ export default function FinanceScreen() {
               <TextInput style={s.input} placeholder="Nombre del servicio" placeholderTextColor={OrialColors.textMuted} value={subName} onChangeText={setSubName} autoFocus />
               <View style={s.rowInputs}>
                 <TextInput style={[s.input, { flex: 1 }]} placeholder="Importe" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={subAmount} onChangeText={setSubAmount} />
-                <TextInput style={[s.input, { flex: 1 }]} placeholder="Día cobro" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={subDay} onChangeText={setSubDay} />
+                <TextInput style={[s.input, { flex: 1 }]} placeholder="Día (1-31)" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={subDay} onChangeText={(v) => { const n = parseInt(v); if (!v || (n >= 1 && n <= 31)) setSubDay(v); }} />
               </View>
               <Text style={s.fieldLabel}>CICLO</Text>
               <View style={s.chipRow}>
