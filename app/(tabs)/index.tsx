@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -92,6 +92,22 @@ export default function DashboardScreen() {
     loadAllData();
     const interval = setInterval(loadWhoopData, 5 * 60 * 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Refetch dashboard data (including hydration) when the app returns to the
+  // foreground, so NFC water entries drained by _layout.tsx while
+  // backgrounded/closed are reflected here without requiring a manual
+  // pull-to-refresh.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        loadAllData();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const onRefresh = async () => {
