@@ -15,6 +15,7 @@ import { supplementService } from '../../src/services/supplementService';
 import { manualMetricsService } from '../../src/services/manualMetricsService';
 import { weightPredictionService } from '../../src/services/weightPredictionService';
 import { nutritionService } from '../../src/services/nutritionService';
+import { drainNfcWaterQueue } from '../../src/services/nfcWaterQueue';
 import type { WhoopDaily, ManualMetric, WeightPrediction, NutritionLog } from '../../drizzle/schema';
 
 function getGreeting(): string {
@@ -95,12 +96,15 @@ export default function DashboardScreen() {
   }, []);
 
   // Refetch dashboard data (including hydration) when the app returns to the
-  // foreground, so NFC water entries drained by _layout.tsx while
-  // backgrounded/closed are reflected here without requiring a manual
-  // pull-to-refresh.
+  // foreground. We await the NFC queue drain directly here (rather than relying
+  // on _layout.tsx's own independent drain call to finish first) so the dashboard
+  // never reloads before the drain has actually completed. The in-flight guard in
+  // drainNfcWaterQueue makes it safe to call this alongside _layout.tsx's call on
+  // the same AppState 'active' event — both resolve to the same underlying drain.
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
       if (nextAppState === 'active') {
+        await drainNfcWaterQueue();
         loadAllData();
       }
     });

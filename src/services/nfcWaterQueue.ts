@@ -17,24 +17,44 @@ export async function writeHydrationBaseline(date: string, consumedLiters: numbe
   await DefaultPreference.set('hydration_baseline', JSON.stringify({ date, consumedLiters }));
 }
 
+let inFlightDrain: Promise<{ addedMl: number }> | null = null;
+
 export async function drainNfcWaterQueue(): Promise<{ addedMl: number }> {
-  if (Platform.OS !== 'ios') return { addedMl: 0 };
-
-  await DefaultPreference.setName(GROUP_ID);
-  const raw = await DefaultPreference.get('hydration_nfc_queue');
-
-  if (!raw || raw === '[]') {
-    return { addedMl: 0 };
+  if (inFlightDrain) {
+    return inFlightDrain;
   }
 
-  const queue: NfcWaterQueueEntry[] = JSON.parse(raw);
+  inFlightDrain = (async () => {
+    if (Platform.OS !== 'ios') return { addedMl: 0 };
 
-  for (const entry of queue) {
-    await hydrationService.addWater(entry.date, entry.ml / 1000, 'water');
+    await DefaultPreference.setName(GROUP_ID);
+    const raw = await DefaultPreference.get('hydration_nfc_queue');
+
+    if (!raw || raw === '[]') {
+      return { addedMl: 0 };
+    }
+
+    let queue: NfcWaterQueueEntry[] = JSON.parse(raw);
+    let addedMl = 0;
+
+    // Process entries one at a time, persisting the shrunken remaining queue
+    // after each successful addWater call. If addWater throws partway through,
+    // everything already applied is already removed from the persisted queue,
+    // so a subsequent drain only reprocesses what's left.
+    while (queue.length > 0) {
+      const entry = queue[0];
+      await hydrationService.addWater(entry.date, entry.ml / 1000, 'water');
+      addedMl += entry.ml;
+      queue = queue.slice(1);
+      await DefaultPreference.set('hydration_nfc_queue', JSON.stringify(queue));
+    }
+
+    return { addedMl };
+  })();
+
+  try {
+    return await inFlightDrain;
+  } finally {
+    inFlightDrain = null;
   }
-
-  await DefaultPreference.set('hydration_nfc_queue', '[]');
-
-  const addedMl = queue.reduce((sum, entry) => sum + entry.ml, 0);
-  return { addedMl };
 }
