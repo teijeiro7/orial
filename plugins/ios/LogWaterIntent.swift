@@ -8,7 +8,7 @@ private let QUEUE_KEY = "hydration_nfc_queue"
 private func todayString() -> String {
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy-MM-dd"
-    formatter.timeZone = TimeZone.current
+    formatter.timeZone = TimeZone(identifier: "UTC")!
     return formatter.string(from: Date())
 }
 
