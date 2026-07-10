@@ -90,3 +90,43 @@ describe('hydrationService.addWater', () => {
     warnSpy.mockRestore();
   });
 });
+
+describe('hydrationService.getProgress', () => {
+  const DATE = '2026-07-10';
+
+  const existingRecord = {
+    date: DATE,
+    targetLiters: 3.0,
+    consumedLiters: 1.5,
+    effectiveLiters: 1.2,
+    sodiumMg: 0,
+    extraLitersFromSodium: 0,
+    updatedAt: new Date(),
+  };
+
+  const mockSelectResolvesTo = (rows: unknown[]) => {
+    mockedDb.select.mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue(rows),
+        }),
+      }),
+    } as any);
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSelectResolvesTo([existingRecord]);
+  });
+
+  it('returns consumedLiters alongside the existing current/target/percentage fields', async () => {
+    const progress = await hydrationService.getProgress(DATE);
+
+    expect(progress).toEqual({
+      current: 1.2,
+      target: 3.0,
+      percentage: 40,
+      consumedLiters: 1.5,
+    });
+  });
+});

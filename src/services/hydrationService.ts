@@ -98,7 +98,7 @@ export class HydrationService {
       .where(eq(hydration.date, date));
   }
 
-  async getProgress(date?: string): Promise<{ current: number; target: number; percentage: number }> {
+  async getProgress(date?: string): Promise<{ current: number; target: number; percentage: number; consumedLiters: number }> {
     const targetDate = date || new Date().toISOString().split('T')[0];
     const record = await this.getOrCreateForDate(targetDate);
 
@@ -106,6 +106,7 @@ export class HydrationService {
       current: record.effectiveLiters || 0,
       target: record.targetLiters || 3.0,
       percentage: Math.min(100, ((record.effectiveLiters || 0) / (record.targetLiters || 3.0)) * 100),
+      consumedLiters: record.consumedLiters || 0,
     };
   }
 

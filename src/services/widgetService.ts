@@ -110,7 +110,7 @@ export class WidgetService {
       const today = new Date().toISOString().split('T')[0];
       const hydrationProgress = await hydrationService.getProgress(today);
 
-      await writeHydrationBaseline(today, hydrationProgress.current);
+      await writeHydrationBaseline(today, hydrationProgress.consumedLiters);
 
       const supplementLogs = await supplementService.getTodayLogs(today);
       const prediction = await weightPredictionService.getTodayPrediction();
