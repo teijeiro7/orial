@@ -3,6 +3,7 @@ import { hydration, sodiumIntake, type Hydration, type NewHydration, type NewSod
 import { eq, and, gte, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import { hydrationProfileService } from './hydrationProfileService';
+import { writeHydrationBaseline } from './nfcWaterQueue';
 
 const SODIO_PER_LITER_EXTRA = 2300; // mg de sodio que requieren 1L extra
 
@@ -58,6 +59,12 @@ export class HydrationService {
         updatedAt: new Date(),
       })
       .where(eq(hydration.date, date));
+
+    try {
+      await writeHydrationBaseline(date, (record.consumedLiters || 0) + liters);
+    } catch (error) {
+      console.warn('Failed to write hydration baseline:', error);
+    }
   }
 
   async addSodiumIntake(entry: Omit<NewSodiumIntake, 'id' | 'createdAt'>): Promise<void> {
