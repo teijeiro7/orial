@@ -12,6 +12,10 @@ private func todayString() -> String {
     return formatter.string(from: Date())
 }
 
+private func readMl(_ dict: [String: Any]) -> Int {
+    (dict["ml"] as? NSNumber)?.intValue ?? 0
+}
+
 @available(iOS 16.0, *)
 struct LogWaterIntent: AppIntent {
     static var title: LocalizedStringResource = "Registrar agua"
@@ -42,7 +46,7 @@ struct LogWaterIntent: AppIntent {
         }
         let pendingMlToday = queue
             .filter { ($0["date"] as? String) == today }
-            .reduce(0) { $0 + (($1["ml"] as? Int) ?? 0) }
+            .reduce(0) { $0 + readMl($1) }
 
         // 3. Nuevo total
         let newTotalLiters = baselineLiters + Double(pendingMlToday) / 1000.0 + Double(milliliters) / 1000.0
