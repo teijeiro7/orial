@@ -9,7 +9,7 @@ import { AppState, View, ActivityIndicator, Text } from 'react-native';
 import { useDatabaseMigrations } from '../src/services/database';
 import { notificationService } from '../src/services/notificationService';
 import { widgetService } from '../src/services/widgetService';
-import { drainNfcWaterQueue } from '../src/services/nfcWaterQueue';
+import { useNfcWaterQueueDrain } from '../src/hooks/useNfcWaterQueueDrain';
 import { OrialColors } from '../src/utils/colors';
 import { useAppStore } from '../src/stores/appStore';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
@@ -80,21 +80,12 @@ function AppLayout() {
     };
   }, []);
 
-  // Update widgets when app goes to background, and drain any NFC water queue
-  // entries into the DB when the app returns to the foreground.
+  // Update widgets when app goes to background.
   useEffect(() => {
-    // Cold start: the app was fully closed and the user tapped the NFC sticker one
-    // or more times before opening it fresh. No AppState 'change' event fires for
-    // this case (the app starts already 'active'), so drain once on mount too.
-    drainNfcWaterQueue().catch(console.error);
-
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background') {
         // Update widget data when app goes to background
         widgetService.updateWidgetData();
-      } else if (nextAppState === 'active') {
-        // Drain any NFC water queue entries logged while backgrounded/closed
-        drainNfcWaterQueue().catch(console.error);
       }
     });
 
@@ -102,6 +93,10 @@ function AppLayout() {
       subscription.remove();
     };
   }, []);
+
+  // Drain any NFC water queue entries into the DB on cold start and every time
+  // the app returns to the foreground.
+  useNfcWaterQueueDrain();
 
   if (!fontsLoaded || (!success && !error) || authLoading) {
     return (
