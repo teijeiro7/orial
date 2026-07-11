@@ -14,6 +14,7 @@ export const habits = sqliteTable('habits', {
   color: text('color'),
   isArchived: integer('is_archived', { mode: 'boolean' }).notNull().default(false),
   isAiSuggested: integer('is_ai_suggested', { mode: 'boolean' }).notNull().default(false),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const habitEntries = sqliteTable('habit_entries', {
@@ -25,6 +26,7 @@ export const habitEntries = sqliteTable('habit_entries', {
   note: text('note'),
   notionEntryId: text('notion_entry_id'),
   isSynced: integer('is_synced', { mode: 'boolean' }).notNull().default(false),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const reminders = sqliteTable('reminders', {
@@ -68,6 +70,7 @@ export const whoopTokens = sqliteTable('whoop_tokens', {
   scope: text('scope'),
   whoopUserId: integer('whoop_user_id'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const whoopDaily = sqliteTable('whoop_daily', {
@@ -97,6 +100,7 @@ export const bodyMetrics = sqliteTable('body_metrics', {
   notes: text('notes'),
   photoUri: text('photo_uri'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const pedometerHistory = sqliteTable('pedometer_history', {
@@ -123,6 +127,7 @@ export const sodiumIntake = sqliteTable('sodium_intake', {
   mealType: text('meal_type'),
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const supplements = sqliteTable('supplements', {
@@ -133,6 +138,7 @@ export const supplements = sqliteTable('supplements', {
   reminderTime: text('reminder_time'),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const supplementLogs = sqliteTable('supplement_logs', {
@@ -144,6 +150,7 @@ export const supplementLogs = sqliteTable('supplement_logs', {
   skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const manualMetrics = sqliteTable('manual_metrics', {
@@ -191,6 +198,7 @@ export const nutritionLogs = sqliteTable('nutrition_logs', {
   fiberG: integer('fiber_g'),
   rawData: text('raw_data'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export type Habit = typeof habits.$inferSelect;
@@ -238,6 +246,7 @@ export const tasks = sqliteTable('tasks', {
   pushedFrom: text('pushed_from'), // original date if migrated via push-to-tomorrow
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 // ── Gym (Progressive Overload) ───────────────────────────────────────────────
@@ -249,6 +258,7 @@ export const gymRoutines = sqliteTable('gym_routines', {
   days: text('days').notNull().default('[]'), // JSON [1,2,3,4,5,6,7] (1=Mon)
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const gymExercises = sqliteTable('gym_exercises', {
@@ -262,6 +272,7 @@ export const gymExercises = sqliteTable('gym_exercises', {
   incrementKg: real('increment_kg').notNull().default(2.5),
   orderIndex: integer('order_index').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const gymSessions = sqliteTable('gym_sessions', {
@@ -270,6 +281,7 @@ export const gymSessions = sqliteTable('gym_sessions', {
   date: text('date').notNull(), // YYYY-MM-DD
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const gymSets = sqliteTable('gym_sets', {
@@ -280,6 +292,7 @@ export const gymSets = sqliteTable('gym_sets', {
   reps: integer('reps').notNull(),
   weightKg: real('weight_kg').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 // ── Finance ──────────────────────────────────────────────────────────────────
@@ -308,6 +321,7 @@ export const financeSubscriptions = sqliteTable('finance_subscriptions', {
   autoDeduct: integer('auto_deduct', { mode: 'boolean' }).notNull().default(false),
   lastBilledDate: text('last_billed_date'), // YYYY-MM-DD
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const financeOrders = sqliteTable('finance_orders', {
@@ -321,6 +335,7 @@ export const financeOrders = sqliteTable('finance_orders', {
   deliveredAt: integer('delivered_at', { mode: 'timestamp' }),
   status: text('status').notNull().default('pending'), // pending | shipped | delivered
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const financeWishlist = sqliteTable('finance_wishlist', {
@@ -332,6 +347,7 @@ export const financeWishlist = sqliteTable('finance_wishlist', {
   notes: text('notes'),
   priority: integer('priority').notNull().default(0), // 0=normal 1=high
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 // ── Hydration Profile (dynamic calculator) ───────────────────────────────────

@@ -85,6 +85,26 @@ function toTimestamp(row: SyncRow, field: string): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+/**
+ * Last-write-wins tiebreak decision, extracted from the SQLite adapter so the
+ * actual comparison is unit-testable without a real database.
+ *
+ * Returns true (apply the incoming/remote row) when:
+ *   - there is no local row yet (`existingTs` null/undefined/non-finite), or
+ *   - the incoming timestamp is strictly newer than the local one.
+ * A tie keeps the local row (returns false) to avoid pointless rewrites and
+ * ping-pong between two clients holding the same timestamp.
+ */
+export function shouldApplyIncoming(
+  existingTs: number | null | undefined,
+  incomingTs: number,
+): boolean {
+  if (existingTs === null || existingTs === undefined || !Number.isFinite(existingTs)) {
+    return true;
+  }
+  return incomingTs > existingTs;
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

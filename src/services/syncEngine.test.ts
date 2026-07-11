@@ -1,5 +1,6 @@
 import {
   SyncEngine,
+  shouldApplyIncoming,
   type SyncTableConfig,
   type SyncRemote,
   type LocalStore,
@@ -130,6 +131,33 @@ describe('SyncEngine', () => {
       expect(result.success).toBe(false);
       expect(result.errors[0].message).toBe('offline');
       expect(await cursors.get('sync:pull:hydration')).toBe(0);
+    });
+  });
+
+  describe('shouldApplyIncoming (last-write-wins tiebreak)', () => {
+    it('applies the incoming row when it is strictly newer than the local copy', () => {
+      // Arrange
+      const existingTs = 100;
+      const incomingTs = 250;
+      // Act / Assert
+      expect(shouldApplyIncoming(existingTs, incomingTs)).toBe(true);
+    });
+
+    it('does NOT apply the incoming row when it is older than the local copy', () => {
+      expect(shouldApplyIncoming(300, 250)).toBe(false);
+    });
+
+    it('does NOT apply the incoming row on a timestamp tie (keeps the local row)', () => {
+      expect(shouldApplyIncoming(250, 250)).toBe(false);
+    });
+
+    it('inserts when there is no existing local row (null/undefined timestamp)', () => {
+      expect(shouldApplyIncoming(null, 1)).toBe(true);
+      expect(shouldApplyIncoming(undefined, 0)).toBe(true);
+    });
+
+    it('treats a non-finite local timestamp as no existing row and applies', () => {
+      expect(shouldApplyIncoming(Number.NaN, 5)).toBe(true);
     });
   });
 

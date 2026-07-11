@@ -9,6 +9,7 @@ import { AppState, View, ActivityIndicator, Text } from 'react-native';
 import { useDatabaseMigrations } from '../src/services/database';
 import { notificationService } from '../src/services/notificationService';
 import { widgetService } from '../src/services/widgetService';
+import { startSyncScheduler } from '../src/services/syncScheduler';
 import { OrialColors } from '../src/utils/colors';
 import { useAppStore } from '../src/stores/appStore';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
@@ -77,6 +78,13 @@ function AppLayout() {
       notificationListener.current?.remove();
       responseListener.current?.remove();
     };
+  }, []);
+
+  // Start automatic Supabase sync (initial poll + foreground interval +
+  // sync-on-foreground). No-op while Supabase credentials are absent.
+  useEffect(() => {
+    const stopSync = startSyncScheduler();
+    return stopSync;
   }, []);
 
   // Update widgets when app goes to background

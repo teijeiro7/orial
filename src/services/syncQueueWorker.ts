@@ -223,6 +223,7 @@ export class SyncQueueWorker {
             ),
             targetCount: properties['Target Count']?.number || 1,
             createdAt: new Date(properties.Created?.date?.start || Date.now()),
+            modifiedAt: Date.now(),
             description: null,
             notionPageId: notionHabit.id,
             color: null,

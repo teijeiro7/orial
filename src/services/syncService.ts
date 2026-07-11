@@ -3,6 +3,7 @@ import { expoDb } from './database';
 import { supabaseService } from './supabaseService';
 import {
   SyncEngine,
+  shouldApplyIncoming,
   type CursorStore,
   type LocalStore,
   type SyncRemote,
@@ -26,33 +27,41 @@ export type {
  * a usable timestamp column (reminders, user_settings) and local-only tables
  * (sync_queue) are intentionally excluded.
  *
+ * Cursor choice:
+ *   - Tables carrying a mutable `updated_at` (they rewrite it on every edit)
+ *     use it directly.
+ *   - Every other synced table uses `modified_at` — a dedicated cursor column
+ *     bumped by an AFTER INSERT/UPDATE trigger (see migration 0004). `created_at`
+ *     is NEVER used as the cursor because it is immutable, so edits to an
+ *     existing row would never advance the cursor and would never be pushed.
+ *
  * The Vitality tables (caffeine_logs, insight_logs) and the extra
  * gym_exercises columns are added to the Supabase migration by tasks T1/T2/T6;
  * they can be registered here in those branches once their local schema exists.
  */
 export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
-  { table: 'habits', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'habit_entries', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'whoop_tokens', timestampField: 'created_at', conflictKey: 'id' },
+  { table: 'habits', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'habit_entries', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'whoop_tokens', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'whoop_daily', timestampField: 'updated_at', conflictKey: 'date' },
-  { table: 'body_metrics', timestampField: 'created_at', conflictKey: 'id' },
+  { table: 'body_metrics', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'pedometer_history', timestampField: 'updated_at', conflictKey: 'date' },
   { table: 'hydration', timestampField: 'updated_at', conflictKey: 'date' },
-  { table: 'sodium_intake', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'supplements', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'supplement_logs', timestampField: 'created_at', conflictKey: 'id' },
+  { table: 'sodium_intake', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'supplements', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'supplement_logs', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'manual_metrics', timestampField: 'updated_at', conflictKey: 'date' },
   { table: 'weight_predictions', timestampField: 'updated_at', conflictKey: 'date' },
-  { table: 'nutrition_logs', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'tasks', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'gym_routines', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'gym_exercises', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'gym_sessions', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'gym_sets', timestampField: 'created_at', conflictKey: 'id' },
+  { table: 'nutrition_logs', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'tasks', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'gym_routines', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'gym_exercises', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'gym_sessions', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'gym_sets', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'finance_accounts', timestampField: 'updated_at', conflictKey: 'id' },
-  { table: 'finance_subscriptions', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'finance_orders', timestampField: 'created_at', conflictKey: 'id' },
-  { table: 'finance_wishlist', timestampField: 'created_at', conflictKey: 'id' },
+  { table: 'finance_subscriptions', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'finance_orders', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'finance_wishlist', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'hydration_profile', timestampField: 'updated_at', conflictKey: 'id' },
 ];
 
@@ -98,8 +107,9 @@ export const sqliteLocalStore: LocalStore = {
       [toSqliteValue(key)],
     )) as { ts: number } | null;
 
-    // Last-write-wins: skip when the local copy is at least as new.
-    if (existing && typeof existing.ts === 'number' && existing.ts >= incomingTs) {
+    // Last-write-wins: delegate the tiebreak to the pure, unit-tested helper.
+    const existingTs = existing && typeof existing.ts === 'number' ? existing.ts : null;
+    if (!shouldApplyIncoming(existingTs, incomingTs)) {
       return false;
     }
 

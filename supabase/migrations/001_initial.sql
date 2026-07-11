@@ -356,6 +356,74 @@ CREATE TABLE IF NOT EXISTS insight_logs (
   created_at   BIGINT NOT NULL
 );
 
+-- ── modified_at sync cursor (local→cloud EDIT propagation) ──────────────────
+-- The app cursors mutable tables on modified_at (NOT the immutable created_at)
+-- so EDITS to existing rows are pushed, not just inserts. The BEFORE trigger
+-- keeps modified_at current for rows written directly on Supabase (e.g. by
+-- Jarvis); rows pushed by the app carry their own local modified_at, which is
+-- preserved (NEW.modified_at is left untouched when the writer already set it).
+ALTER TABLE habits                  ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE habit_entries           ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE whoop_tokens            ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE body_metrics            ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE sodium_intake           ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE supplements             ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE supplement_logs         ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE nutrition_logs          ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE tasks                   ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE gym_routines            ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE gym_exercises           ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE gym_sessions            ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE gym_sets                ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE finance_subscriptions   ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE finance_orders          ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE finance_wishlist        ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+
+CREATE OR REPLACE FUNCTION bump_modified_at() RETURNS trigger AS $$
+BEGIN
+  IF (TG_OP = 'INSERT' AND (NEW.modified_at IS NULL OR NEW.modified_at = 0))
+     OR (TG_OP = 'UPDATE' AND NEW.modified_at IS NOT DISTINCT FROM OLD.modified_at) THEN
+    NEW.modified_at := floor(extract(epoch from now()))::bigint;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trg_habits_modified_at         BEFORE INSERT OR UPDATE ON habits                  FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_habit_entries_modified_at  BEFORE INSERT OR UPDATE ON habit_entries           FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_whoop_tokens_modified_at   BEFORE INSERT OR UPDATE ON whoop_tokens            FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_body_metrics_modified_at   BEFORE INSERT OR UPDATE ON body_metrics            FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_sodium_intake_modified_at  BEFORE INSERT OR UPDATE ON sodium_intake           FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_supplements_modified_at    BEFORE INSERT OR UPDATE ON supplements             FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_supplement_logs_modified_at  BEFORE INSERT OR UPDATE ON supplement_logs         FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_nutrition_logs_modified_at  BEFORE INSERT OR UPDATE ON nutrition_logs          FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_tasks_modified_at          BEFORE INSERT OR UPDATE ON tasks                   FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_gym_routines_modified_at   BEFORE INSERT OR UPDATE ON gym_routines            FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_gym_exercises_modified_at  BEFORE INSERT OR UPDATE ON gym_exercises           FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_gym_sessions_modified_at   BEFORE INSERT OR UPDATE ON gym_sessions            FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_gym_sets_modified_at       BEFORE INSERT OR UPDATE ON gym_sets                FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_finance_subscriptions_modified_at  BEFORE INSERT OR UPDATE ON finance_subscriptions   FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_finance_orders_modified_at  BEFORE INSERT OR UPDATE ON finance_orders          FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_finance_wishlist_modified_at  BEFORE INSERT OR UPDATE ON finance_wishlist        FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+
+-- modified_at range-scan indexes (speed up pullChanges):
+CREATE INDEX IF NOT EXISTS idx_habits_modified_at         ON habits                  (modified_at);
+CREATE INDEX IF NOT EXISTS idx_habit_entries_modified_at  ON habit_entries           (modified_at);
+CREATE INDEX IF NOT EXISTS idx_whoop_tokens_modified_at   ON whoop_tokens            (modified_at);
+CREATE INDEX IF NOT EXISTS idx_body_metrics_modified_at   ON body_metrics            (modified_at);
+CREATE INDEX IF NOT EXISTS idx_sodium_intake_modified_at  ON sodium_intake           (modified_at);
+CREATE INDEX IF NOT EXISTS idx_supplements_modified_at    ON supplements             (modified_at);
+CREATE INDEX IF NOT EXISTS idx_supplement_logs_modified_at  ON supplement_logs         (modified_at);
+CREATE INDEX IF NOT EXISTS idx_nutrition_logs_modified_at  ON nutrition_logs          (modified_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_modified_at          ON tasks                   (modified_at);
+CREATE INDEX IF NOT EXISTS idx_gym_routines_modified_at   ON gym_routines            (modified_at);
+CREATE INDEX IF NOT EXISTS idx_gym_exercises_modified_at  ON gym_exercises           (modified_at);
+CREATE INDEX IF NOT EXISTS idx_gym_sessions_modified_at   ON gym_sessions            (modified_at);
+CREATE INDEX IF NOT EXISTS idx_gym_sets_modified_at       ON gym_sets                (modified_at);
+CREATE INDEX IF NOT EXISTS idx_finance_subscriptions_modified_at  ON finance_subscriptions   (modified_at);
+CREATE INDEX IF NOT EXISTS idx_finance_orders_modified_at  ON finance_orders          (modified_at);
+CREATE INDEX IF NOT EXISTS idx_finance_wishlist_modified_at  ON finance_wishlist        (modified_at);
+
 -- ── Indexes on sync cursor columns (speed up pullChanges range scans) ────────
 CREATE INDEX IF NOT EXISTS idx_habits_created_at            ON habits (created_at);
 CREATE INDEX IF NOT EXISTS idx_habit_entries_created_at     ON habit_entries (created_at);
@@ -376,9 +444,12 @@ CREATE INDEX IF NOT EXISTS idx_caffeine_logs_timestamp      ON caffeine_logs (ti
 CREATE INDEX IF NOT EXISTS idx_insight_logs_generated_at    ON insight_logs (generated_at);
 
 -- ── Storage bucket for progress photos ───────────────────────────────────────
--- Bucket is private; access is granted to authenticated users via policies.
+-- Public bucket: supabaseService.getPublicUrl()/uploadFile() return plain public
+-- URLs (not signed URLs), which only resolve against a public bucket. Single-user
+-- personal app today, so a guessable-but-unlisted URL is an acceptable tradeoff;
+-- revisit (switch to signed URLs + private bucket) before going multi-user.
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('progress-photos', 'progress-photos', false)
+VALUES ('progress-photos', 'progress-photos', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
