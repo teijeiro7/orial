@@ -91,6 +91,36 @@ export class HydrationService {
       .where(eq(hydration.date, date));
   }
 
+  /**
+   * Dynamic daily water target (liters), computed live from the current
+   * hydration profile — not the (possibly stale) persisted `hydration.targetLiters`.
+   * Use this to reflect profile changes immediately, e.g. in the dashboard widget.
+   */
+  async getDailyTarget(): Promise<number> {
+    return hydrationProfileService.getDynamicBaseTarget();
+  }
+
+  /** Itemized breakdown (base/age/exercise/caffeine/stimulant) for UI display. */
+  async getTargetBreakdown() {
+    return hydrationProfileService.getTargetBreakdown();
+  }
+
+  /**
+   * Recalculates and persists today's (or a given date's) target from the
+   * current hydration profile plus any sodium intake for that date. Call this
+   * after the hydration profile changes so the stored target stays in sync.
+   */
+  async recalculateTarget(date?: string): Promise<void> {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    await this.recalculateHydrationTarget(targetDate);
+  }
+
+  /** Logs a water intake in milliliters for today. Thin convenience wrapper around `addWater`. */
+  async logWater(ml: number, beverageType?: 'water' | 'soda_zero' | 'tea' | 'coffee' | 'other'): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    await this.addWater(today, ml / 1000, beverageType);
+  }
+
   async getProgress(date?: string): Promise<{ current: number; target: number; percentage: number }> {
     const targetDate = date || new Date().toISOString().split('T')[0];
     const record = await this.getOrCreateForDate(targetDate);

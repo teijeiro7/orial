@@ -2,6 +2,9 @@ import { db } from './database';
 import { hydrationProfile } from '../../drizzle/schema';
 import { eq } from 'drizzle-orm';
 import type { HydrationProfile, NewHydrationProfile } from '../../drizzle/schema';
+import { calculateHydrationTarget, getHydrationBreakdown, type HydrationTargetBreakdown } from './hydrationFormula';
+
+export type { HydrationTargetBreakdown };
 
 const DEFAULT_PROFILE: Omit<HydrationProfile, 'id'> = {
   weightKg: 70,
@@ -35,26 +38,22 @@ export const hydrationProfileService = {
   },
 
   /**
-   * Dynamic daily water target (liters) based on biometrics.
-   * Formula: weight(kg) × 0.033
-   *   + 0.5L per training hour
-   *   + 0.1L per 100mg caffeine
-   *   + 0.5L if stimulant meds
-   *   − 0.2L if female
-   *   + 0.3L if age > 55
+   * Dynamic daily water target (liters) based on biometrics. See
+   * `hydrationFormula.ts` for the term-by-term breakdown and rationale.
    */
-  calculateTarget(profile: HydrationProfile): number {
-    let target = profile.weightKg * 0.033;
-    target += profile.trainingHoursPerDay * 0.5;
-    target += (profile.caffeineMgPerDay / 100) * 0.1;
-    if (profile.stimulantMeds) target += 0.5;
-    if (profile.gender === 'female') target -= 0.2;
-    if (profile.ageYears > 55) target += 0.3;
-    return Math.max(1.5, Math.round(target * 10) / 10);
-  },
+  calculateHydrationTarget,
+
+  /** Itemized breakdown (base/age/exercise/caffeine/stimulant) for UI display. */
+  getHydrationBreakdown,
 
   async getDynamicBaseTarget(): Promise<number> {
     const profile = await this.getProfile();
-    return this.calculateTarget(profile);
+    return this.calculateHydrationTarget(profile);
+  },
+
+  /** Current profile's target, itemized — used to render the calculation breakdown. */
+  async getTargetBreakdown(): Promise<HydrationTargetBreakdown> {
+    const profile = await this.getProfile();
+    return this.getHydrationBreakdown(profile);
   },
 };
