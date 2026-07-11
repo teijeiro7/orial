@@ -175,6 +175,57 @@ export class NotificationService {
     return await Notifications.getAllScheduledNotificationsAsync();
   }
 
+  async scheduleSubscriptionAlert(alert: {
+    subscriptionId: string;
+    name: string;
+    amount: number;
+    currency: string;
+    daysUntilBilling: number;
+  }): Promise<string | null> {
+    try {
+      const when = alert.daysUntilBilling <= 0 ? 'hoy' : `en ${alert.daysUntilBilling} días`;
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '💳 Próximo cobro',
+          body: `${alert.name} cobra ${when} (${alert.amount.toFixed(2)}${alert.currency === 'EUR' ? '€' : ` ${alert.currency}`})`,
+          data: {
+            type: 'subscription_alert',
+            subscriptionId: alert.subscriptionId,
+          },
+          sound: 'default',
+        },
+        trigger: null, // Immediate notification
+      });
+
+      return identifier;
+    } catch (error) {
+      console.error('Error scheduling subscription alert:', error);
+      return null;
+    }
+  }
+
+  async scheduleWishlistAffordable(itemName: string, percentage: number): Promise<string | null> {
+    try {
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🎉 ¡Ya puedes permitírtelo!',
+          body: `¡Ya puedes permitirte ${itemName}! Solo es el ${percentage.toFixed(2)}% de tu patrimonio ahora.`,
+          data: {
+            type: 'wishlist_affordable',
+            itemName,
+          },
+          sound: 'default',
+        },
+        trigger: null, // Immediate notification
+      });
+
+      return identifier;
+    } catch (error) {
+      console.error('Error scheduling wishlist affordable notification:', error);
+      return null;
+    }
+  }
+
   async cancelStreakAtRiskNotification(habitId: string): Promise<void> {
     try {
       const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();

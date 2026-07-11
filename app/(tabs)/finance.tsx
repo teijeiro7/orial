@@ -23,7 +23,9 @@ import {
   Package,
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
+import { OnePercentRule } from '../../src/components/OnePercentRule';
 import { financeService } from '../../src/services/financeService';
+import type { NetWorthSummary, SubscriptionAlert, WishlistProgressItem } from '../../src/services/financeService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
 import type { FinanceAccount, FinanceSubscription, FinanceOrder, FinanceWishlistItem } from '../../drizzle/schema';
@@ -55,6 +57,14 @@ export default function FinanceScreen() {
   const [orders, setOrders] = useState<FinanceOrder[]>([]);
   const [wishlist, setWishlist] = useState<FinanceWishlistItem[]>([]);
   const [netWorth, setNetWorth] = useState(0);
+  const [netWorthSummary, setNetWorthSummary] = useState<NetWorthSummary>({
+    total: 0,
+    accounts: 0,
+    crypto: 0,
+    stocks: 0,
+  });
+  const [subscriptionAlerts, setSubscriptionAlerts] = useState<SubscriptionAlert[]>([]);
+  const [wishlistProgress, setWishlistProgress] = useState<WishlistProgressItem[]>([]);
 
   // Add modals
   const [showAddAccount, setShowAddAccount] = useState(false);
@@ -89,21 +99,28 @@ export default function FinanceScreen() {
   const [wishUrl, setWishUrl] = useState('');
 
   const loadAll = useCallback(async () => {
-    const [accs, subs, ords, wish] = await Promise.all([
+    const [accs, subs, ords, wish, summary, alerts, wishProgress] = await Promise.all([
       financeService.getAccounts(),
       financeService.getSubscriptions(),
       financeService.getOrders(),
       financeService.getWishlist(),
+      financeService.getNetWorth(),
+      financeService.getSubscriptionAlert(),
+      financeService.getWishlistProgress(),
     ]);
     setAccounts(accs);
     setSubscriptions(subs);
     setOrders(ords);
     setWishlist(wish);
     setNetWorth(financeService.getTotalNetWorth(accs));
+    setNetWorthSummary(summary);
+    setSubscriptionAlerts(alerts);
+    setWishlistProgress(wishProgress);
   }, []);
 
   useEffect(() => {
     loadAll();
+    financeService.checkAlerts();
   }, []);
 
   // ── Account handlers ──────────────────────────────────────────────────────
@@ -298,6 +315,12 @@ export default function FinanceScreen() {
                 ))
               )}
             </View>
+
+            <OnePercentRule
+              netWorth={netWorthSummary}
+              subscriptionAlerts={subscriptionAlerts}
+              wishlistProgress={wishlistProgress}
+            />
           </>
         )}
 
