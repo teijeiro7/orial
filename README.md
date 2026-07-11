@@ -164,6 +164,60 @@ npm run db:generate
 npm run db:push
 ```
 
+### Tests
+
+```bash
+npm test
+```
+
+Unit tests use Jest with the `jest-expo` preset (`*.test.ts` next to the code
+under test). The Supabase client is mocked, so tests run offline and fast.
+
+---
+
+## Supabase (cloud backend & sync)
+
+The app is offline-first: it always reads and writes local SQLite first, then
+syncs to Supabase in the background (last-write-wins on a per-table timestamp).
+Jarvis (the server agent) reads and writes the same Supabase tables directly.
+
+The code ships ready to use — it just needs a Supabase project. The app does
+**not** crash when credentials are missing or still placeholders; sync simply
+stays disabled until real values are provided.
+
+### One-time manual setup
+
+1. **Create a project** at [supabase.com](https://supabase.com) (this cannot be
+   automated — it needs the dashboard).
+2. **Run the migration**: open the project's SQL editor and paste
+   [`supabase/migrations/001_initial.sql`](./supabase/migrations/001_initial.sql)
+   (or `supabase db push` with the CLI). It creates every table plus the
+   `progress-photos` storage bucket.
+3. **Fill `.env`** with the values from *Project Settings → API*:
+
+   ```env
+   EXPO_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+   ```
+
+   The anon key is public-safe by design. The `EXPO_PUBLIC_` prefix is required
+   for the value to be readable at runtime via `process.env`.
+4. **(Optional) migrate existing local data** to the cloud by calling
+   `migrateLocalToSupabase()` once (`src/services/migrateLocalToSupabase.ts`).
+   It is idempotent (upsert by primary key) and guarded by a run-once flag.
+
+### How Jarvis accesses the data
+
+Jarvis connects to the same Supabase project **server-side** using the
+`service_role` key (never shipped in the app). That key bypasses RLS, so the
+agent can read all tables to generate insights and write to `insight_logs`.
+The app and Jarvis stay decoupled: neither depends on the other's sync loop.
+
+> **Security note:** RLS is intentionally left disabled for this single-user
+> setup (app uses the anon key, Jarvis uses `service_role`). Before going
+> multi-user, add a `user_id` column and per-user RLS policies — see the notes
+> at the bottom of `001_initial.sql`.
+
 ---
 
 ## Design System
