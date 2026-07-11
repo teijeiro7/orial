@@ -9,20 +9,27 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Plus,
   Dumbbell,
   ChevronRight,
-  ChevronDown,
-  Trash2,
   TrendingUp,
   Check,
   X,
+  Camera,
+  Images,
+  Trophy,
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
+import { GymSetRow } from '../../src/components/GymSetRow';
 import { gymService } from '../../src/services/gymService';
+import { gymCoachService } from '../../src/services/gymCoachService';
+import type { ProgressionResult, SwapAlternative } from '../../src/services/gymCoachService';
+import { progressPhotoService } from '../../src/services/progressPhotoService';
+import type { ProgressPhoto } from '../../src/services/progressPhotoService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
 import type { GymRoutine, GymExercise, GymSession, GymSet } from '../../drizzle/schema';
@@ -48,6 +55,15 @@ export default function GymScreen() {
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
   const [logReps, setLogReps] = useState<Record<string, string>>({});
   const [logWeight, setLogWeight] = useState<Record<string, string>>({});
+
+  // Gym Coach: swaps, auto-progression, progress photos
+  const [swapFor, setSwapFor] = useState<GymExercise | null>(null);
+  const [swapAlternatives, setSwapAlternatives] = useState<SwapAlternative[]>([]);
+  const [progressions, setProgressions] = useState<Record<string, ProgressionResult>>({});
+  const [finishing, setFinishing] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [timeline, setTimeline] = useState<ProgressPhoto[]>([]);
 
   // New routine form
   const [newRoutineName, setNewRoutineName] = useState('');
@@ -157,6 +173,80 @@ export default function GymScreen() {
     setOverloadAlerts((prev) => prev.filter((a) => a.exerciseId !== alert.exerciseId));
     if (activeRoutine) loadRoutineDetail(activeRoutine);
     Alert.alert('Weight updated!', `${alert.exerciseName}: ${alert.nextWeightKg} kg`);
+  }
+
+  async function handleFinishSession() {
+    if (!activeSession || !activeRoutine) return;
+    setFinishing(true);
+    try {
+      const results = await gymCoachService.processCompletedSession(activeSession.id);
+      const byExercise: Record<string, ProgressionResult> = {};
+      for (const r of results) byExercise[r.exerciseId] = r;
+      setProgressions(byExercise);
+      await loadRoutineDetail(activeRoutine);
+      if (results.length > 0) {
+        setExpandedExercise(results[0].exerciseId);
+        Alert.alert(
+          '🎉 ¡Subida automática!',
+          results.map((r) => `${r.exerciseName}: ${r.oldWeight} → ${r.newWeight} kg`).join('\n'),
+        );
+      } else {
+        Alert.alert('Sesión guardada', 'Sigue así — aún no toca subir peso.');
+      }
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo procesar la sesión');
+    } finally {
+      setFinishing(false);
+    }
+  }
+
+  async function handleOpenSwap(exercise: GymExercise) {
+    setSwapFor(exercise);
+    setSwapAlternatives([]);
+    try {
+      const alternatives = await gymCoachService.getSwapAlternatives(exercise.id);
+      setSwapAlternatives(alternatives);
+    } catch {
+      setSwapAlternatives([]);
+    }
+  }
+
+  async function handleSelectSwap(alternative: SwapAlternative) {
+    if (!swapFor || !activeRoutine) return;
+    try {
+      await gymCoachService.applySwap(swapFor.id, alternative.exerciseId);
+      Alert.alert(
+        '🔄 Ejercicio cambiado',
+        `${swapFor.name} → ${alternative.name} a ${alternative.equivalentWeightKg} kg (misma intensidad)`,
+      );
+      setSwapFor(null);
+      await loadRoutineDetail(activeRoutine);
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo cambiar el ejercicio');
+    }
+  }
+
+  async function handleTakePhoto() {
+    setPhotoBusy(true);
+    try {
+      const url = await progressPhotoService.takePhoto();
+      if (url) Alert.alert('📸 Foto guardada', 'Tu foto de progreso se ha subido.');
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo guardar la foto');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function handleOpenTimeline() {
+    setShowTimeline(true);
+    try {
+      const photos = await progressPhotoService.getTimeline();
+      setTimeline(photos);
+    } catch (e) {
+      setTimeline([]);
+      Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo cargar el timeline');
+    }
   }
 
   function getExerciseSets(exerciseId: string) {
@@ -355,96 +445,150 @@ export default function GymScreen() {
               </Text>
             </GlassCard>
           ) : (
-            exercises.map((ex) => {
-              const isExpanded = expandedExercise === ex.id;
-              const exSets = getExerciseSets(ex.id);
-              const alert = overloadAlerts.find((a) => a.exerciseId === ex.id);
-
-              return (
-                <GlassCard key={ex.id} style={styles.exerciseCard}>
-                  <Pressable
-                    style={styles.exerciseHeader}
-                    onPress={() => setExpandedExercise(isExpanded ? null : ex.id)}
-                  >
-                    <View style={styles.exerciseInfo}>
-                      <Text style={OrialTypography.bodyMedium}>{ex.name}</Text>
-                      <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                        {ex.targetSets}×{ex.targetRepsMin}–{ex.targetRepsMax} @ {ex.currentWeightKg} kg
-                      </Text>
-                    </View>
-                    <View style={styles.exerciseMeta}>
-                      {exSets.length > 0 && (
-                        <View style={styles.setsBadge}>
-                          <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>
-                            {exSets.length}/{ex.targetSets}
-                          </Text>
-                        </View>
-                      )}
-                      {isExpanded ? (
-                        <ChevronDown size={18} color={OrialColors.textMuted} />
-                      ) : (
-                        <ChevronRight size={18} color={OrialColors.textMuted} />
-                      )}
-                    </View>
-                  </Pressable>
-
-                  {isExpanded && (
-                    <View style={styles.exerciseBody}>
-                      {/* Previous sets */}
-                      {exSets.length > 0 && (
-                        <View style={styles.previousSets}>
-                          {exSets.map((s) => (
-                            <View key={s.id} style={styles.setRow}>
-                              <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                                Set {s.setNumber}
-                              </Text>
-                              <Text style={[OrialTypography.caption, { color: OrialColors.textPrimary }]}>
-                                {s.reps} reps × {s.weightKg} kg
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      {/* Log set inputs */}
-                      {activeSession && exSets.length < ex.targetSets && (
-                        <View style={styles.logRow}>
-                          <TextInput
-                            style={[styles.miniInput, { flex: 1 }]}
-                            placeholder="Reps"
-                            placeholderTextColor={OrialColors.textMuted}
-                            keyboardType="numeric"
-                            value={logReps[ex.id] || ''}
-                            onChangeText={(v) => setLogReps((p) => ({ ...p, [ex.id]: v }))}
-                          />
-                          <TextInput
-                            style={[styles.miniInput, { flex: 1 }]}
-                            placeholder={`${ex.currentWeightKg} kg`}
-                            placeholderTextColor={OrialColors.textMuted}
-                            keyboardType="numeric"
-                            value={logWeight[ex.id] || ''}
-                            onChangeText={(v) => setLogWeight((p) => ({ ...p, [ex.id]: v }))}
-                          />
-                          <Pressable style={styles.logBtn} onPress={() => handleLogSet(ex)}>
-                            <Check size={16} color={OrialColors.textPrimary} />
-                          </Pressable>
-                        </View>
-                      )}
-
-                      {/* All sets done */}
-                      {activeSession && exSets.length >= ex.targetSets && (
-                        <Text style={[OrialTypography.caption, { color: OrialColors.success, marginTop: 8 }]}>
-                          All sets complete
-                        </Text>
-                      )}
-                    </View>
-                  )}
-                </GlassCard>
-              );
-            })
+            exercises.map((ex) => (
+              <GymSetRow
+                key={ex.id}
+                exercise={ex}
+                sets={getExerciseSets(ex.id)}
+                isExpanded={expandedExercise === ex.id}
+                isSessionActive={!!activeSession}
+                repsValue={logReps[ex.id] || ''}
+                weightValue={logWeight[ex.id] || ''}
+                progression={progressions[ex.id] ?? null}
+                onToggle={() => setExpandedExercise(expandedExercise === ex.id ? null : ex.id)}
+                onChangeReps={(v) => setLogReps((p) => ({ ...p, [ex.id]: v }))}
+                onChangeWeight={(v) => setLogWeight((p) => ({ ...p, [ex.id]: v }))}
+                onLogSet={() => handleLogSet(ex)}
+                onSwap={() => handleOpenSwap(ex)}
+              />
+            ))
           )}
         </View>
+
+        {/* Finish session → auto-progression */}
+        {activeSession && (
+          <View style={styles.section}>
+            <Pressable
+              style={styles.finishSessionBtn}
+              onPress={handleFinishSession}
+              disabled={finishing}
+            >
+              {finishing ? (
+                <ActivityIndicator color={OrialColors.textPrimary} />
+              ) : (
+                <>
+                  <Trophy size={18} color={OrialColors.textPrimary} />
+                  <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textPrimary }]}>
+                    Finalizar sesión
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
+
+        {/* Progress photos */}
+        <View style={styles.section}>
+          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted, marginBottom: 4 }]}>
+            Fotos de progreso
+          </Text>
+          <View style={styles.photoRow}>
+            <Pressable style={styles.photoBtn} onPress={handleTakePhoto} disabled={photoBusy}>
+              {photoBusy ? (
+                <ActivityIndicator color={OrialColors.textPrimary} />
+              ) : (
+                <>
+                  <Camera size={18} color={OrialColors.textPrimary} />
+                  <Text style={[OrialTypography.caption, { color: OrialColors.textPrimary }]}>
+                    Tomar foto
+                  </Text>
+                </>
+              )}
+            </Pressable>
+            <Pressable style={styles.photoBtnOutline} onPress={handleOpenTimeline}>
+              <Images size={18} color={OrialColors.cyan} />
+              <Text style={[OrialTypography.caption, { color: OrialColors.cyan }]}>Ver progreso</Text>
+            </Pressable>
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Swap Modal */}
+      <Modal visible={!!swapFor} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <GlassCard style={styles.modalCard}>
+            <Text style={[OrialTypography.headingSmall, { marginBottom: 4 }]}>
+              🔄 Cambiar ejercicio
+            </Text>
+            <Text style={[OrialTypography.caption, { color: OrialColors.textMuted, marginBottom: 16 }]}>
+              {swapFor?.name} → alternativas con peso equivalente
+            </Text>
+
+            {swapAlternatives.length === 0 ? (
+              <Text style={[OrialTypography.bodyMedium, styles.emptyText, { paddingVertical: 16 }]}>
+                No hay alternativas en este grupo.
+              </Text>
+            ) : (
+              swapAlternatives.map((alt) => (
+                <Pressable
+                  key={alt.exerciseId}
+                  style={styles.swapOption}
+                  onPress={() => handleSelectSwap(alt)}
+                >
+                  <Text style={OrialTypography.bodyMedium}>{alt.name}</Text>
+                  <Text style={[OrialTypography.caption, { color: OrialColors.cyan }]}>
+                    {alt.equivalentWeightKg} kg
+                  </Text>
+                </Pressable>
+              ))
+            )}
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setSwapFor(null)}>
+                <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>
+                  Cancel
+                </Text>
+              </Pressable>
+            </View>
+          </GlassCard>
+        </View>
+      </Modal>
+
+      {/* Progress Photo Timeline Modal */}
+      <Modal visible={showTimeline} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <GlassCard style={styles.modalCard}>
+            <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>
+              🖼️ Progreso (antes / después)
+            </Text>
+            {timeline.length === 0 ? (
+              <Text style={[OrialTypography.bodyMedium, styles.emptyText, { paddingVertical: 16 }]}>
+                Aún no hay fotos. Toma tu primera foto de progreso.
+              </Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.timelineRow}>
+                  {timeline.map((photo) => (
+                    <View key={photo.date} style={styles.timelineItem}>
+                      <Image source={{ uri: photo.uri }} style={styles.timelineImage} />
+                      <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
+                        {photo.date}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowTimeline(false)}>
+                <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>
+                  Close
+                </Text>
+              </Pressable>
+            </View>
+          </GlassCard>
+        </View>
+      </Modal>
 
       {/* Add Exercise Modal */}
       <Modal visible={showAddExercise} transparent animationType="slide">
@@ -589,5 +733,35 @@ const styles = StyleSheet.create({
   saveBtn: {
     paddingHorizontal: 24, paddingVertical: 10,
     backgroundColor: OrialColors.violet, borderRadius: 10,
+  },
+  // Finish session + progress photos
+  finishSessionBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, padding: 14,
+    backgroundColor: OrialColors.success,
+    borderRadius: 14,
+  },
+  photoRow: { flexDirection: 'row', gap: 10 },
+  photoBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, padding: 12,
+    backgroundColor: OrialColors.violet, borderRadius: 12,
+  },
+  photoBtnOutline: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, padding: 12,
+    borderRadius: 12, borderWidth: 1, borderColor: OrialColors.cyan + '55',
+  },
+  swapOption: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 14, marginBottom: 8,
+    backgroundColor: OrialColors.surface, borderRadius: 10,
+    borderWidth: 1, borderColor: OrialColors.glassBorder,
+  },
+  timelineRow: { flexDirection: 'row', gap: 12, paddingVertical: 4 },
+  timelineItem: { alignItems: 'center', gap: 6 },
+  timelineImage: {
+    width: 140, height: 186, borderRadius: 12,
+    backgroundColor: OrialColors.surface,
   },
 });
