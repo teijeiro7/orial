@@ -463,9 +463,11 @@ export default function FinanceScreen() {
                   <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>Your wishlist is empty.</Text>
                 </GlassCard>
               ) : (
-                wishlist.map((w) => {
-                  const pct = financeService.wishlistPercentage(w.price, netWorth);
-                  const safe = pct < 5;
+                wishlistProgress.map((w) => {
+                  // Affordability uses the same 1%-rule (getOnePercentRule via
+                  // getWishlistProgress) as the OnePercentRule widget below, so
+                  // this tab and that widget never disagree on the same item.
+                  const safe = w.isWithinBudget;
                   return (
                     <GlassCard key={w.id} style={styles.wishCard}>
                       <View style={styles.wishRow}>
@@ -487,7 +489,7 @@ export default function FinanceScreen() {
                               { color: safe ? OrialColors.success : OrialColors.warning, fontWeight: '700' },
                             ]}
                           >
-                            {pct}% NW
+                            {w.percentage.toFixed(1)}% NW
                           </Text>
                           {!safe && (
                             <AlertCircle size={14} color={OrialColors.warning} />

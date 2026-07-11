@@ -52,6 +52,7 @@ export interface WishlistProgressItem extends FinanceWishlistItem {
 }
 
 const WISHLIST_NOTIFIED_KEY = 'finance:wishlist:notifiedAffordable';
+const SUBSCRIPTION_NOTIFIED_KEY = 'finance:subscription:notifiedBilling';
 const DEFAULT_SUBSCRIPTION_ALERT_WINDOW_DAYS = 14;
 const SUBSCRIPTION_NOTIFY_THRESHOLD_DAYS = 5;
 
@@ -182,14 +183,20 @@ export const financeService = {
     await db.delete(financeSubscriptions).where(eq(financeSubscriptions.id, id));
   },
 
+  /** The next billing date for this subscription (today or in the future). */
+  getNextBillingDate(sub: FinanceSubscription): Date {
+    const today = new Date();
+    const thisMonth = new Date(today.getFullYear(), today.getMonth(), sub.billingDay);
+    if (thisMonth <= today) {
+      return new Date(today.getFullYear(), today.getMonth() + 1, sub.billingDay);
+    }
+    return thisMonth;
+  },
+
   /** Days until next billing. Negative = overdue. */
   daysUntilBilling(sub: FinanceSubscription): number {
     const today = new Date();
-    const thisMonth = new Date(today.getFullYear(), today.getMonth(), sub.billingDay);
-    let next = thisMonth;
-    if (thisMonth <= today) {
-      next = new Date(today.getFullYear(), today.getMonth() + 1, sub.billingDay);
-    }
+    const next = this.getNextBillingDate(sub);
     return Math.ceil((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   },
 
@@ -298,12 +305,6 @@ export const financeService = {
     await db.delete(financeWishlist).where(eq(financeWishlist.id, id));
   },
 
-  /** % of net worth this item represents */
-  wishlistPercentage(itemPrice: number, netWorth: number): number {
-    if (netWorth <= 0) return 0;
-    return Math.round((itemPrice / netWorth) * 1000) / 10; // 1 decimal
-  },
-
   // ── 1% Rule & Alerts ─────────────────────────────────────────────────────
 
   /** Net worth broken down by account type for the 1% rule dashboard. */
@@ -364,16 +365,41 @@ export const financeService = {
 
   /**
    * Schedules local notifications for subscriptions billing within
-   * `thresholdDays` days. Fires every time it's called (e.g. on Finance
-   * screen load) — the OS/expo-notifications layer is responsible for not
-   * spamming duplicate immediate notifications across a single session.
+   * `thresholdDays` days. Persists a watermark per (subscription id + next
+   * billing date) in AsyncStorage — the same pattern `checkWishlistAffordability`
+   * uses below — so a given upcoming charge only notifies once no matter how
+   * many times this runs during that billing window (e.g. once per cold
+   * start), and it naturally re-arms once the billing date advances to the
+   * next cycle (new date = new key).
    */
   async checkAndNotifySubscriptionAlerts(
     thresholdDays: number = SUBSCRIPTION_NOTIFY_THRESHOLD_DAYS
   ): Promise<void> {
-    const alerts = await this.getSubscriptionAlert(thresholdDays);
-    for (const alert of alerts) {
-      await notificationService.scheduleSubscriptionAlert(alert);
+    const upcoming = await this.getUpcomingSubscriptions(thresholdDays);
+    if (upcoming.length === 0) return;
+
+    const raw = await AsyncStorage.getItem(SUBSCRIPTION_NOTIFIED_KEY);
+    const notified = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+    let changed = false;
+
+    for (const sub of upcoming) {
+      const nextBillingDateISO = this.getNextBillingDate(sub).toISOString().split('T')[0];
+      const notifyKey = `${sub.id}:${nextBillingDateISO}`;
+      if (notified.has(notifyKey)) continue;
+
+      await notificationService.scheduleSubscriptionAlert({
+        subscriptionId: sub.id,
+        name: sub.name,
+        amount: sub.amount,
+        currency: sub.currency,
+        daysUntilBilling: this.daysUntilBilling(sub),
+      });
+      notified.add(notifyKey);
+      changed = true;
+    }
+
+    if (changed) {
+      await AsyncStorage.setItem(SUBSCRIPTION_NOTIFIED_KEY, JSON.stringify([...notified]));
     }
   },
 

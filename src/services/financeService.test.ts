@@ -299,32 +299,59 @@ describe('financeService.getWishlistProgress', () => {
 });
 
 describe('financeService.checkAndNotifySubscriptionAlerts', () => {
-  it('schedules a notification for each alert within the threshold window', async () => {
-    jest.spyOn(financeService, 'getSubscriptionAlert').mockResolvedValue([
-      {
-        subscriptionId: 'spotify',
-        name: 'Spotify',
-        amount: 9.99,
-        currency: 'EUR',
-        daysUntilBilling: 3,
-        message: 'Spotify cobra en 3 días (9.99€)',
-      },
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 0, 1)); // 2026-01-01
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('schedules a notification for each upcoming subscription within the threshold window', async () => {
+    jest.spyOn(financeService, 'getUpcomingSubscriptions').mockResolvedValue([
+      makeSubscription({ id: 'spotify', name: 'Spotify', amount: 9.99, billingDay: 4 }), // 3 days away
     ]);
 
     await financeService.checkAndNotifySubscriptionAlerts(5);
 
-    expect(financeService.getSubscriptionAlert).toHaveBeenCalledWith(5);
+    expect(financeService.getUpcomingSubscriptions).toHaveBeenCalledWith(5);
     expect(notificationService.scheduleSubscriptionAlert).toHaveBeenCalledWith(
-      expect.objectContaining({ subscriptionId: 'spotify' })
+      expect.objectContaining({ subscriptionId: 'spotify', daysUntilBilling: 3 })
     );
   });
 
-  it('does nothing when there are no alerts', async () => {
-    jest.spyOn(financeService, 'getSubscriptionAlert').mockResolvedValue([]);
+  it('does nothing when there are no upcoming subscriptions', async () => {
+    jest.spyOn(financeService, 'getUpcomingSubscriptions').mockResolvedValue([]);
 
     await financeService.checkAndNotifySubscriptionAlerts(5);
 
     expect(notificationService.scheduleSubscriptionAlert).not.toHaveBeenCalled();
+  });
+
+  it('notifies once for the same upcoming billing instance, then stays quiet on repeat checks', async () => {
+    jest.spyOn(financeService, 'getUpcomingSubscriptions').mockResolvedValue([
+      makeSubscription({ id: 'spotify', name: 'Spotify', billingDay: 4 }),
+    ]);
+
+    await financeService.checkAndNotifySubscriptionAlerts(5);
+    await financeService.checkAndNotifySubscriptionAlerts(5);
+
+    expect(notificationService.scheduleSubscriptionAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-arms once the billing date advances to the next cycle', async () => {
+    const upcomingSpy = jest.spyOn(financeService, 'getUpcomingSubscriptions');
+    const sub = makeSubscription({ id: 'spotify', name: 'Spotify', billingDay: 4 });
+
+    upcomingSpy.mockResolvedValue([sub]);
+    await financeService.checkAndNotifySubscriptionAlerts(5); // notifies for the Jan 4th charge
+
+    // Time passes: the Jan 4th charge has now happened, and Feb 4th is the
+    // next upcoming instance — a different billing-date key, so it re-arms.
+    jest.setSystemTime(new Date(2026, 1, 1)); // 2026-02-01
+    await financeService.checkAndNotifySubscriptionAlerts(5); // notifies for the Feb 4th charge
+
+    expect(notificationService.scheduleSubscriptionAlert).toHaveBeenCalledTimes(2);
   });
 });
 
