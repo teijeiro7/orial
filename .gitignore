@@ -48,3 +48,6 @@ google-services.json
 
 # CodeGraph local index
 .codegraph/
+
+# Serena local tool state
+.serena/
