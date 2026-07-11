@@ -66,8 +66,12 @@ struct LogWaterIntent: AppIntent {
         // 1. Baseline del día (0 si el baseline guardado es de otro día, no existe,
         // o no tiene el formato esperado). Decode failures are logged but still
         // fall back gracefully to 0 -- that fallback is correct resilience, not a bug.
+        // Read as String (not Data): the JS side (react-native-default-preference)
+        // always persists values via NSString, so `data(forKey:)` would silently
+        // return nil here even when a value exists.
         var baselineLiters = 0.0
-        if let baselineData = suite?.data(forKey: BASELINE_KEY) {
+        if let baselineString = suite?.string(forKey: BASELINE_KEY),
+           let baselineData = baselineString.data(using: .utf8) {
             do {
                 let json = try JSONSerialization.jsonObject(with: baselineData)
                 if let baseline = Baseline(json as? [String: Any] ?? [:]), baseline.date == today {
@@ -79,9 +83,10 @@ struct LogWaterIntent: AppIntent {
         }
 
         // 2. Cola pendiente de hoy. Same graceful fallback (empty queue) on decode
-        // failure, just now visible in device logs.
+        // failure, just now visible in device logs. Same String-not-Data read as above.
         var rawQueue: [[String: Any]] = []
-        if let queueData = suite?.data(forKey: QUEUE_KEY) {
+        if let queueString = suite?.string(forKey: QUEUE_KEY),
+           let queueData = queueString.data(using: .utf8) {
             do {
                 let json = try JSONSerialization.jsonObject(with: queueData)
                 rawQueue = json as? [[String: Any]] ?? []
@@ -115,7 +120,16 @@ struct LogWaterIntent: AppIntent {
                 )
             }
             let queueData = try JSONSerialization.data(withJSONObject: updatedQueue.map { $0.asDictionary })
-            suite.set(queueData, forKey: QUEUE_KEY)
+            // Store as String, not raw Data: the JS side reads this key via
+            // react-native-default-preference's `get()`, which only sees NSString values.
+            guard let queueString = String(data: queueData, encoding: .utf8) else {
+                throw NSError(
+                    domain: "LogWaterIntent",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to encode water queue as UTF-8"]
+                )
+            }
+            suite.set(queueString, forKey: QUEUE_KEY)
         } catch {
             print("[LogWaterIntent] Failed to persist water queue entry: \(error)")
             return .result(dialog: "⚠️ No se pudo registrar el agua")
