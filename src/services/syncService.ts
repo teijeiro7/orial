@@ -35,9 +35,18 @@ export type {
  *     is NEVER used as the cursor because it is immutable, so edits to an
  *     existing row would never advance the cursor and would never be pushed.
  *
- * The Vitality tables (caffeine_logs, insight_logs) and the extra
- * gym_exercises columns are added to the Supabase migration by tasks T1/T2/T6;
- * they can be registered here in those branches once their local schema exists.
+ * The Vitality table caffeine_logs and the extra gym_exercises columns are
+ * added to the Supabase migration by tasks T1/T2; they can be registered
+ * here in those branches once their local schema exists.
+ *
+ * `insight_logs` (T6) is pull-only in practice: Jarvis is the only writer of
+ * new rows (generated_at never changes after insert), so it uses generated_at
+ * as the cursor to pull newly generated insights. The one local mutation the
+ * app makes — dismissInsight() flipping `dismissed` — does NOT bump
+ * generated_at, so a dismiss does not get pushed back to Supabase via this
+ * generic cursor; it is treated as local, per-device "seen" state. Revisit
+ * (e.g. add a mutable updated_at column) if dismiss needs to sync across
+ * devices or back to Jarvis.
  */
 export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
   { table: 'habits', timestampField: 'modified_at', conflictKey: 'id' },
@@ -63,6 +72,7 @@ export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
   { table: 'finance_orders', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'finance_wishlist', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'hydration_profile', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'insight_logs', timestampField: 'generated_at', conflictKey: 'id' },
 ];
 
 /** Normalises a JS value to something SQLite accepts (booleans → 0/1). */

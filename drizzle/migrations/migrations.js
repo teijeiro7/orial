@@ -6,6 +6,7 @@ import m0001 from './0001_closed_switch.sql';
 import m0002 from './0002_thankful_vertigo.sql';
 import m0003 from './0003_grey_the_call.sql';
 import m0004 from './0004_tricky_carmella_unuscione.sql';
+import m0005 from './0005_quiet_speed.sql';
 
   export default {
     journal,
@@ -14,7 +15,8 @@ import m0004 from './0004_tricky_carmella_unuscione.sql';
 m0001,
 m0002,
 m0003,
-m0004
+m0004,
+m0005
     }
   }
   
