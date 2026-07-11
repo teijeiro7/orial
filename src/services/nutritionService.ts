@@ -4,6 +4,7 @@ import { eq, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import { manualMetricsService } from './manualMetricsService';
 import { hydrationService } from './hydrationService';
+import type { OCRResult } from './openclawService';
 
 export interface OpenclawNutritionData {
   date: string;
@@ -83,6 +84,48 @@ export class NutritionService {
       // Recalculate hydration target based on sodium
       await hydrationService.recalculateHydrationTarget(data.date);
     }
+  }
+
+  /**
+   * Logs a single meal captured via Jarvis's OCR/vision analysis (T5).
+   *
+   * Unlike `importFromOpenclaw` (which overwrites the whole day's totals with
+   * an agent-reported summary), a meal photo represents just ONE meal, so its
+   * macros are ADDED to whatever is already logged for `date` (defaults to
+   * today) rather than replacing it. If no row exists yet for that date, one
+   * is created with `source: 'ocr'`.
+   */
+  async logMeal(result: OCRResult, date: string = new Date().toISOString().split('T')[0]): Promise<void> {
+    const existingRows = await db.select().from(nutritionLogs).where(eq(nutritionLogs.date, date)).limit(1);
+    const existing = existingRows[0];
+
+    const totalCalories = (existing?.totalCalories ?? 0) + result.totalCalories;
+    const proteinG = (existing?.proteinG ?? 0) + result.totalProteinG;
+    const carbsG = (existing?.carbsG ?? 0) + result.totalCarbsG;
+    const fatG = (existing?.fatG ?? 0) + result.totalFatG;
+
+    if (existing) {
+      await db
+        .update(nutritionLogs)
+        .set({ totalCalories, proteinG, carbsG, fatG, rawData: JSON.stringify(result) })
+        .where(eq(nutritionLogs.id, existing.id));
+      return;
+    }
+
+    const log: NewNutritionLog = {
+      id: generateUUID(),
+      date,
+      source: 'ocr',
+      totalCalories,
+      proteinG,
+      carbsG,
+      fatG,
+      sodiumMg: 0,
+      fiberG: 0,
+      rawData: JSON.stringify(result),
+      createdAt: new Date(),
+    };
+    await db.insert(nutritionLogs).values(log);
   }
 
   async getTodayNutrition(): Promise<NutritionLog | null> {
