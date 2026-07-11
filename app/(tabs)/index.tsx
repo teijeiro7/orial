@@ -11,6 +11,7 @@ import { GlassCard } from '../../src/components/GlassCard';
 import { OrialColors } from '../../src/utils/colors';
 import { whoopService } from '../../src/services/whoopService';
 import { hydrationService } from '../../src/services/hydrationService';
+import type { HydrationTargetBreakdown } from '../../src/services/hydrationProfileService';
 import { supplementService } from '../../src/services/supplementService';
 import { manualMetricsService } from '../../src/services/manualMetricsService';
 import { weightPredictionService } from '../../src/services/weightPredictionService';
@@ -36,6 +37,7 @@ export default function DashboardScreen() {
   const [whoopData, setWhoopData] = useState<WhoopDaily | null>(null);
   const [isWhoopConnected, setIsWhoopConnected] = useState(false);
   const [hydrationData, setHydrationData] = useState<{ current: number; target: number; percentage: number }>({ current: 0, target: 3, percentage: 0 });
+  const [hydrationBreakdown, setHydrationBreakdown] = useState<HydrationTargetBreakdown | null>(null);
   const [supplements, setSupplements] = useState<{ supplementId: string; name: string; dailyDoseMg: number; takenAt: Date | null; streak: number }[]>([]);
   const [manualData, setManualData] = useState<ManualMetric | null>(null);
   const [prediction, setPrediction] = useState<WeightPrediction | null>(null);
@@ -48,9 +50,13 @@ export default function DashboardScreen() {
       const today = new Date().toISOString().split('T')[0];
       const connected = await whoopService.isConnected();
       if (connected) await whoopService.syncToday();
-      const [whoop, hyd, allSupps, manual, pred, nutrition, todayLogs] = await Promise.all([
+      // Recalculate today's target first so it reflects any hydration profile
+      // changes (weight/age/training/caffeine/stimulants) before reading progress.
+      await hydrationService.recalculateTarget(today);
+      const [whoop, hyd, breakdown, allSupps, manual, pred, nutrition, todayLogs] = await Promise.all([
         whoopService.getTodayMetrics(),
         hydrationService.getProgress(),
+        hydrationService.getTargetBreakdown(),
         supplementService.getSupplements(),
         manualMetricsService.getTodayMetrics(),
         weightPredictionService.getTodayPrediction(),
@@ -61,6 +67,7 @@ export default function DashboardScreen() {
       setWhoopData(whoop);
       if (whoop) setPeakState(calculatePeakState(whoop));
       setHydrationData(hyd);
+      setHydrationBreakdown(breakdown);
       setManualData(manual);
       setPrediction(pred);
       setNutritionData(nutrition);
@@ -284,6 +291,39 @@ export default function DashboardScreen() {
                   <View style={[styles.progressFill, { width: `${hydPct}%`, backgroundColor: hydPct >= 100 ? OrialColors.success : OrialColors.cyan }]} />
                 </View>
               </View>
+              {hydrationBreakdown && (
+                <View style={styles.breakdownWrap}>
+                  <Text style={styles.breakdownTitle}>🔄 Calculado para hoy</Text>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Base (peso)</Text>
+                    <Text style={styles.breakdownValue}>{hydrationBreakdown.base.toFixed(1)}L</Text>
+                  </View>
+                  {hydrationBreakdown.exercise > 0 && (
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Ejercicio</Text>
+                      <Text style={styles.breakdownValue}>+{hydrationBreakdown.exercise.toFixed(1)}L</Text>
+                    </View>
+                  )}
+                  {hydrationBreakdown.caffeine > 0 && (
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Cafeína</Text>
+                      <Text style={styles.breakdownValue}>+{hydrationBreakdown.caffeine.toFixed(1)}L</Text>
+                    </View>
+                  )}
+                  {hydrationBreakdown.ageBonus > 0 && (
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Edad (+50)</Text>
+                      <Text style={styles.breakdownValue}>+{hydrationBreakdown.ageBonus.toFixed(1)}L</Text>
+                    </View>
+                  )}
+                  {hydrationBreakdown.stimulant > 0 && (
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Estimulantes</Text>
+                      <Text style={styles.breakdownValue}>+{hydrationBreakdown.stimulant.toFixed(1)}L</Text>
+                    </View>
+                  )}
+                </View>
+              )}
               <View style={styles.hydrationActions}>
                 <Pressable style={styles.waterBtn} onPress={handleAddWater}>
                   <Text style={styles.waterBtnText}>+250 ml</Text>
@@ -562,6 +602,11 @@ const styles = StyleSheet.create({
   progressBarWrap: { marginBottom: 14 },
   progressBar: { height: 4, backgroundColor: OrialColors.surfaceElevated, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2 },
+  breakdownWrap: { marginBottom: 14, gap: 4 },
+  breakdownTitle: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Medium', marginBottom: 4 },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  breakdownLabel: { fontSize: 12, color: OrialColors.textSecondary, fontFamily: 'Inter-Regular' },
+  breakdownValue: { fontSize: 12, color: OrialColors.textPrimary, fontFamily: 'Inter-SemiBold', fontWeight: '600' },
   hydrationActions: { flexDirection: 'row', gap: 8 },
   waterBtn: { flex: 1, backgroundColor: OrialColors.cyan + '18', paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: OrialColors.cyan + '35' },
   waterBtnSecondary: { backgroundColor: OrialColors.surfaceElevated, borderColor: OrialColors.borderStrong },
