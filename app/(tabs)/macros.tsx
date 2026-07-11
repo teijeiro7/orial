@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, ScrollView, Animated, RefreshControl, ViewStyle
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { GlassCard } from '../../src/components/GlassCard';
 import { OrialColors } from '../../src/utils/colors';
@@ -29,6 +30,7 @@ function SkeletonBlock({ width, height, style }: { width: any; height: number; s
 }
 
 export default function MacrosScreen() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -112,9 +114,18 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchMacros(true)} tintColor={OrialColors.violetLight} />
         }
       >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Macros</Text>
-          <Text style={styles.headerDate}>{format(new Date(), 'EEE, MMM d').toUpperCase()}</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Macros</Text>
+            <Text style={styles.headerDate}>{format(new Date(), 'EEE, MMM d').toUpperCase()}</Text>
+          </View>
+          <Pressable
+            style={styles.cameraBtn}
+            onPress={() => router.push('/screens/MealCameraScreen')}
+            testID="analyze-meal-button"
+          >
+            <Text style={styles.cameraBtnText}>📸 Analizar Comida</Text>
+          </Pressable>
         </View>
 
         {loading ? (
@@ -279,7 +290,22 @@ const macroStripStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: OrialColors.deepNavy },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 20,
+  },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20 },
+  cameraBtn: {
+    backgroundColor: OrialColors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: OrialColors.border,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  cameraBtnText: { color: OrialColors.violetLight, fontSize: 12, fontFamily: 'Inter-Medium' },
   headerTitle: { fontSize: 28, fontWeight: '700', color: OrialColors.textPrimary, letterSpacing: -0.8, fontFamily: 'Inter-Bold' },
   headerDate: { fontSize: 10, letterSpacing: 1.6, color: OrialColors.textMuted, marginTop: 4, fontFamily: 'Inter-Medium' },
   skeletonContainer: { gap: 10 },
