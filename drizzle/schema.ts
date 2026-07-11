@@ -378,6 +378,23 @@ export const caffeineLogs = sqliteTable('caffeine_logs', {
   modifiedAt: integer('modified_at').notNull().default(0),
 });
 
+// ── Insights (Jarvis) ─────────────────────────────────────────────────────────
+// Populated by Jarvis (server-side, out of this repo) writing directly to
+// Supabase; the app pulls them via syncService. See src/services/insightService.ts
+// for the read-side API and the documented Jarvis generation contract.
+
+export const insightLogs = sqliteTable('insight_logs', {
+  id: text('id').primaryKey(),
+  generatedAt: integer('generated_at', { mode: 'timestamp' }).notNull(),
+  category: text('category').notNull(), // sleep, gym, finance, nutrition, caffeine, mixed
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  severity: text('severity').notNull().default('info'), // info, warning, critical
+  dismissed: integer('dismissed', { mode: 'boolean' }).notNull().default(false),
+  sourceAgent: text('source_agent').notNull().default('jarvis'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 // ── New types ────────────────────────────────────────────────────────────────
 
 export type Task = typeof tasks.$inferSelect;
@@ -402,3 +419,5 @@ export type HydrationProfile = typeof hydrationProfile.$inferSelect;
 export type NewHydrationProfile = typeof hydrationProfile.$inferInsert;
 export type CaffeineLog = typeof caffeineLogs.$inferSelect;
 export type NewCaffeineLog = typeof caffeineLogs.$inferInsert;
+export type InsightLog = typeof insightLogs.$inferSelect;
+export type NewInsightLog = typeof insightLogs.$inferInsert;
