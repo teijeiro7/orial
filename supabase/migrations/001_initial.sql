@@ -378,6 +378,7 @@ ALTER TABLE gym_sets                ADD COLUMN IF NOT EXISTS modified_at BIGINT 
 ALTER TABLE finance_subscriptions   ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE finance_orders          ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE finance_wishlist        ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE caffeine_logs           ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
 
 CREATE OR REPLACE FUNCTION bump_modified_at() RETURNS trigger AS $$
 BEGIN
@@ -405,6 +406,7 @@ CREATE OR REPLACE TRIGGER trg_gym_sets_modified_at       BEFORE INSERT OR UPDATE
 CREATE OR REPLACE TRIGGER trg_finance_subscriptions_modified_at  BEFORE INSERT OR UPDATE ON finance_subscriptions   FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
 CREATE OR REPLACE TRIGGER trg_finance_orders_modified_at  BEFORE INSERT OR UPDATE ON finance_orders          FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
 CREATE OR REPLACE TRIGGER trg_finance_wishlist_modified_at  BEFORE INSERT OR UPDATE ON finance_wishlist        FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
+CREATE OR REPLACE TRIGGER trg_caffeine_logs_modified_at  BEFORE INSERT OR UPDATE ON caffeine_logs            FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
 
 -- modified_at range-scan indexes (speed up pullChanges):
 CREATE INDEX IF NOT EXISTS idx_habits_modified_at         ON habits                  (modified_at);
@@ -423,6 +425,7 @@ CREATE INDEX IF NOT EXISTS idx_gym_sets_modified_at       ON gym_sets           
 CREATE INDEX IF NOT EXISTS idx_finance_subscriptions_modified_at  ON finance_subscriptions   (modified_at);
 CREATE INDEX IF NOT EXISTS idx_finance_orders_modified_at  ON finance_orders          (modified_at);
 CREATE INDEX IF NOT EXISTS idx_finance_wishlist_modified_at  ON finance_wishlist        (modified_at);
+CREATE INDEX IF NOT EXISTS idx_caffeine_logs_modified_at  ON caffeine_logs            (modified_at);
 
 -- ── Indexes on sync cursor columns (speed up pullChanges range scans) ────────
 CREATE INDEX IF NOT EXISTS idx_habits_created_at            ON habits (created_at);

@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { OrialColors } from '../utils/colors';
+import { formatHM } from '../utils/time';
 
 // Configure how notifications appear when app is in foreground
 Notifications.setNotificationHandler({
@@ -178,7 +179,7 @@ export class NotificationService {
   async cancelStreakAtRiskNotification(habitId: string): Promise<void> {
     try {
       const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
-      
+
       for (const notification of scheduledNotifications) {
         const data = notification.content.data as any;
         if (data?.type === 'streak_at_risk' && data?.habitId === habitId) {
@@ -187,6 +188,76 @@ export class NotificationService {
       }
     } catch (error) {
       console.error('Error canceling streak notification:', error);
+    }
+  }
+
+  /**
+   * Immediate alert fired right after logging a dose that will still be
+   * above the interference threshold at bedtime, e.g.
+   * "⚠️ Has tomado café a las 16:00. Se eliminará a las 21:00. Esto puede
+   * interferir con tu hora de dormir (23:00)."
+   */
+  async scheduleCaffeineSleepInterferenceAlert(loggedAt: Date, clearAt: Date, bedtime: Date): Promise<string | null> {
+    try {
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '⚠️ Cafeína y sueño',
+          body: `Has tomado café a las ${formatHM(loggedAt)}. Se eliminará a las ${formatHM(clearAt)}. Esto puede interferir con tu hora de dormir (${formatHM(bedtime)}).`,
+          data: { type: 'caffeine_sleep_interference' },
+          sound: 'default',
+        },
+        trigger: null, // Immediate notification
+      });
+
+      return identifier;
+    } catch (error) {
+      console.error('Error scheduling caffeine sleep interference alert:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Daily 20:00 nudge to log caffeine intake, only meant to be (re)scheduled
+   * when the caller has already checked that nothing was logged today —
+   * cancels any previous instance first so re-scheduling stays idempotent.
+   */
+  async scheduleCaffeineCheckInReminder(hour: number = 20, minute: number = 0): Promise<string | null> {
+    try {
+      await this.cancelCaffeineCheckInReminder();
+
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '☕ Cafeína',
+          body: 'Hoy no has tomado cafeína. ¿Quieres registrarla?',
+          data: { type: 'caffeine_checkin' },
+          sound: 'default',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour,
+          minute,
+        } as Notifications.DailyTriggerInput,
+      });
+
+      return identifier;
+    } catch (error) {
+      console.error('Error scheduling caffeine check-in reminder:', error);
+      return null;
+    }
+  }
+
+  async cancelCaffeineCheckInReminder(): Promise<void> {
+    try {
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+
+      for (const notification of scheduledNotifications) {
+        const data = notification.content.data as any;
+        if (data?.type === 'caffeine_checkin') {
+          await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+        }
+      }
+    } catch (error) {
+      console.error('Error canceling caffeine check-in reminder:', error);
     }
   }
 }
