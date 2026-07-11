@@ -223,7 +223,10 @@ export class SyncQueueWorker {
             ),
             targetCount: properties['Target Count']?.number || 1,
             createdAt: new Date(properties.Created?.date?.start || Date.now()),
-            modifiedAt: Date.now(),
+            // 0, not Date.now(): modified_at is epoch seconds everywhere else in
+            // the sync system, and the AFTER-INSERT trigger (migration 0004)
+            // assigns a real strftime('%s','now') value when it sees 0.
+            modifiedAt: 0,
             description: null,
             notionPageId: notionHabit.id,
             color: null,
