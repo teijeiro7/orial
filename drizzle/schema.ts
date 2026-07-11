@@ -271,6 +271,9 @@ export const gymExercises = sqliteTable('gym_exercises', {
   currentWeightKg: real('current_weight_kg').notNull().default(0),
   incrementKg: real('increment_kg').notNull().default(2.5),
   orderIndex: integer('order_index').notNull().default(0),
+  swapGroup: text('swap_group'), // same group = interchangeable exercises
+  oneRmEstimated: real('one_rm_estimated'), // auto-estimated 1RM (Epley)
+  lastSwappedAt: integer('last_swapped_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('modified_at').notNull().default(0),
 });

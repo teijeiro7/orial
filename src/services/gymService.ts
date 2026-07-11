@@ -35,6 +35,11 @@ export const gymService = {
     return db.select().from(gymRoutines).orderBy(gymRoutines.createdAt);
   },
 
+  async getRoutineById(id: string): Promise<GymRoutine | null> {
+    const results = await db.select().from(gymRoutines).where(eq(gymRoutines.id, id)).limit(1);
+    return results[0] ?? null;
+  },
+
   async createRoutine(name: string, emoji: string, days: number[]): Promise<GymRoutine> {
     const routine: NewGymRoutine = {
       id: generateUUID(),
@@ -92,8 +97,30 @@ export const gymService = {
     return exercise as GymExercise;
   },
 
+  async getExerciseById(id: string): Promise<GymExercise | null> {
+    const results = await db.select().from(gymExercises).where(eq(gymExercises.id, id)).limit(1);
+    return results[0] ?? null;
+  },
+
+  async getExercisesBySwapGroup(swapGroup: string): Promise<GymExercise[]> {
+    return db.select().from(gymExercises).where(eq(gymExercises.swapGroup, swapGroup));
+  },
+
   async updateExerciseWeight(id: string, newWeightKg: number): Promise<void> {
     await db.update(gymExercises).set({ currentWeightKg: newWeightKg }).where(eq(gymExercises.id, id));
+  },
+
+  /** Applies a partial update to an exercise (modified_at is bumped by trigger). */
+  async updateExercise(
+    id: string,
+    patch: Partial<
+      Pick<
+        GymExercise,
+        'currentWeightKg' | 'oneRmEstimated' | 'swapGroup' | 'lastSwappedAt'
+      >
+    >,
+  ): Promise<void> {
+    await db.update(gymExercises).set(patch).where(eq(gymExercises.id, id));
   },
 
   async deleteExercise(id: string): Promise<void> {
