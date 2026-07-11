@@ -43,6 +43,13 @@
       "when": 1783803672174,
       "tag": "0005_amusing_proudstar",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783809773697,
+      "tag": "0006_next_sasquatch",
+      "breakpoints": true
     }
   ]
 }
