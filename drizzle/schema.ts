@@ -363,6 +363,18 @@ export const hydrationProfile = sqliteTable('hydration_profile', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+// ── Caffeine ─────────────────────────────────────────────────────────────────
+
+export const caffeineLogs = sqliteTable('caffeine_logs', {
+  id: text('id').primaryKey(),
+  source: text('source').notNull().default('manual'), // manual, coffee, energy_drink, supplement, tea
+  caffeineMg: integer('caffeine_mg').notNull(),
+  timestamp: integer('timestamp', { mode: 'timestamp_ms' }).notNull(),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
+});
+
 // ── New types ────────────────────────────────────────────────────────────────
 
 export type Task = typeof tasks.$inferSelect;
@@ -385,3 +397,5 @@ export type FinanceWishlistItem = typeof financeWishlist.$inferSelect;
 export type NewFinanceWishlistItem = typeof financeWishlist.$inferInsert;
 export type HydrationProfile = typeof hydrationProfile.$inferSelect;
 export type NewHydrationProfile = typeof hydrationProfile.$inferInsert;
+export type CaffeineLog = typeof caffeineLogs.$inferSelect;
+export type NewCaffeineLog = typeof caffeineLogs.$inferInsert;

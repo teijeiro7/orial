@@ -35,9 +35,10 @@ export type {
  *     is NEVER used as the cursor because it is immutable, so edits to an
  *     existing row would never advance the cursor and would never be pushed.
  *
- * The Vitality tables (caffeine_logs, insight_logs) and the extra
- * gym_exercises columns are added to the Supabase migration by tasks T1/T2/T6;
- * they can be registered here in those branches once their local schema exists.
+ * The Vitality table insight_logs and the extra gym_exercises columns are
+ * added to the Supabase migration by tasks T2/T6; they can be registered here
+ * in those branches once their local schema exists. caffeine_logs (T1) is
+ * registered below now that its local schema and modified_at cursor exist.
  */
 export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
   { table: 'habits', timestampField: 'modified_at', conflictKey: 'id' },
@@ -63,6 +64,7 @@ export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
   { table: 'finance_orders', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'finance_wishlist', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'hydration_profile', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'caffeine_logs', timestampField: 'modified_at', conflictKey: 'id' },
 ];
 
 /** Normalises a JS value to something SQLite accepts (booleans → 0/1). */
