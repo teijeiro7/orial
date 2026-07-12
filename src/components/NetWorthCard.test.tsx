@@ -3,7 +3,7 @@ import TestRenderer, { act, ReactTestRenderer } from 'react-test-renderer';
 import { NetWorthCard } from './NetWorthCard';
 import { OrialColors } from '../utils/colors';
 
-async function renderCard(balance: number, changePct: number, currency?: string) {
+async function renderCard(balance: number, changePct?: number, currency?: string) {
   let tree!: ReactTestRenderer;
   await act(async () => {
     tree = TestRenderer.create(<NetWorthCard balance={balance} changePct={changePct} currency={currency} />);
@@ -51,5 +51,10 @@ describe('NetWorthCard', () => {
     expect(changeText.props.children).toBe('+0.0%');
     const flatStyle = Object.assign({}, ...[changeText.props.style].flat());
     expect(flatStyle.color).toBe(OrialColors.success);
+  });
+
+  it('hides the trend pill entirely when changePct is omitted (no real history to diff against)', async () => {
+    const tree = await renderCard(1000);
+    expect(() => tree.root.findByProps({ testID: 'net-worth-change' })).toThrow();
   });
 });

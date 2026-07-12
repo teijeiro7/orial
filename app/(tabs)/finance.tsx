@@ -19,6 +19,8 @@ import {
   Dumbbell,
   Heart,
   AlertCircle,
+  Clock,
+  ChevronRight,
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
 import { NetWorthCard } from '../../src/components/NetWorthCard';
@@ -208,6 +210,8 @@ export default function FinanceScreen() {
     return { ...t, total, pct: netWorth > 0 ? (total / netWorth) * 100 : 0 };
   }).filter((t) => t.total > 0);
 
+  const nextBill = [...subscriptionAlerts].sort((a, b) => a.daysUntilBilling - b.daysUntilBilling)[0];
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Sub-tab bar */}
@@ -226,13 +230,30 @@ export default function FinanceScreen() {
           <>
             {/*
               % change isn't tracked anywhere in financeService/schema (no
-              historical net-worth snapshots to diff against), so it can't be
-              derived without fabricating a number. Passing 0 rather than
-              inventing a trend — flagged as a concern in the report.
+              historical net-worth snapshots to diff against), so changePct is
+              omitted rather than passing a fake 0 — NetWorthCard hides the
+              trend pill entirely when it's not given.
             */}
             <View style={styles.netWorthCardWrap}>
-              <NetWorthCard balance={netWorth} changePct={0} />
+              <NetWorthCard balance={netWorth} />
             </View>
+
+            {nextBill && (
+              <Pressable style={styles.nextBill} onPress={() => setActiveTab('subscriptions')}>
+                <View style={styles.nextBillLabel}>
+                  <Clock size={16} color={OrialColors.error} />
+                  <Text style={OrialTypography.caption}>
+                    {nextBill.name} se cobra {nextBill.daysUntilBilling <= 0 ? 'hoy' : `en ${nextBill.daysUntilBilling}d`}
+                  </Text>
+                </View>
+                <View style={styles.nextBillRight}>
+                  <Text style={[OrialTypography.caption, styles.nextBillAmount]}>
+                    {formatCurrency(nextBill.amount, nextBill.currency)}
+                  </Text>
+                  <ChevronRight size={16} color={OrialColors.textMuted} />
+                </View>
+              </Pressable>
+            )}
 
             {/* Allocation donut, fed the same per-type percentages that drove the old bars */}
             {accountsByType.length > 0 && (
@@ -241,6 +262,8 @@ export default function FinanceScreen() {
                 <View style={styles.donutRow}>
                   <View style={styles.donutWrap}>
                     <Donut
+                      size={108}
+                      strokeWidth={14}
                       segments={accountsByType.map((t) => ({
                         pct: t.pct,
                         color: ACCOUNT_TYPE_COLORS[t.value],
@@ -551,8 +574,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', padding: 16,
   },
   netWorthCardWrap: { marginHorizontal: 16, marginTop: 8 },
+  nextBill: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginHorizontal: 16, marginTop: 10, padding: 13,
+    backgroundColor: OrialColors.surface, borderRadius: 14,
+  },
+  nextBillLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  nextBillRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  nextBillAmount: { color: OrialColors.error, fontWeight: '600' },
   addButton: { padding: 8, backgroundColor: OrialColors.violet, borderRadius: 12 },
-  card: { marginHorizontal: 16, marginBottom: 8 },
+  card: { marginHorizontal: 16, marginTop: 14, marginBottom: 8 },
   sectionLabel: {
     color: OrialColors.textMuted, textTransform: 'uppercase',
     letterSpacing: 1, marginBottom: 10,
