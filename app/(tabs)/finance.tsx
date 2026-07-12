@@ -21,6 +21,11 @@ import {
   AlertCircle,
   Clock,
   ChevronRight,
+  Landmark,
+  Bitcoin,
+  TrendingUp,
+  Home,
+  Briefcase,
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
 import { NetWorthCard } from '../../src/components/NetWorthCard';
@@ -51,6 +56,14 @@ const ACCOUNT_TYPE_COLORS: Record<string, string> = {
   stocks: '#10B981',
   real_estate: '#8B5CF6',
   other: '#6B7280',
+};
+
+const ACCOUNT_TYPE_ICONS: Record<string, typeof Landmark> = {
+  bank: Landmark,
+  crypto: Bitcoin,
+  stocks: TrendingUp,
+  real_estate: Home,
+  other: Briefcase,
 };
 
 const SUB_CATEGORIES = ['streaming', 'software', 'fitness', 'other'];
@@ -278,7 +291,7 @@ export default function FinanceScreen() {
                     {accountsByType.map((t) => (
                       <View key={t.value} style={styles.legendRow}>
                         <View style={[styles.legendDot, { backgroundColor: ACCOUNT_TYPE_COLORS[t.value] }]} />
-                        <Text style={styles.legendLabel}>{t.icon} {t.label}</Text>
+                        <Text style={styles.legendLabel}>{t.label}</Text>
                         <Text style={styles.legendPct}>{t.pct.toFixed(1)}%</Text>
                       </View>
                     ))}
@@ -300,10 +313,14 @@ export default function FinanceScreen() {
                   <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>No accounts. Add one to start.</Text>
                 </GlassCard>
               ) : (
-                accounts.map((a) => (
+                accounts.map((a) => {
+                  const AccIcon = ACCOUNT_TYPE_ICONS[a.type] ?? Briefcase;
+                  return (
                   <GlassCard key={a.id} style={styles.accountCard}>
                     <View style={styles.accountRow}>
-                      <Text style={{ fontSize: 24 }}>{a.icon}</Text>
+                      <View style={[styles.accountIconCircle, { backgroundColor: ACCOUNT_TYPE_COLORS[a.type] + '2E' }]}>
+                        <AccIcon size={17} color={ACCOUNT_TYPE_COLORS[a.type]} />
+                      </View>
                       <View style={styles.accountInfo}>
                         <Text style={OrialTypography.bodyMedium}>{a.name}</Text>
                         <Text style={[OrialTypography.caption, { color: ACCOUNT_TYPE_COLORS[a.type] }]}>
@@ -323,7 +340,8 @@ export default function FinanceScreen() {
                       </Pressable>
                     </View>
                   </GlassCard>
-                ))
+                  );
+                })
               )}
             </View>
 
@@ -470,15 +488,18 @@ export default function FinanceScreen() {
             <TextInput style={styles.input} placeholder="Balance" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={accBalance} onChangeText={setAccBalance} />
             <TextInput style={styles.input} placeholder="Currency (EUR)" placeholderTextColor={OrialColors.textMuted} value={accCurrency} onChangeText={setAccCurrency} autoCapitalize="characters" />
             <View style={styles.typeRow}>
-              {ACCOUNT_TYPES.map((t) => (
-                <Pressable
-                  key={t.value}
-                  style={[styles.typeChip, accType === t.value && styles.typeChipActive]}
-                  onPress={() => setAccType(t.value)}
-                >
-                  <Text style={styles.typeChipText}>{t.icon}</Text>
-                </Pressable>
-              ))}
+              {ACCOUNT_TYPES.map((t) => {
+                const TypeIcon = ACCOUNT_TYPE_ICONS[t.value] ?? Briefcase;
+                return (
+                  <Pressable
+                    key={t.value}
+                    style={[styles.typeChip, accType === t.value && styles.typeChipActive]}
+                    onPress={() => setAccType(t.value)}
+                  >
+                    <TypeIcon size={18} color={accType === t.value ? '#fff' : OrialColors.textMuted} />
+                  </Pressable>
+                );
+              })}
             </View>
             <View style={styles.modalActions}>
               <Pressable style={styles.cancelBtn} onPress={() => setShowAddAccount(false)}>
@@ -525,7 +546,7 @@ export default function FinanceScreen() {
                   </Pressable>
                   {accounts.map((a) => (
                     <Pressable key={a.id} style={[styles.typeChip, subAccountId === a.id && styles.typeChipActive, { marginRight: 6 }]} onPress={() => setSubAccountId(a.id)}>
-                      <Text style={[OrialTypography.caption, { color: subAccountId === a.id ? '#fff' : OrialColors.textMuted }]}>{a.icon} {a.name}</Text>
+                      <Text style={[OrialTypography.caption, { color: subAccountId === a.id ? '#fff' : OrialColors.textMuted }]}>{a.name}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -605,6 +626,10 @@ const styles = StyleSheet.create({
   emptyText: { color: OrialColors.textMuted, textAlign: 'center' },
   accountCard: { padding: 14 },
   accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  accountIconCircle: {
+    width: 34, height: 34, borderRadius: 17,
+    justifyContent: 'center', alignItems: 'center',
+  },
   accountInfo: { flex: 1 },
   accountRight: { alignItems: 'flex-end' },
   deleteBtn: { padding: 4 },
@@ -652,7 +677,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: OrialColors.glassBorder,
   },
   typeChipActive: { backgroundColor: OrialColors.violet, borderColor: OrialColors.violet },
-  typeChipText: { fontSize: 18 },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
   cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
   saveBtn: { paddingHorizontal: 24, paddingVertical: 10, backgroundColor: OrialColors.violet, borderRadius: 10 },

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput } from 'react-native';
-import { AlertTriangle, TrendingUp } from 'lucide-react-native';
+import { AlertTriangle, TrendingUp, CreditCard, Bitcoin } from 'lucide-react-native';
 import { GlassCard } from './GlassCard';
 import { getOnePercentRule } from '../services/financeService';
 import type {
@@ -44,15 +44,24 @@ export function OnePercentRule({ netWorth, subscriptionAlerts, wishlistProgress 
       <Text style={[OrialTypography.caption, styles.sectionLabel]}>NET WORTH BREAKDOWN</Text>
       <Text style={styles.netWorthAmount}>{formatCurrency(netWorth.total)}</Text>
       <View style={styles.breakdownRow}>
-        <Text style={styles.breakdownItem}>💳 Accounts: {formatCurrency(netWorth.accounts)}</Text>
-        <Text style={styles.breakdownItem}>📈 Investments: {formatCurrency(netWorth.stocks)}</Text>
-        <Text style={styles.breakdownItem}>₿ Crypto: {formatCurrency(netWorth.crypto)}</Text>
+        <View style={styles.breakdownRowItem}>
+          <CreditCard size={13} color={OrialColors.textMuted} />
+          <Text style={styles.breakdownItem}>Accounts: {formatCurrency(netWorth.accounts)}</Text>
+        </View>
+        <View style={styles.breakdownRowItem}>
+          <TrendingUp size={13} color={OrialColors.textMuted} />
+          <Text style={styles.breakdownItem}>Investments: {formatCurrency(netWorth.stocks)}</Text>
+        </View>
+        <View style={styles.breakdownRowItem}>
+          <Bitcoin size={13} color={OrialColors.textMuted} />
+          <Text style={styles.breakdownItem}>Crypto: {formatCurrency(netWorth.crypto)}</Text>
+        </View>
       </View>
 
       {/* ── Upcoming subscription alerts ──────────────────────────────── */}
       {subscriptionAlerts.length > 0 && (
         <View style={styles.section}>
-          <Text style={[OrialTypography.caption, styles.sectionLabel]}>🚨 UPCOMING CHARGES</Text>
+          <Text style={[OrialTypography.caption, styles.sectionLabel]}>UPCOMING CHARGES</Text>
           {subscriptionAlerts.map((alert) => (
             <View key={alert.subscriptionId} style={styles.row}>
               <Text style={styles.rowLabel}>{alert.name}</Text>
@@ -110,7 +119,7 @@ export function OnePercentRule({ netWorth, subscriptionAlerts, wishlistProgress 
                   { color: item.isWithinBudget ? OrialColors.success : OrialColors.error },
                 ]}
               >
-                {formatCurrency(item.price)} → {item.percentage.toFixed(1)}% {item.isWithinBudget ? '🟢' : '🔴'}
+                {formatCurrency(item.price)} → {item.percentage.toFixed(1)}%
               </Text>
             </View>
           ))}
@@ -135,7 +144,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginBottom: 10,
   },
-  breakdownRow: { gap: 4, marginBottom: 4 },
+  breakdownRow: { gap: 6, marginBottom: 4 },
+  breakdownRowItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   breakdownItem: { ...OrialTypography.caption, color: OrialColors.textSecondary },
   section: {
     marginTop: 16,
