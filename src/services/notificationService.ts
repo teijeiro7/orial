@@ -42,34 +42,6 @@ export class NotificationService {
     return finalStatus === 'granted';
   }
 
-  /**
-   * Used by syncQueueWorker.ts to notify on repeated sync failures. Signature
-   * predates the habits-feature removal — kept because syncQueueWorker (not
-   * deleted, see removal report) still calls it.
-   */
-  async scheduleStreakMilestone(habitId: string, habitName: string, emoji: string, streakCount: number): Promise<string | null> {
-    try {
-      const identifier = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '🎉 Streak Milestone!',
-          body: `${emoji} ${habitName}: ${streakCount} day streak! Keep it up!`,
-          data: {
-            type: 'streak_milestone',
-            habitId,
-            streakCount,
-          },
-          sound: 'default',
-        },
-        trigger: null, // Immediate notification
-      });
-
-      return identifier;
-    } catch (error) {
-      console.error('Error scheduling milestone notification:', error);
-      return null;
-    }
-  }
-
   async cancelAllReminders(): Promise<void> {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
