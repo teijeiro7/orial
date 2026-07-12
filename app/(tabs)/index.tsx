@@ -1,14 +1,18 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { Activity, Heart, Droplets, Pill, TrendingDown,
-  Flame, Moon, Zap, ZapOff, Brain, Settings } from 'lucide-react-native';
+  Flame, Moon, Zap, ZapOff, Brain, Settings, Footprints } from 'lucide-react-native';
 import { calculatePeakState } from '../../src/services/peakStateService';
 import type { PeakStateResult } from '../../src/services/peakStateService';
 import { GlassCard } from '../../src/components/GlassCard';
 import { HeaderIconButton } from '../../src/components/HeaderIconButton';
+import { Ring } from '../../src/components/Ring';
+import { StatTileGrid } from '../../src/components/StatTileGrid';
+import { SectionLabel } from '../../src/components/SectionLabel';
+import { ProgressBar } from '../../src/components/ProgressBar';
 import { OrialColors } from '../../src/utils/colors';
 import { whoopService } from '../../src/services/whoopService';
 import { hydrationService } from '../../src/services/hydrationService';
@@ -19,6 +23,8 @@ import { weightPredictionService } from '../../src/services/weightPredictionServ
 import { nutritionService } from '../../src/services/nutritionService';
 import type { WhoopDaily, ManualMetric, WeightPrediction, NutritionLog } from '../../drizzle/schema';
 
+const MACRO_CALORIE_GOAL = 2100;
+
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
@@ -26,8 +32,8 @@ function getGreeting(): string {
   return 'Good evening';
 }
 
-function recoveryColor(score: number | null | undefined): string {
-  if (!score) return OrialColors.textMuted;
+function scoreColor(score: number | null | undefined): string {
+  if (score === null || score === undefined) return OrialColors.textMuted;
   if (score >= 67) return OrialColors.success;
   if (score >= 34) return OrialColors.warning;
   return OrialColors.error;
@@ -127,6 +133,60 @@ export default function DashboardScreen() {
   };
 
   const hydPct = Math.min(hydrationData.percentage, 100);
+  const macroCalories = nutritionData?.totalCalories ?? 0;
+  const macroPct = Math.min((macroCalories / MACRO_CALORIE_GOAL) * 100, 100);
+  const macroColor = macroCalories >= MACRO_CALORIE_GOAL ? OrialColors.success : OrialColors.warning;
+
+  const statTiles = [
+    {
+      icon: <Heart size={12} color={scoreColor(whoopData?.recoveryScore)} />,
+      value: whoopData?.recoveryScore ? `${whoopData.recoveryScore}%` : '--',
+      label: 'Recovery',
+      color: scoreColor(whoopData?.recoveryScore),
+    },
+    {
+      icon: <Moon size={12} color={OrialColors.violetLight} />,
+      value: whoopData?.sleepPerformance ? `${whoopData.sleepPerformance}%` : '--',
+      label: 'Sleep',
+      color: OrialColors.violetLight,
+    },
+    {
+      icon: <Zap size={12} color={OrialColors.cyan} />,
+      value: whoopData?.strain ? whoopData.strain.toFixed(1) : '--',
+      label: 'Strain',
+      color: OrialColors.cyan,
+    },
+    {
+      icon: <Activity size={12} color={OrialColors.warning} />,
+      value: whoopData?.hrvRmssdMilli ? whoopData.hrvRmssdMilli.toFixed(0) : '--',
+      label: 'HRV',
+      color: OrialColors.warning,
+    },
+    {
+      icon: <Droplets size={12} color={OrialColors.cyan} />,
+      value: `${hydrationData.percentage.toFixed(0)}%`,
+      label: 'Hydration',
+      color: OrialColors.cyan,
+    },
+    {
+      icon: <Flame size={12} color={macroColor} />,
+      value: `${macroPct.toFixed(0)}%`,
+      label: 'Macros',
+      color: macroColor,
+    },
+    {
+      icon: <Footprints size={12} color={OrialColors.textSecondary} />,
+      value: (manualData?.stepsWalk || 0).toLocaleString(),
+      label: 'Steps',
+      color: OrialColors.textSecondary,
+    },
+    {
+      icon: <Brain size={12} color={scoreColor(peakState?.score)} />,
+      value: peakState ? `${peakState.score}` : '--',
+      label: 'Peak Score',
+      color: scoreColor(peakState?.score),
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -154,130 +214,121 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* WHOOP */}
+        {/* WHOOP connection status — only surfaced when there's nothing to show yet */}
+        {(!isWhoopConnected || !whoopData) && (
+          <View style={styles.section}>
+            <SectionLabel label="WHOOP" />
+            {!isWhoopConnected ? (
+              <Pressable onPress={() => router.push('/forge')}>
+                <GlassCard style={styles.whoopDisconnectedCard} accentColor={OrialColors.warning}>
+                  <View style={styles.whoopDisconnectedRow}>
+                    <View style={styles.warningIconCircle}>
+                      <ZapOff size={20} color={OrialColors.warning} />
+                    </View>
+                    <View style={styles.whoopDisconnectedTextContainer}>
+                      <Text style={styles.whoopDisconnectedTitle}>Connection Required</Text>
+                      <Text style={styles.whoopDisconnectedSubtitle}>
+                        WHOOP is disconnected. Tap here to link your device and sync your strain, recovery, and sleep metrics.
+                      </Text>
+                    </View>
+                  </View>
+                </GlassCard>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.push('/forge')}>
+                <GlassCard style={styles.whoopDisconnectedCard} accentColor={OrialColors.violetLight}>
+                  <View style={styles.whoopDisconnectedRow}>
+                    <View style={[styles.warningIconCircle, { backgroundColor: OrialColors.violet + '15' }]}>
+                      <Zap size={20} color={OrialColors.violetLight} />
+                    </View>
+                    <View style={styles.whoopDisconnectedTextContainer}>
+                      <Text style={styles.whoopDisconnectedTitle}>Connected · No Sync</Text>
+                      <Text style={styles.whoopDisconnectedSubtitle}>
+                        Connected but no data loaded for today. Pull to refresh or tap to manage your health metrics.
+                      </Text>
+                    </View>
+                  </View>
+                </GlassCard>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* Focus — peak score ring */}
+        {peakState && (
+          <View style={styles.section}>
+            <Pressable onPress={() => router.push('/forge')}>
+              <GlassCard style={styles.focusCard}>
+                <Ring pct={peakState.score} size={84} strokeWidth={8} color={OrialColors.violetLight}>
+                  <Text style={styles.ringValue}>{peakState.score}</Text>
+                  <Text style={styles.ringUnit}>SCORE</Text>
+                </Ring>
+                <View style={styles.focusBody}>
+                  <Text style={styles.focusKicker}>Peak State</Text>
+                  <Text style={styles.focusTitle}>{peakState.label}</Text>
+                  <Text style={styles.focusSubtitle}>Cognitive peak window</Text>
+                </View>
+              </GlassCard>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Quick stats bento */}
         <View style={styles.section}>
-          <SectionLabel label="WHOOP" />
-          {!isWhoopConnected ? (
-            <Pressable onPress={() => router.push('/forge')}>
-              <GlassCard style={styles.whoopDisconnectedCard} accentColor={OrialColors.warning}>
-                <View style={styles.whoopDisconnectedRow}>
-                  <View style={styles.warningIconCircle}>
-                    <ZapOff size={20} color={OrialColors.warning} />
-                  </View>
-                  <View style={styles.whoopDisconnectedTextContainer}>
-                    <Text style={styles.whoopDisconnectedTitle}>Connection Required</Text>
-                    <Text style={styles.whoopDisconnectedSubtitle}>
-                      WHOOP is disconnected. Tap here to link your device and sync your strain, recovery, and sleep metrics.
-                    </Text>
-                  </View>
-                </View>
-              </GlassCard>
-            </Pressable>
-          ) : whoopData ? (
-            <Pressable onPress={() => router.push('/forge')}>
-              <View style={styles.whoopGrid}>
-                <View style={styles.whoopRow}>
-                  <WhoopMetricCard
-                    icon={<Zap size={13} color={OrialColors.cyan} />}
-                    value={whoopData.strain?.toFixed(1) || '--'}
-                    label="STRAIN"
-                    accent={OrialColors.cyan}
-                  />
-                  <WhoopMetricCard
-                    icon={<Heart size={13} color={recoveryColor(whoopData.recoveryScore)} />}
-                    value={whoopData.recoveryScore ? `${whoopData.recoveryScore}%` : '--'}
-                    label="RECOVERY"
-                    accent={recoveryColor(whoopData.recoveryScore)}
-                  />
-                </View>
-                <View style={styles.whoopRow}>
-                  <WhoopMetricCard
-                    icon={<Moon size={13} color={OrialColors.violetLight} />}
-                    value={whoopData.sleepPerformance ? `${whoopData.sleepPerformance}%` : '--'}
-                    label="SLEEP"
-                    accent={OrialColors.violetLight}
-                  />
-                  <WhoopMetricCard
-                    icon={<Activity size={13} color={OrialColors.warning} />}
-                    value={whoopData.hrvRmssdMilli?.toFixed(0) || '--'}
-                    label="HRV"
-                    accent={OrialColors.warning}
-                  />
-                </View>
-              </View>
-              <View style={styles.whoopDetails}>
-                <View style={styles.whoopDetailItem}>
-                  <Flame size={11} color={OrialColors.warning} />
-                  <Text style={styles.whoopDetailText}>
-                    {whoopData.kilojoule ? Math.round(whoopData.kilojoule * 0.239) : '--'} kcal
-                  </Text>
-                </View>
-                <View style={styles.whoopDetailDivider} />
-                <View style={styles.whoopDetailItem}>
-                  <Heart size={11} color={OrialColors.error} />
-                  <Text style={styles.whoopDetailText}>RHR {whoopData.restingHeartRate || '--'} bpm</Text>
-                </View>
-                <View style={styles.whoopDetailDivider} />
-                <View style={styles.whoopDetailItem}>
-                  <Moon size={11} color={OrialColors.violetLight} />
-                  <Text style={styles.whoopDetailText}>
-                    {whoopData.sleepDurationMilli
-                      ? `${Math.round(whoopData.sleepDurationMilli / 3600000 * 10) / 10}h sleep`
-                      : '--'}
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
-          ) : (
-            <Pressable onPress={() => router.push('/forge')}>
-              <GlassCard style={styles.whoopDisconnectedCard} accentColor={OrialColors.violetLight}>
-                <View style={styles.whoopDisconnectedRow}>
-                  <View style={[styles.warningIconCircle, { backgroundColor: OrialColors.violet + '15' }]}>
-                    <Zap size={20} color={OrialColors.violetLight} />
-                  </View>
-                  <View style={styles.whoopDisconnectedTextContainer}>
-                    <Text style={styles.whoopDisconnectedTitle}>Connected · No Sync</Text>
-                    <Text style={styles.whoopDisconnectedSubtitle}>
-                      Connected but no data loaded for today. Pull to refresh or tap to manage your health metrics.
-                    </Text>
-                  </View>
-                </View>
-              </GlassCard>
-            </Pressable>
-          )}
+          <SectionLabel label="Today at a glance" />
+          <View style={styles.statGridWrap}>
+            <StatTileGrid tiles={statTiles} />
+          </View>
         </View>
 
-        {/* Peak State */}
+        <Text style={styles.secondaryHeading}>More detail</Text>
+
+        {/* Peak State detail */}
         {peakState && (
           <View style={styles.section}>
             <SectionLabel label="PEAK STATE" />
-            <GlassCard style={styles.peakCard} accentColor={OrialColors.violetLight}>
-              <View style={styles.peakRow}>
-                <Brain size={18} color={OrialColors.violetLight} />
-                <View style={styles.peakInfo}>
-                  <Text style={styles.peakWindow}>{peakState.label}</Text>
-                  <Text style={styles.peakSubtitle}>Cognitive peak window</Text>
+            <Pressable onPress={() => router.push('/forge')}>
+              <GlassCard style={styles.peakCard} accentColor={OrialColors.violetLight}>
+                <View style={styles.peakRow}>
+                  <Brain size={18} color={OrialColors.violetLight} />
+                  <View style={styles.peakInfo}>
+                    <Text style={styles.peakWindow}>{peakState.label}</Text>
+                    <Text style={styles.peakSubtitle}>Cognitive peak window</Text>
+                  </View>
                 </View>
-                <View style={[
-                  styles.peakScoreBadge,
-                  { borderColor: (peakState.score >= 67 ? OrialColors.success : peakState.score >= 34 ? OrialColors.warning : OrialColors.error) + '50' }
-                ]}>
-                  <Text style={[styles.peakScore, {
-                    color: peakState.score >= 67 ? OrialColors.success : peakState.score >= 34 ? OrialColors.warning : OrialColors.error
-                  }]}>
-                    {peakState.score}
-                  </Text>
-                  <Text style={styles.peakScoreLabel}>SCORE</Text>
-                </View>
-              </View>
-            </GlassCard>
+                {whoopData && (
+                  <View style={styles.whoopDetails}>
+                    <View style={styles.whoopDetailItem}>
+                      <Flame size={11} color={OrialColors.warning} />
+                      <Text style={styles.whoopDetailText}>
+                        {whoopData.kilojoule ? Math.round(whoopData.kilojoule * 0.239) : '--'} kcal
+                      </Text>
+                    </View>
+                    <View style={styles.whoopDetailDivider} />
+                    <View style={styles.whoopDetailItem}>
+                      <Heart size={11} color={OrialColors.error} />
+                      <Text style={styles.whoopDetailText}>RHR {whoopData.restingHeartRate || '--'} bpm</Text>
+                    </View>
+                    <View style={styles.whoopDetailDivider} />
+                    <View style={styles.whoopDetailItem}>
+                      <Moon size={11} color={OrialColors.violetLight} />
+                      <Text style={styles.whoopDetailText}>
+                        {whoopData.sleepDurationMilli
+                          ? `${Math.round(whoopData.sleepDurationMilli / 3600000 * 10) / 10}h sleep`
+                          : '--'}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </GlassCard>
+            </Pressable>
           </View>
         )}
 
         {/* Hydration */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <SectionLabel label="HYDRATION" inline />
+            <InlineSectionLabel label="HYDRATION" />
             <Pressable onPress={() => router.push('/hydration-history')}>
               <Text style={styles.historyLink}>History</Text>
             </Pressable>
@@ -300,9 +351,7 @@ export default function DashboardScreen() {
                 </View>
               </View>
               <View style={styles.progressBarWrap}>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: `${hydPct}%`, backgroundColor: hydPct >= 100 ? OrialColors.success : OrialColors.cyan }]} />
-                </View>
+                <ProgressBar pct={hydPct} color={hydPct >= 100 ? OrialColors.success : OrialColors.cyan} />
               </View>
               {hydrationBreakdown && (
                 <View style={styles.breakdownWrap}>
@@ -360,7 +409,7 @@ export default function DashboardScreen() {
         {/* Macros */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <SectionLabel label="MACROS" inline />
+            <InlineSectionLabel label="MACROS" />
             <Pressable onPress={() => router.push('/nutrition-history')}>
               <Text style={styles.historyLink}>History</Text>
             </Pressable>
@@ -376,14 +425,11 @@ export default function DashboardScreen() {
                     </View>
                     <View style={styles.calorieGoal}>
                       <Text style={styles.goalLabel}>GOAL</Text>
-                      <Text style={styles.goalValue}>2100</Text>
+                      <Text style={styles.goalValue}>{MACRO_CALORIE_GOAL}</Text>
                     </View>
                   </View>
-                  <View style={styles.calorieTrack}>
-                    <View style={[styles.calorieFill, {
-                      width: `${Math.min(((nutritionData.totalCalories ?? 0) / 2100) * 100, 100).toFixed(0)}%` as any,
-                      backgroundColor: (nutritionData.totalCalories ?? 0) >= 2100 ? OrialColors.success : OrialColors.warning,
-                    }]} />
+                  <View style={styles.calorieTrackWrap}>
+                    <ProgressBar pct={macroPct} color={macroColor} />
                   </View>
                   <View style={styles.macroMiniBars}>
                     <MacroMiniBar label="PRO" current={nutritionData.proteinG ?? 0} goal={160} color={OrialColors.error} />
@@ -407,18 +453,13 @@ export default function DashboardScreen() {
           </Pressable>
         </View>
 
-        {/* Activity */}
+        {/* Activity — steps now live in the quick-stats bento above */}
         <View style={styles.section}>
           <Pressable onPress={() => router.push('/metrics-manual')}>
             <SectionLabel label="ACTIVITY" />
           </Pressable>
           <GlassCard style={styles.activityCard}>
             <View style={styles.activityRow}>
-              <View style={styles.activityItem}>
-                <Text style={styles.activityNumber}>{(manualData?.stepsWalk || 0).toLocaleString()}</Text>
-                <Text style={styles.activityLabel}>STEPS</Text>
-              </View>
-              <View style={styles.activityDivider} />
               <View style={styles.activityItem}>
                 <Text style={styles.activityNumber}>{manualData?.workoutMinutes || '--'}</Text>
                 <Text style={styles.activityLabel}>MIN WORKOUT</Text>
@@ -488,7 +529,7 @@ export default function DashboardScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Pressable onPress={() => router.push('/metrics-manual')}>
-                <SectionLabel label="WEIGHT PREDICTION" inline />
+                <InlineSectionLabel label="WEIGHT PREDICTION" />
               </Pressable>
               <Pressable onPress={() => router.push('/weight-history')}>
                 <Text style={styles.historyLink}>History</Text>
@@ -532,46 +573,34 @@ export default function DashboardScreen() {
   );
 }
 
-function SectionLabel({ label, inline }: { label: string; inline?: boolean }) {
+/**
+ * SectionLabel with no horizontal padding, meant to sit inline inside a
+ * flex row alongside a "History" link. The shared `SectionLabel` component
+ * always applies its own 16px horizontal padding, which would double up
+ * with `sectionHeaderRow`'s padding — so this local variant fills that gap.
+ */
+function InlineSectionLabel({ label }: { label: string }) {
   return (
-    <View style={[sectionLabelStyles.wrap, inline && sectionLabelStyles.inlineWrap]}>
-      <View style={sectionLabelStyles.dot} />
-      <Text style={sectionLabelStyles.text}>{label}</Text>
+    <View style={inlineSectionLabelStyles.wrap}>
+      <View style={inlineSectionLabelStyles.dot} />
+      <Text style={inlineSectionLabelStyles.text}>{label}</Text>
     </View>
   );
 }
 
-const sectionLabelStyles = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 16, marginBottom: 10 },
-  inlineWrap: { paddingHorizontal: 0, marginBottom: 0 },
+const inlineSectionLabelStyles = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   dot: { width: 3, height: 12, borderRadius: 2, backgroundColor: OrialColors.violetLight },
   text: { fontSize: 10, letterSpacing: 1.5, color: OrialColors.textSecondary, fontFamily: 'Inter-Medium' },
 });
 
-function WhoopMetricCard({ icon, value, label, accent }: { icon: React.ReactNode; value: string; label: string; accent: string }) {
-  return (
-    <View style={[whoopCardStyles.card, { borderColor: accent + '28' }]}>
-      <View style={[whoopCardStyles.iconPill, { backgroundColor: accent + '18' }]}>{icon}</View>
-      <Text style={[whoopCardStyles.value, { color: accent }]}>{value}</Text>
-      <Text style={whoopCardStyles.label}>{label}</Text>
-    </View>
-  );
-}
-
-const whoopCardStyles = StyleSheet.create({
-  card: { flex: 1, backgroundColor: OrialColors.surface, borderRadius: 14, borderWidth: 1, padding: 14, gap: 6 },
-  iconPill: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
-  value: { fontSize: 28, fontWeight: '700', letterSpacing: -1, fontFamily: 'Inter-Bold' },
-  label: { fontSize: 9, letterSpacing: 1.4, color: OrialColors.textMuted, fontFamily: 'Inter-Medium' },
-});
-
 function MacroMiniBar({ label, current, goal, color }: { label: string; current: number; goal: number; color: string }) {
-  const pct = goal > 0 ? Math.min(current / goal, 1) : 0;
+  const pct = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
   return (
     <View style={styles.macroMiniRow}>
       <Text style={styles.macroMiniLabel}>{label}</Text>
-      <View style={styles.macroMiniTrack}>
-        <View style={[styles.macroMiniFill, { width: `${(pct * 100).toFixed(0)}%` as any, backgroundColor: color }]} />
+      <View style={styles.macroMiniTrackWrap}>
+        <ProgressBar pct={pct} color={color} />
       </View>
       <Text style={styles.macroMiniValue}>{current}g/{goal}g</Text>
     </View>
@@ -594,9 +623,24 @@ const styles = StyleSheet.create({
   section: { marginBottom: 24 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 10 },
   historyLink: { fontSize: 11, color: OrialColors.cyan, fontFamily: 'Inter-Medium', letterSpacing: 0.3 },
-  whoopGrid: { paddingHorizontal: 16, gap: 8 },
-  whoopRow: { flexDirection: 'row', gap: 8 },
-  whoopDetails: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12 },
+  secondaryHeading: { paddingHorizontal: 16, marginTop: 4, marginBottom: 14, fontSize: 11, letterSpacing: 1.6, color: OrialColors.textMuted, fontFamily: 'Inter-SemiBold', fontWeight: '600', textTransform: 'uppercase' },
+  focusCard: {
+    marginHorizontal: 16,
+    padding: 18,
+    backgroundColor: OrialColors.surfaceElevated,
+    borderColor: OrialColors.borderStrong,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  ringValue: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5, color: OrialColors.textPrimary, fontFamily: 'Inter-Bold' },
+  ringUnit: { fontSize: 8, color: OrialColors.textMuted, letterSpacing: 1, marginTop: 2, fontFamily: 'Inter-Medium' },
+  focusBody: { flex: 1 },
+  focusKicker: { fontSize: 9, letterSpacing: 1.4, color: OrialColors.textMuted, fontFamily: 'Inter-Medium', textTransform: 'uppercase', marginBottom: 4 },
+  focusTitle: { fontSize: 18, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold', marginBottom: 2 },
+  focusSubtitle: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Regular' },
+  statGridWrap: { paddingHorizontal: 16 },
+  whoopDetails: { flexDirection: 'row', alignItems: 'center', paddingTop: 12, marginTop: 12, borderTopWidth: 1, borderTopColor: OrialColors.border },
   whoopDetailItem: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, justifyContent: 'center' },
   whoopDetailDivider: { width: 1, height: 12, backgroundColor: OrialColors.border },
   whoopDetailText: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Regular' },
@@ -605,12 +649,6 @@ const styles = StyleSheet.create({
   peakInfo: { flex: 1 },
   peakWindow: { fontSize: 18, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold' },
   peakSubtitle: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Regular' },
-  peakScoreBadge: {
-    alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderRadius: 10, backgroundColor: OrialColors.surfaceElevated,
-  },
-  peakScore: { fontSize: 18, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter-Bold' },
-  peakScoreLabel: { fontSize: 9, color: OrialColors.textMuted, fontFamily: 'Inter-Regular', letterSpacing: 0.5 },
   hydrationCard: { marginHorizontal: 16, padding: 16 },
   hydrationTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   hydrationLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -621,8 +659,6 @@ const styles = StyleSheet.create({
   pctBadgeValue: { fontSize: 18, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter-Bold' },
   pctBadgeLabel: { fontSize: 8, letterSpacing: 1.2, color: OrialColors.textMuted, fontFamily: 'Inter-Medium', marginTop: 1 },
   progressBarWrap: { marginBottom: 14 },
-  progressBar: { height: 4, backgroundColor: OrialColors.surfaceElevated, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 2 },
   breakdownWrap: { marginBottom: 14, gap: 4 },
   breakdownTitle: { fontSize: 11, color: OrialColors.textMuted, fontFamily: 'Inter-Medium', marginBottom: 4 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -640,13 +676,11 @@ const styles = StyleSheet.create({
   calorieGoal: { alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: OrialColors.surfaceElevated, borderRadius: 10, borderWidth: 1, borderColor: OrialColors.border },
   goalLabel: { fontSize: 8, letterSpacing: 1.2, color: OrialColors.textMuted, fontFamily: 'Inter-Medium' },
   goalValue: { fontSize: 17, fontWeight: '600', color: OrialColors.textSecondary, fontFamily: 'Inter-SemiBold', letterSpacing: -0.3 },
-  calorieTrack: { height: 3, backgroundColor: OrialColors.surfaceElevated, borderRadius: 2, overflow: 'hidden', marginBottom: 14 },
-  calorieFill: { height: '100%', borderRadius: 2 },
+  calorieTrackWrap: { marginBottom: 14 },
   macroMiniBars: { gap: 8, marginBottom: 4 },
   macroMiniRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   macroMiniLabel: { width: 30, color: OrialColors.textMuted, fontSize: 9, letterSpacing: 0.8, fontFamily: 'Inter-Medium' },
-  macroMiniTrack: { flex: 1, height: 3, backgroundColor: OrialColors.surfaceElevated, borderRadius: 2, overflow: 'hidden' },
-  macroMiniFill: { height: '100%', borderRadius: 2 },
+  macroMiniTrackWrap: { flex: 1 },
   macroMiniValue: { width: 56, textAlign: 'right', color: OrialColors.textMuted, fontSize: 10, fontFamily: 'Inter-Regular' },
   nutritionEmpty: { alignItems: 'center', paddingVertical: 20, gap: 8 },
   nutritionEmptyText: { color: OrialColors.textSecondary, fontWeight: '600', fontSize: 14, fontFamily: 'Inter-SemiBold' },
