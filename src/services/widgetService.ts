@@ -8,6 +8,7 @@ import { weightPredictionService } from './weightPredictionService';
 import { db } from './database';
 import { bodyMetrics } from '../../drizzle/schema';
 import { desc } from 'drizzle-orm';
+import { writeHydrationBaseline } from './nfcWaterQueue';
 
 const SHARED_PREFS_NAME = 'orial_widget_data';
 const GROUP_ID = 'group.com.orial.app.widget';
@@ -73,6 +74,9 @@ export class WidgetService {
       // Fetch Physical data
       const today = new Date().toISOString().split('T')[0];
       const hydrationProgress = await hydrationService.getProgress(today);
+
+      await writeHydrationBaseline(today, hydrationProgress.consumedLiters);
+
       const supplementLogs = await supplementService.getTodayLogs(today);
       const prediction = await weightPredictionService.getTodayPrediction();
 

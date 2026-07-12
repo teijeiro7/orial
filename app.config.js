@@ -18,6 +18,7 @@ export default {
       bundleIdentifier: 'com.orial.app',
       googleServicesFile: './GoogleService-Info.plist',
       infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
         CFBundleURLTypes: [
           {
             CFBundleURLSchemes: [
@@ -102,6 +103,8 @@ export default {
       'expo-calendar',
       'expo-background-fetch',
       './plugins/withReactNativeDefaultPreference',
+      './plugins/withWaterIntent',
+      './plugins/withFmtCppStandardFix',
       [
         'expo-build-properties',
         {
@@ -112,6 +115,11 @@ export default {
           }
         }
       ]
-    ]
+    ],
+    extra: {
+      eas: {
+        projectId: '8e0f143a-af08-4650-9342-94c40a592c83'
+      }
+    }
   }
 };

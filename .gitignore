@@ -51,4 +51,6 @@ google-services.json
 
 # Local agent tool state
 .claude/
+
+# Serena local tool state
 .serena/
