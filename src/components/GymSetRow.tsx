@@ -8,6 +8,7 @@ import {
   PartyPopper,
 } from 'lucide-react-native';
 import { GlassCard } from './GlassCard';
+import { ProgressBar } from './ProgressBar';
 import { OrialColors } from '../utils/colors';
 import { OrialTypography } from '../utils/typography';
 import type { GymExercise, GymSet } from '../../drizzle/schema';
@@ -50,30 +51,32 @@ export function GymSetRow({
 }: GymSetRowProps) {
   const allSetsDone = sets.length >= exercise.targetSets;
   const canSwap = !!exercise.swapGroup;
+  const statusColor =
+    sets.length === 0
+      ? OrialColors.borderStrong
+      : allSetsDone
+        ? OrialColors.success
+        : OrialColors.violetLight;
+  const progressPct = exercise.targetSets > 0 ? (sets.length / exercise.targetSets) * 100 : 0;
 
   return (
     <GlassCard style={styles.card}>
       <Pressable style={styles.header} onPress={onToggle}>
+        <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
         <View style={styles.info}>
           <Text style={OrialTypography.bodyMedium}>{exercise.name}</Text>
+          <View style={styles.progressTrack}>
+            <ProgressBar pct={progressPct} color={statusColor} />
+          </View>
           <Text style={[OrialTypography.caption, styles.muted]}>
-            {exercise.targetSets}×{exercise.targetRepsMin}–{exercise.targetRepsMax} → {exercise.currentWeightKg} kg
+            {sets.length}/{exercise.targetSets} sets · {exercise.targetRepsMin}-{exercise.targetRepsMax} reps
           </Text>
         </View>
-        <View style={styles.meta}>
-          {sets.length > 0 && (
-            <View style={styles.setsBadge}>
-              <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>
-                {sets.length}/{exercise.targetSets}
-              </Text>
-            </View>
-          )}
-          {isExpanded ? (
-            <ChevronDown size={18} color={OrialColors.textMuted} />
-          ) : (
-            <ChevronRight size={18} color={OrialColors.textMuted} />
-          )}
-        </View>
+        {isExpanded ? (
+          <ChevronDown size={18} color={OrialColors.textMuted} />
+        ) : (
+          <ChevronRight size={18} color={OrialColors.textMuted} />
+        )}
       </Pressable>
 
       {isExpanded && (
@@ -160,13 +163,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   info: { flex: 1 },
   muted: { color: OrialColors.textMuted },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  setsBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: OrialColors.success + '20',
-    borderRadius: 8,
-  },
+  statusDot: { width: 9, height: 9, borderRadius: 4.5, flexShrink: 0 },
+  progressTrack: { marginTop: 6, marginBottom: 4 },
   body: { paddingHorizontal: 14, paddingBottom: 14 },
   table: { marginBottom: 10, borderRadius: 8, overflow: 'hidden' },
   tableRow: {
