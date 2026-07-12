@@ -156,8 +156,8 @@ export default function LoginScreen() {
             <Text style={styles.title}>{isLogin ? 'Welcome Back' : 'Create Account'}</Text>
             <Text style={styles.subtitle}>
               {isLogin 
-                ? 'Sign in to continue tracking your habits' 
-                : 'Start your journey to better habits'}
+                ? 'Sign in to continue your journey'
+                : 'Start your journey to a better you'}
             </Text>
           </View>
 

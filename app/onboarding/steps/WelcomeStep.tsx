@@ -21,11 +21,11 @@ export function WelcomeStep({ onNext, onSkip }: WelcomeStepProps) {
         
         <Text style={[OrialTypography.displayLarge, styles.title]}>Orial</Text>
         <Text style={[OrialTypography.headingSmall, styles.subtitle]}>
-          Your AI-Powered Habit Companion
+          Your AI-Powered Wellness Companion
         </Text>
         
         <Text style={[OrialTypography.bodyMedium, styles.description]}>
-          Build better habits with AI suggestions, track your progress, and sync everything to Notion.
+          Get AI suggestions, track your progress, and sync everything to Notion.
         </Text>
       </View>
 

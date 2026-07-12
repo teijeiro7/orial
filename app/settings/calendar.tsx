@@ -70,7 +70,7 @@ export function CalendarSettingsScreen({ visible, onClose }: CalendarSettingsScr
     } else {
       Alert.alert(
         'Permission Required',
-        'Calendar access is needed to sync your habit reminders. Please enable it in Settings.',
+        'Calendar access is needed to sync your reminders. Please enable it in Settings.',
         [{ text: 'OK' }]
       );
     }
@@ -116,7 +116,7 @@ export function CalendarSettingsScreen({ visible, onClose }: CalendarSettingsScr
                 Calendar Access Needed
               </Text>
               <Text style={[OrialTypography.bodyMedium, styles.permissionDescription]}>
-                Allow Orial to access your calendar to sync habit reminders as events.
+                Allow Orial to access your calendar to sync reminders as events.
               </Text>
               
               <Pressable 
@@ -136,7 +136,7 @@ export function CalendarSettingsScreen({ visible, onClose }: CalendarSettingsScr
                 <View style={styles.syncInfo}>
                   <Text style={OrialTypography.headingSmall}>Sync to Calendar</Text>
                   <Text style={OrialTypography.caption}>
-                    Create calendar events for habit reminders
+                    Create calendar events for reminders
                   </Text>
                 </View>
                 <Switch
@@ -201,7 +201,7 @@ export function CalendarSettingsScreen({ visible, onClose }: CalendarSettingsScr
                 <View style={styles.infoText}>
                   <Text style={OrialTypography.bodyMedium}>What gets synced?</Text>
                   <Text style={OrialTypography.caption}>
-                    When you create a reminder, a recurring calendar event will be created for your habit.
+                    When you create a reminder, a recurring calendar event will be created for it.
                   </Text>
                 </View>
               </View>

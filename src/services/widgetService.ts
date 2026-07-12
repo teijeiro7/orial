@@ -1,6 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
 import DefaultPreference from 'react-native-default-preference';
-import { useHabitStore } from '../stores/habitStore';
 import { whoopService } from './whoopService';
 import { pedometerService } from './pedometerService';
 import { hydrationService } from './hydrationService';
@@ -12,20 +11,6 @@ import { desc } from 'drizzle-orm';
 
 const SHARED_PREFS_NAME = 'orial_widget_data';
 const GROUP_ID = 'group.com.orial.app.widget';
-
-export interface WidgetData {
-  date: string;
-  completedCount: number;
-  totalCount: number;
-  habits: {
-    id: string;
-    name: string;
-    emoji: string;
-    completed: boolean;
-    category: string;
-  }[];
-  streakCount: number;
-}
 
 export interface ForgeWidgetData {
   date: string;
@@ -65,26 +50,6 @@ export class WidgetService {
         console.warn('DefaultPreference native module not available');
         return;
       }
-
-      const { habits, todayEntries } = useHabitStore.getState();
-      
-      const completedCount = habits.filter(h => 
-        todayEntries.some(e => e.habitId === h.id && e.completed)
-      ).length;
-
-      const widgetData: WidgetData = {
-        date: new Date().toISOString(),
-        completedCount,
-        totalCount: habits.length,
-        habits: habits.map(habit => ({
-          id: habit.id,
-          name: habit.name,
-          emoji: habit.emoji,
-          completed: todayEntries.some(e => e.habitId === habit.id && e.completed),
-          category: habit.category,
-        })),
-        streakCount: this.calculateTotalStreaks(),
-      };
 
       // Fetch Forge data
       const whoopConnected = await whoopService.isConnected();
@@ -129,13 +94,11 @@ export class WidgetService {
       if (Platform.OS === 'ios') {
         // iOS: Use App Groups via DefaultPreference
         await DefaultPreference.setName(GROUP_ID);
-        await DefaultPreference.set('widget_data', JSON.stringify(widgetData));
         await DefaultPreference.set('forge_widget_data', JSON.stringify(forgeData));
         await DefaultPreference.set('physical_widget_data', JSON.stringify(physicalData));
       } else {
         // Android: Use SharedPreferences
         await DefaultPreference.setName(SHARED_PREFS_NAME);
-        await DefaultPreference.set('widget_data', JSON.stringify(widgetData));
         await DefaultPreference.set('forge_widget_data', JSON.stringify(forgeData));
         await DefaultPreference.set('physical_widget_data', JSON.stringify(physicalData));
       }
@@ -145,12 +108,6 @@ export class WidgetService {
     } catch (error) {
       console.error('Error updating widget data:', error);
     }
-  }
-
-  private calculateTotalStreaks(): number {
-    // Simplified streak calculation for widget
-    // In production, this would use the actual streak calculator
-    return 5; // Placeholder
   }
 
   private reloadWidgets(): void {

@@ -67,11 +67,8 @@ function AppLayout() {
     // Listen for notification responses (when user taps notification)
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
-      
-      if (data?.habitId) {
-        // Navigate to habit detail
-        router.push(`/habit/${data.habitId}`);
-      }
+      // Handle notification tap navigation for other notification types here.
+      void data;
     });
 
     return () => {
@@ -135,7 +132,6 @@ function AppLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         <Stack.Screen name="login" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="habit/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="whoop/callback" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>

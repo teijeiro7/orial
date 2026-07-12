@@ -2,7 +2,6 @@ import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { ArrowRight, Database, SkipForward, Check } from 'lucide-react-native';
 import { useState } from 'react';
 import { NotionSettingsScreen } from '../../settings/notion';
-import { useHabitStore } from '../../../src/stores/habitStore';
 import { notionService } from '../../../src/services/notionService';
 import { OrialColors } from '../../../src/utils/colors';
 import { OrialTypography } from '../../../src/utils/typography';
@@ -32,14 +31,14 @@ export function NotionStep({ onNext, onSkip }: NotionStepProps) {
           
           <Text style={OrialTypography.headingMedium}>Notion Sync</Text>
           <Text style={[OrialTypography.bodyMedium, styles.description]}>
-            Sync your habits and daily logs with Notion for advanced tracking and analysis.
+            Sync your data with Notion for advanced tracking and analysis.
           </Text>
         </View>
 
         <GlassCard style={styles.featuresCard}>
           <View style={styles.feature}>
             <Check size={16} color={OrialColors.success} />
-            <Text style={OrialTypography.bodySmall}>Auto-create habit databases</Text>
+            <Text style={OrialTypography.bodySmall}>Auto-create workspace databases</Text>
           </View>
           <View style={styles.feature}>
             <Check size={16} color={OrialColors.success} />

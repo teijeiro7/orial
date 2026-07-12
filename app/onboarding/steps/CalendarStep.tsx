@@ -25,7 +25,7 @@ export function CalendarStep({ onNext, onSkip }: CalendarStepProps) {
           
           <Text style={OrialTypography.headingMedium}>Calendar</Text>
           <Text style={[OrialTypography.bodyMedium, styles.description]}>
-            Sync habit reminders to your device calendar for better time management.
+            Sync reminders to your device calendar for better time management.
           </Text>
         </View>
 

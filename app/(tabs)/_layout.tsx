@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Calendar, Settings, Dumbbell, Wallet, Coffee, Brain } from 'lucide-react-native';
+import { Home, Settings, Dumbbell, Wallet, Coffee, Brain } from 'lucide-react-native';
 import { OrialColors } from '../../src/utils/colors';
 
 export default function TabLayout() {
@@ -27,13 +27,6 @@ export default function TabLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => <Home size={size - 2} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          title: 'Daily',
-          tabBarIcon: ({ color, size }) => <Calendar size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen

@@ -64,62 +64,6 @@ export class CalendarService {
     return this.selectedCalendarId;
   }
 
-  async createEventForReminder(
-    habitName: string,
-    time: string, // HH:MM
-    days: number[], // [1,2,3,4,5] = Mon-Fri
-    notes?: string
-  ): Promise<string | null> {
-    if (!this.selectedCalendarId) {
-      console.warn('No calendar selected');
-      return null;
-    }
-
-    try {
-      const [hours, minutes] = time.split(':').map(Number);
-      
-      // Create a base date (today at the specified time)
-      const now = new Date();
-      const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-      const endDate = new Date(startDate.getTime() + 15 * 60 * 1000); // 15 minutes duration
-
-      // Build recurrence rule
-      const daysOfWeek = days.map(day => {
-        // Convert our day numbers (1=Mon) to Expo Calendar days
-        const dayMap: { [key: number]: string } = {
-          1: 'MO',
-          2: 'TU',
-          3: 'WE',
-          4: 'TH',
-          5: 'FR',
-          6: 'SA',
-          7: 'SU',
-        };
-        return dayMap[day];
-      }).filter(Boolean);
-
-      const eventData = {
-        title: `Orial: ${habitName}`,
-        notes: notes || 'Habit reminder from Orial app',
-        startDate,
-        endDate,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        recurrenceRule: daysOfWeek.length > 0 
-          ? {
-              frequency: Calendar.Frequency.WEEKLY,
-              daysOfTheWeek: daysOfWeek.map(day => ({ dayOfTheWeek: day as any })),
-            }
-          : null,
-      };
-
-      const eventId = await Calendar.createEventAsync(this.selectedCalendarId, eventData);
-      return eventId;
-    } catch (error) {
-      console.error('Error creating calendar event:', error);
-      return null;
-    }
-  }
-
   async deleteEvent(eventId: string): Promise<void> {
     try {
       await Calendar.deleteEventAsync(eventId, { futureEvents: true });

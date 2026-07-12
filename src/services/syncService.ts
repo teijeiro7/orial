@@ -48,8 +48,6 @@ export type {
  * devices or back to Jarvis.
  */
 export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
-  { table: 'habits', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'habit_entries', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'whoop_tokens', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'whoop_daily', timestampField: 'updated_at', conflictKey: 'date' },
   { table: 'body_metrics', timestampField: 'modified_at', conflictKey: 'id' },

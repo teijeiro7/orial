@@ -57,7 +57,7 @@ export function OpenclawStep({ onNext, onSkip }: OpenclawStepProps) {
         </View>
         <Text style={OrialTypography.headingMedium}>Openclaw AI</Text>
         <Text style={[OrialTypography.bodyMedium, styles.description]}>
-          Connect your self-hosted AI agent for personalized habit suggestions.
+          Connect your self-hosted AI agent for personalized suggestions.
         </Text>
       </View>
 
