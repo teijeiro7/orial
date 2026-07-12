@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import { Flame, Coffee, Pill, ChevronRight, Check, AlertTriangle } from 'lucide-
 import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { GlassCard } from '../../src/components/GlassCard';
 import { Ring } from '../../src/components/Ring';
+import { AreaChart } from '../../src/components/AreaChart';
 import { OrialColors } from '../../src/utils/colors';
 import { nutritionService } from '../../src/services/nutritionService';
 import { caffeineService } from '../../src/services/caffeineService';
@@ -16,10 +17,20 @@ import { supplementService } from '../../src/services/supplementService';
 import type { NutritionLog, Supplement, SupplementLog } from '../../drizzle/schema';
 import type { ActiveCaffeine, SleepInterferenceCheck } from '../../src/services/caffeineService';
 
+type CaffeineTimelinePoint = { atMs: number; mg: number };
+
 const CALORIE_GOAL = 2100;
 // Matches the GOALS convention already established in app/(tabs)/macros.tsx —
 // not fabricated for this screen, just reused as the same real threshold.
 const MACRO_GOALS = { protein: 160, carbs: 220, fat: 70 };
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Compact sparkline scale for the hub card — smaller than the dedicated
+// Caffeine screen's chart (CHART_HEIGHT 100), since this is one of three
+// stacked modules rather than the full-screen focus.
+const SPARKLINE_HEIGHT = 44;
+// Screen margin (16px x2) + GlassCard padding (20px x2).
+const SPARKLINE_WIDTH = SCREEN_WIDTH - 72;
 
 type SupplementLogItem = SupplementLog & { supplement: Supplement };
 
@@ -28,6 +39,7 @@ export default function IntakeScreen() {
   const [nutritionData, setNutritionData] = useState<NutritionLog | null>(null);
   const [activeCaffeine, setActiveCaffeine] = useState<ActiveCaffeine | null>(null);
   const [sleepCheck, setSleepCheck] = useState<SleepInterferenceCheck | null>(null);
+  const [caffeineTimeline, setCaffeineTimeline] = useState<CaffeineTimelinePoint[]>([]);
   const [supplementItems, setSupplementItems] = useState<SupplementLogItem[]>([]);
   const [supplementStreaks, setSupplementStreaks] = useState<Record<string, number>>({});
   const [supplementsTaken, setSupplementsTaken] = useState(0);
@@ -36,15 +48,17 @@ export default function IntakeScreen() {
   const loadSummaries = useCallback(async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const [nutrition, caffeine, sleep, supplementLogs] = await Promise.all([
+      const [nutrition, caffeine, sleep, dailyChart, supplementLogs] = await Promise.all([
         nutritionService.getTodayNutrition(),
         caffeineService.getActiveCaffeine(),
         caffeineService.willInterfereWithSleep(caffeineService.getDefaultBedtime()),
+        caffeineService.getDailyChart(),
         supplementService.getTodayLogs(today),
       ]);
       setNutritionData(nutrition);
       setActiveCaffeine(caffeine);
       setSleepCheck(sleep);
+      setCaffeineTimeline(dailyChart.timeline);
       setSupplementItems(supplementLogs);
       setSupplementsTotal(supplementLogs.length);
       setSupplementsTaken(supplementLogs.filter((log) => log.takenAt).length);
@@ -131,6 +145,16 @@ export default function IntakeScreen() {
               </View>
               <Text style={styles.caffeineLevelBadge}>{currentCaffeineLevel}mg</Text>
             </View>
+            {caffeineTimeline.length > 1 && (
+              <View style={styles.sparklineWrap}>
+                <AreaChart
+                  data={caffeineTimeline.map((point) => point.mg)}
+                  width={SPARKLINE_WIDTH}
+                  height={SPARKLINE_HEIGHT}
+                  color={OrialColors.cyan}
+                />
+              </View>
+            )}
             {sleepCheck && (
               <View style={styles.sleepStatusRow}>
                 {sleepCheck.interfere ? (
@@ -254,6 +278,7 @@ const styles = StyleSheet.create({
 
   // Caffeine
   caffeineLevelBadge: { fontSize: 20, fontWeight: '700', color: OrialColors.cyan, fontFamily: 'Inter-Bold', letterSpacing: -0.4 },
+  sparklineWrap: { marginTop: 10, marginBottom: 4 },
   sleepStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   sleepStatusText: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter-SemiBold' },
 
