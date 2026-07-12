@@ -66,7 +66,6 @@ export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
   { table: 'gym_sets', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'finance_accounts', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'finance_subscriptions', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'finance_orders', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'finance_wishlist', timestampField: 'modified_at', conflictKey: 'id' },
   { table: 'hydration_profile', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'caffeine_logs', timestampField: 'modified_at', conflictKey: 'id' },

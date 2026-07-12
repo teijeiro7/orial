@@ -3,7 +3,6 @@ import { db } from './database';
 import {
   financeAccounts,
   financeSubscriptions,
-  financeOrders,
   financeWishlist,
 } from '../../drizzle/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -12,11 +11,9 @@ import { notificationService } from './notificationService';
 import type {
   FinanceAccount,
   FinanceSubscription,
-  FinanceOrder,
   FinanceWishlistItem,
   NewFinanceAccount,
   NewFinanceSubscription,
-  NewFinanceOrder,
   NewFinanceWishlistItem,
 } from '../../drizzle/schema';
 
@@ -217,57 +214,6 @@ export const financeService = {
         .set({ lastBilledDate: today })
         .where(eq(financeSubscriptions.id, sub.id)),
     ]);
-  },
-
-  // ── Orders ────────────────────────────────────────────────────────────────
-
-  async getOrders(): Promise<FinanceOrder[]> {
-    return db.select().from(financeOrders).orderBy(desc(financeOrders.orderDate));
-  },
-
-  async createOrder(input: {
-    name: string;
-    amount: number;
-    currency?: string;
-    accountId?: string;
-    estimatedDeliveryDate?: string;
-  }): Promise<FinanceOrder> {
-    const today = new Date().toISOString().split('T')[0];
-    const order: NewFinanceOrder = {
-      id: generateUUID(),
-      name: input.name,
-      amount: input.amount,
-      currency: input.currency ?? 'EUR',
-      accountId: input.accountId ?? null,
-      orderDate: today,
-      estimatedDeliveryDate: input.estimatedDeliveryDate ?? null,
-      deliveredAt: null,
-      status: 'pending',
-      createdAt: new Date(),
-    };
-    await db.insert(financeOrders).values(order);
-
-    // Deduct from account immediately
-    if (input.accountId) {
-      const [account] = await db
-        .select()
-        .from(financeAccounts)
-        .where(eq(financeAccounts.id, input.accountId));
-      if (account) await this.updateBalance(account.id, account.balanceAmount - input.amount);
-    }
-
-    return order as FinanceOrder;
-  },
-
-  async markDelivered(id: string): Promise<void> {
-    await db
-      .update(financeOrders)
-      .set({ status: 'delivered', deliveredAt: new Date() })
-      .where(eq(financeOrders.id, id));
-  },
-
-  async deleteOrder(id: string): Promise<void> {
-    await db.delete(financeOrders).where(eq(financeOrders.id, id));
   },
 
   // ── Wishlist ──────────────────────────────────────────────────────────────

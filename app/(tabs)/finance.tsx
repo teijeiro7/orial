@@ -13,14 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Plus,
   Trash2,
-  Check,
-  Star,
-  TrendingUp,
   CreditCard,
   ShoppingBag,
+  Tv,
+  Dumbbell,
   Heart,
   AlertCircle,
-  Package,
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
 import { NetWorthCard } from '../../src/components/NetWorthCard';
@@ -31,13 +29,8 @@ import { financeService } from '../../src/services/financeService';
 import type { NetWorthSummary, SubscriptionAlert, WishlistProgressItem } from '../../src/services/financeService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
-import type { FinanceAccount, FinanceSubscription, FinanceOrder, FinanceWishlistItem } from '../../drizzle/schema';
+import type { FinanceAccount, FinanceSubscription, FinanceWishlistItem } from '../../drizzle/schema';
 
-// The mockup collapses the 4-tab bar (Net Worth / Subscriptions / Orders /
-// Wishlist) into 3 (Net Worth / Subs / Wishlist). Orders isn't dropped —
-// all of its data and actions (add/delete/mark delivered) move into the
-// Subs tab as a nested "Orders" sub-section, right below the subscriptions
-// list, so nothing that existed before is lost.
 type SubTab = 'networth' | 'subscriptions' | 'wishlist';
 const SUB_TAB_KEYS: SubTab[] = ['networth', 'subscriptions', 'wishlist'];
 const SUB_TAB_LABELS = ['Net Worth', 'Subs', 'Wishlist'];
@@ -60,11 +53,24 @@ const ACCOUNT_TYPE_COLORS: Record<string, string> = {
 
 const SUB_CATEGORIES = ['streaming', 'software', 'fitness', 'other'];
 
+const SUB_CATEGORY_COLORS: Record<string, string> = {
+  streaming: OrialColors.categorySocial,
+  software: OrialColors.categoryWork,
+  fitness: OrialColors.categoryFitness,
+  other: OrialColors.categoryOther,
+};
+
+const SUB_CATEGORY_ICONS: Record<string, typeof Tv> = {
+  streaming: Tv,
+  software: CreditCard,
+  fitness: Dumbbell,
+  other: ShoppingBag,
+};
+
 export default function FinanceScreen() {
   const [activeTab, setActiveTab] = useState<SubTab>('networth');
   const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [subscriptions, setSubscriptions] = useState<FinanceSubscription[]>([]);
-  const [orders, setOrders] = useState<FinanceOrder[]>([]);
   const [wishlist, setWishlist] = useState<FinanceWishlistItem[]>([]);
   const [netWorth, setNetWorth] = useState(0);
   const [netWorthSummary, setNetWorthSummary] = useState<NetWorthSummary>({
@@ -79,7 +85,6 @@ export default function FinanceScreen() {
   // Add modals
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [showAddSub, setShowAddSub] = useState(false);
-  const [showAddOrder, setShowAddOrder] = useState(false);
   const [showAddWish, setShowAddWish] = useState(false);
 
   // Account form
@@ -97,22 +102,15 @@ export default function FinanceScreen() {
   const [subAutoDeduct, setSubAutoDeduct] = useState(false);
   const [subAccountId, setSubAccountId] = useState('');
 
-  // Order form
-  const [orderName, setOrderName] = useState('');
-  const [orderAmount, setOrderAmount] = useState('');
-  const [orderAccountId, setOrderAccountId] = useState('');
-  const [orderDelivery, setOrderDelivery] = useState('');
-
   // Wishlist form
   const [wishName, setWishName] = useState('');
   const [wishPrice, setWishPrice] = useState('');
   const [wishUrl, setWishUrl] = useState('');
 
   const loadAll = useCallback(async () => {
-    const [accs, subs, ords, wish, summary, alerts, wishProgress] = await Promise.all([
+    const [accs, subs, wish, summary, alerts, wishProgress] = await Promise.all([
       financeService.getAccounts(),
       financeService.getSubscriptions(),
-      financeService.getOrders(),
       financeService.getWishlist(),
       financeService.getNetWorth(),
       financeService.getSubscriptionAlert(),
@@ -120,7 +118,6 @@ export default function FinanceScreen() {
     ]);
     setAccounts(accs);
     setSubscriptions(subs);
-    setOrders(ords);
     setWishlist(wish);
     setNetWorth(financeService.getTotalNetWorth(accs));
     setNetWorthSummary(summary);
@@ -177,26 +174,6 @@ export default function FinanceScreen() {
     loadAll();
   }
 
-  // ── Order handlers ────────────────────────────────────────────────────────
-
-  async function handleAddOrder() {
-    if (!orderName.trim() || !orderAmount) return;
-    await financeService.createOrder({
-      name: orderName.trim(),
-      amount: parseFloat(orderAmount),
-      accountId: orderAccountId || undefined,
-      estimatedDeliveryDate: orderDelivery || undefined,
-    });
-    setOrderName(''); setOrderAmount(''); setOrderAccountId(''); setOrderDelivery('');
-    setShowAddOrder(false);
-    loadAll();
-  }
-
-  async function handleMarkDelivered(id: string) {
-    await financeService.markDelivered(id);
-    loadAll();
-  }
-
   // ── Wishlist handlers ─────────────────────────────────────────────────────
 
   async function handleAddWish() {
@@ -221,12 +198,6 @@ export default function FinanceScreen() {
   function formatCompact(amount: number): string {
     if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(1)}K`;
     return amount.toFixed(0);
-  }
-
-  function subAlertColor(days: number): string {
-    if (days <= 3) return OrialColors.error;
-    if (days <= 7) return OrialColors.warning;
-    return OrialColors.textMuted;
   }
 
   // ── Pie chart (simple bar representation) ────────────────────────────────
@@ -359,109 +330,47 @@ export default function FinanceScreen() {
               </Pressable>
             </View>
 
-            <View style={styles.section}>
-              {subscriptions.length === 0 ? (
+            {subscriptions.length === 0 ? (
+              <View style={styles.section}>
                 <GlassCard style={styles.emptyCard}>
                   <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>No subscriptions tracked.</Text>
                 </GlassCard>
-              ) : (
-                subscriptions.map((s) => {
+              </View>
+            ) : (
+              <View style={styles.subGrid}>
+                {subscriptions.map((s) => {
                   const days = financeService.daysUntilBilling(s);
-                  const alertColor = subAlertColor(days);
+                  const badgeColor =
+                    days <= 0 ? OrialColors.error : days <= 7 ? OrialColors.warning : OrialColors.textMuted;
+                  const badgeLabel = days <= 0 ? 'TODAY' : `${days}D`;
+                  const catColor = SUB_CATEGORY_COLORS[s.category] ?? SUB_CATEGORY_COLORS.other;
+                  const CatIcon = SUB_CATEGORY_ICONS[s.category] ?? SUB_CATEGORY_ICONS.other;
                   return (
-                    <GlassCard
-                      key={s.id}
-                      style={[styles.subCard, days <= 3 && styles.subCardAlert]}
-                    >
-                      <View style={styles.subRow}>
-                        <View style={styles.subInfo}>
-                          <Text style={OrialTypography.bodyMedium}>{s.name}</Text>
-                          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                            {s.billingCycle} · day {s.billingDay} · {s.category}
-                          </Text>
-                        </View>
-                        <View style={styles.subRight}>
-                          <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textPrimary }]}>
-                            {formatCurrency(s.amount, s.currency)}
-                          </Text>
-                          <Text style={[OrialTypography.caption, { color: alertColor }]}>
-                            {days <= 0 ? 'Due today' : `${days}d`}
-                          </Text>
-                        </View>
-                        <Pressable
-                          onPress={async () => { await financeService.deleteSubscription(s.id); loadAll(); }}
-                          style={styles.deleteBtn}
-                        >
-                          <Trash2 size={16} color={OrialColors.textMuted} />
-                        </Pressable>
+                    <GlassCard key={s.id} style={styles.subTile}>
+                      <View style={[styles.subTileBadge, { backgroundColor: badgeColor + '33' }]}>
+                        <Text style={[styles.subTileBadgeText, { color: badgeColor }]}>
+                          {badgeLabel}
+                        </Text>
                       </View>
+                      <View style={[styles.subTileIcon, { backgroundColor: catColor + '2E' }]}>
+                        <CatIcon size={19} color={catColor} />
+                      </View>
+                      <Text style={OrialTypography.bodyMedium} numberOfLines={1}>{s.name}</Text>
+                      <Text style={[OrialTypography.caption, styles.subTileCycle]}>
+                        {s.billingCycle.charAt(0).toUpperCase() + s.billingCycle.slice(1)} · day {s.billingDay}
+                      </Text>
+                      <Text style={styles.subTilePrice}>{formatCurrency(s.amount, s.currency)}</Text>
+                      <Pressable
+                        onPress={async () => { await financeService.deleteSubscription(s.id); loadAll(); }}
+                        style={styles.subTileDelete}
+                      >
+                        <Trash2 size={14} color={OrialColors.textMuted} />
+                      </Pressable>
                     </GlassCard>
                   );
-                })
-              )}
-            </View>
-
-            {/*
-              Orders folded in here: the mockup's 3-tab bar has no separate
-              Orders tab, so its full functionality (add/delete/mark
-              delivered) is relocated as a sub-section of Subs rather than
-              dropped.
-            */}
-            <View style={styles.header}>
-              <Text style={OrialTypography.headingMedium}>Orders</Text>
-              <Pressable style={styles.addButton} onPress={() => setShowAddOrder(true)}>
-                <Plus size={20} color={OrialColors.textPrimary} />
-              </Pressable>
-            </View>
-
-            <View style={styles.section}>
-              {orders.length === 0 ? (
-                <GlassCard style={styles.emptyCard}>
-                  <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>No orders tracked.</Text>
-                </GlassCard>
-              ) : (
-                orders.map((o) => {
-                  const daysLeft = o.estimatedDeliveryDate
-                    ? Math.ceil((new Date(o.estimatedDeliveryDate).getTime() - Date.now()) / 86400000)
-                    : null;
-                  return (
-                    <GlassCard key={o.id} style={styles.orderCard}>
-                      <View style={styles.orderRow}>
-                        <Package size={20} color={o.status === 'delivered' ? OrialColors.success : OrialColors.textMuted} />
-                        <View style={styles.orderInfo}>
-                          <Text style={OrialTypography.bodyMedium}>{o.name}</Text>
-                          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                            {o.orderDate}
-                            {daysLeft !== null && o.status !== 'delivered'
-                              ? daysLeft >= 0 ? ` · arrives in ${daysLeft}d` : ' · past est. delivery'
-                              : ''}
-                          </Text>
-                        </View>
-                        <View style={styles.orderRight}>
-                          <Text style={OrialTypography.caption}>
-                            {formatCurrency(o.amount, o.currency)}
-                          </Text>
-                          {o.status !== 'delivered' && (
-                            <Pressable
-                              style={styles.deliveredBtn}
-                              onPress={() => handleMarkDelivered(o.id)}
-                            >
-                              <Check size={12} color={OrialColors.textPrimary} />
-                            </Pressable>
-                          )}
-                        </View>
-                        <Pressable
-                          onPress={async () => { await financeService.deleteOrder(o.id); loadAll(); }}
-                          style={styles.deleteBtn}
-                        >
-                          <Trash2 size={16} color={OrialColors.textMuted} />
-                        </Pressable>
-                      </View>
-                    </GlassCard>
-                  );
-                })
-              )}
-            </View>
+                })}
+              </View>
+            )}
           </>
         )}
 
@@ -611,38 +520,6 @@ export default function FinanceScreen() {
         </View>
       </Modal>
 
-      {/* ── Add Order Modal ────────────────────────────────────────────── */}
-      <Modal visible={showAddOrder} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
-            <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Order</Text>
-            <TextInput style={styles.input} placeholder="Item name" placeholderTextColor={OrialColors.textMuted} value={orderName} onChangeText={setOrderName} />
-            <TextInput style={styles.input} placeholder="Amount paid" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={orderAmount} onChangeText={setOrderAmount} />
-            <TextInput style={styles.input} placeholder="Est. delivery (YYYY-MM-DD)" placeholderTextColor={OrialColors.textMuted} value={orderDelivery} onChangeText={setOrderDelivery} />
-            {accounts.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                <Pressable style={[styles.typeChip, !orderAccountId && styles.typeChipActive]} onPress={() => setOrderAccountId('')}>
-                  <Text style={[OrialTypography.caption, { color: !orderAccountId ? '#fff' : OrialColors.textMuted }]}>No account</Text>
-                </Pressable>
-                {accounts.map((a) => (
-                  <Pressable key={a.id} style={[styles.typeChip, orderAccountId === a.id && styles.typeChipActive, { marginRight: 6 }]} onPress={() => setOrderAccountId(a.id)}>
-                    <Text style={[OrialTypography.caption, { color: orderAccountId === a.id ? '#fff' : OrialColors.textMuted }]}>{a.icon} {a.name}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-            <View style={styles.modalActions}>
-              <Pressable style={styles.cancelBtn} onPress={() => setShowAddOrder(false)}>
-                <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.saveBtn} onPress={handleAddOrder}>
-                <Text style={OrialTypography.bodyMedium}>Add</Text>
-              </Pressable>
-            </View>
-          </GlassCard>
-        </View>
-      </Modal>
-
       {/* ── Add Wishlist Modal ─────────────────────────────────────────── */}
       <Modal visible={showAddWish} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -700,20 +577,27 @@ const styles = StyleSheet.create({
   accountInfo: { flex: 1 },
   accountRight: { alignItems: 'flex-end' },
   deleteBtn: { padding: 4 },
-  subCard: { padding: 14 },
-  subCardAlert: { borderColor: OrialColors.error + '60', borderWidth: 1 },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  subInfo: { flex: 1 },
-  subRight: { alignItems: 'flex-end' },
-  orderCard: { padding: 14 },
-  orderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  orderInfo: { flex: 1 },
-  orderRight: { alignItems: 'flex-end', gap: 4 },
-  deliveredBtn: {
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: OrialColors.success,
-    justifyContent: 'center', alignItems: 'center',
+  subGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
+    paddingHorizontal: 16, gap: 10,
   },
+  subTile: { width: '47%', padding: 16, marginBottom: 0 },
+  subTileBadge: {
+    position: 'absolute', top: 14, right: 14,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+  },
+  subTileBadgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.2 },
+  subTileIcon: {
+    width: 42, height: 42, borderRadius: 13,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 14,
+  },
+  subTileCycle: { color: OrialColors.textMuted, marginTop: 1 },
+  subTilePrice: {
+    fontSize: 21, fontWeight: '700', letterSpacing: -0.5,
+    color: OrialColors.textPrimary, marginTop: 10,
+  },
+  subTileDelete: { position: 'absolute', bottom: 14, right: 14, padding: 2 },
   wishCard: { padding: 14 },
   wishRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   wishInfo: { flex: 1 },

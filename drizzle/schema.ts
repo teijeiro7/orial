@@ -327,20 +327,6 @@ export const financeSubscriptions = sqliteTable('finance_subscriptions', {
   modifiedAt: integer('modified_at').notNull().default(0),
 });
 
-export const financeOrders = sqliteTable('finance_orders', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  amount: real('amount').notNull(),
-  currency: text('currency').notNull().default('EUR'),
-  accountId: text('account_id').references(() => financeAccounts.id, { onDelete: 'set null' }),
-  orderDate: text('order_date').notNull(), // YYYY-MM-DD
-  estimatedDeliveryDate: text('estimated_delivery_date'), // YYYY-MM-DD
-  deliveredAt: integer('delivered_at', { mode: 'timestamp' }),
-  status: text('status').notNull().default('pending'), // pending | shipped | delivered
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
-});
-
 export const financeWishlist = sqliteTable('finance_wishlist', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -411,8 +397,6 @@ export type FinanceAccount = typeof financeAccounts.$inferSelect;
 export type NewFinanceAccount = typeof financeAccounts.$inferInsert;
 export type FinanceSubscription = typeof financeSubscriptions.$inferSelect;
 export type NewFinanceSubscription = typeof financeSubscriptions.$inferInsert;
-export type FinanceOrder = typeof financeOrders.$inferSelect;
-export type NewFinanceOrder = typeof financeOrders.$inferInsert;
 export type FinanceWishlistItem = typeof financeWishlist.$inferSelect;
 export type NewFinanceWishlistItem = typeof financeWishlist.$inferInsert;
 export type HydrationProfile = typeof hydrationProfile.$inferSelect;
