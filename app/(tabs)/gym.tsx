@@ -12,6 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Plus,
   Dumbbell,
@@ -25,6 +26,9 @@ import {
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
 import { GymSetRow } from '../../src/components/GymSetRow';
+import { SectionLabel } from '../../src/components/SectionLabel';
+import { Ring } from '../../src/components/Ring';
+import { Chip } from '../../src/components/Chip';
 import { gymService } from '../../src/services/gymService';
 import { gymCoachService } from '../../src/services/gymCoachService';
 import type { ProgressionResult, SwapAlternative } from '../../src/services/gymCoachService';
@@ -253,6 +257,12 @@ export default function GymScreen() {
     return sessionSets.filter((s) => s.exerciseId === exerciseId);
   }
 
+  // Session progress: completed sets vs. total sets targeted for this routine.
+  const totalTargetSets = exercises.reduce((sum, ex) => sum + ex.targetSets, 0);
+  const completedSets = sessionSets.length;
+  const sessionProgressPct = totalTargetSets > 0 ? (completedSets / totalTargetSets) * 100 : 0;
+  const nextExercise = exercises.find((ex) => getExerciseSets(ex.id).length < ex.targetSets) ?? null;
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -281,27 +291,30 @@ export default function GymScreen() {
               </Text>
             </GlassCard>
           ) : (
-            <View style={styles.section}>
-              {routines.map((r) => {
-                const days: number[] = JSON.parse(r.days || '[]');
-                return (
-                  <Pressable key={r.id} onPress={() => { setActiveRoutine(r); setView('session'); }}>
-                    <GlassCard style={styles.routineCard}>
-                      <View style={styles.routineRow}>
-                        <Text style={styles.routineEmoji}>{r.emoji}</Text>
-                        <View style={styles.routineInfo}>
-                          <Text style={OrialTypography.bodyMedium}>{r.name}</Text>
-                          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                            {days.map((d) => DAY_LABELS[d]).join(', ') || 'No days set'}
-                          </Text>
+            <>
+              <SectionLabel label="Rutinas" />
+              <View style={styles.section}>
+                {routines.map((r) => {
+                  const days: number[] = JSON.parse(r.days || '[]');
+                  return (
+                    <Pressable key={r.id} onPress={() => { setActiveRoutine(r); setView('session'); }}>
+                      <GlassCard style={styles.routineCard}>
+                        <View style={styles.routineRow}>
+                          <Text style={styles.routineEmoji}>{r.emoji}</Text>
+                          <View style={styles.routineInfo}>
+                            <Text style={OrialTypography.bodyMedium}>{r.name}</Text>
+                            <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
+                              {days.map((d) => DAY_LABELS[d]).join(', ') || 'No days set'}
+                            </Text>
+                          </View>
+                          <ChevronRight size={18} color={OrialColors.textMuted} />
                         </View>
-                        <ChevronRight size={18} color={OrialColors.textMuted} />
-                      </View>
-                    </GlassCard>
-                  </Pressable>
-                );
-              })}
-            </View>
+                      </GlassCard>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
           )}
         </ScrollView>
 
@@ -333,27 +346,16 @@ export default function GymScreen() {
               </Text>
               <View style={styles.daysRow}>
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                  <Pressable
+                  <Chip
                     key={d}
-                    style={[
-                      styles.dayChip,
-                      newRoutineDays.includes(d) && styles.dayChipActive,
-                    ]}
+                    label={DAY_LABELS[d].slice(0, 2)}
+                    active={newRoutineDays.includes(d)}
                     onPress={() =>
                       setNewRoutineDays((prev) =>
                         prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
                       )
                     }
-                  >
-                    <Text
-                      style={[
-                        OrialTypography.caption,
-                        { color: newRoutineDays.includes(d) ? '#fff' : OrialColors.textMuted },
-                      ]}
-                    >
-                      {DAY_LABELS[d].slice(0, 2)}
-                    </Text>
-                  </Pressable>
+                  />
                 ))}
               </View>
 
@@ -392,27 +394,30 @@ export default function GymScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Overload alerts */}
         {overloadAlerts.length > 0 && (
-          <View style={styles.section}>
-            {overloadAlerts.map((alert) => (
-              <GlassCard key={alert.exerciseId} style={styles.alertCard}>
-                <TrendingUp size={16} color={OrialColors.success} />
-                <View style={styles.alertBody}>
-                  <Text style={[OrialTypography.bodyMedium, { color: OrialColors.success }]}>
-                    Increase {alert.exerciseName}
-                  </Text>
-                  <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                    {alert.currentWeightKg} kg → {alert.nextWeightKg} kg
-                  </Text>
-                </View>
-                <Pressable
-                  style={styles.acceptBtn}
-                  onPress={() => handleAcceptOverload(alert)}
-                >
-                  <Check size={16} color={OrialColors.textPrimary} />
-                </Pressable>
-              </GlassCard>
-            ))}
-          </View>
+          <>
+            <SectionLabel label="Más detalle" />
+            <View style={styles.section}>
+              {overloadAlerts.map((alert) => (
+                <GlassCard key={alert.exerciseId} style={styles.alertCard}>
+                  <TrendingUp size={16} color={OrialColors.success} />
+                  <View style={styles.alertBody}>
+                    <Text style={[OrialTypography.bodyMedium, { color: OrialColors.success }]}>
+                      Increase {alert.exerciseName}
+                    </Text>
+                    <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
+                      {alert.currentWeightKg} kg → {alert.nextWeightKg} kg
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={styles.acceptBtn}
+                    onPress={() => handleAcceptOverload(alert)}
+                  >
+                    <Check size={16} color={OrialColors.textPrimary} />
+                  </Pressable>
+                </GlassCard>
+              ))}
+            </View>
+          </>
         )}
 
         {/* Start session button */}
@@ -428,12 +433,38 @@ export default function GymScreen() {
         )}
 
         {activeSession && (
-          <GlassCard style={[styles.sessionBadge, { marginHorizontal: 16 }]}>
-            <Check size={14} color={OrialColors.success} />
-            <Text style={[OrialTypography.caption, { color: OrialColors.success }]}>
-              Session active — {sessionSets.length} sets logged
-            </Text>
-          </GlassCard>
+          <LinearGradient
+            colors={[OrialColors.surfaceElevated, OrialColors.surface]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.focusCard}
+          >
+            <Ring pct={sessionProgressPct} size={76} strokeWidth={7} color={OrialColors.violetLight}>
+              <Text style={styles.focusRingValue}>
+                {completedSets}/{totalTargetSets}
+              </Text>
+              <Text style={styles.focusRingUnit}>SETS</Text>
+            </Ring>
+            <View style={styles.focusBody}>
+              <Text style={styles.focusKicker}>{nextExercise ? 'Siguiente' : 'Sesión'}</Text>
+              <Text style={[OrialTypography.bodyMedium, styles.focusTitle]}>
+                {nextExercise
+                  ? `${nextExercise.name} · Set ${getExerciseSets(nextExercise.id).length + 1} de ${nextExercise.targetSets}`
+                  : 'Todos los sets completados'}
+              </Text>
+              {nextExercise && (
+                <Pressable
+                  style={styles.focusAction}
+                  onPress={() => setExpandedExercise(nextExercise.id)}
+                >
+                  <Text style={[OrialTypography.caption, { color: OrialColors.textPrimary }]}>
+                    Registrar set
+                  </Text>
+                  <ChevronRight size={14} color={OrialColors.textPrimary} />
+                </Pressable>
+              )}
+            </View>
+          </LinearGradient>
         )}
 
         {/* Exercises */}
@@ -488,10 +519,8 @@ export default function GymScreen() {
         )}
 
         {/* Progress photos */}
+        <SectionLabel label="Fotos de progreso" />
         <View style={styles.section}>
-          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted, marginBottom: 4 }]}>
-            Fotos de progreso
-          </Text>
           <View style={styles.photoRow}>
             <Pressable style={styles.photoBtn} onPress={handleTakePhoto} disabled={photoBusy}>
               {photoBusy ? (
@@ -675,9 +704,22 @@ const styles = StyleSheet.create({
     backgroundColor: OrialColors.violet,
     borderRadius: 14,
   },
-  sessionBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginBottom: 8, padding: 10,
+  focusCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    marginHorizontal: 16, marginBottom: 8, padding: 18,
+    borderRadius: 16, borderWidth: 1, borderColor: OrialColors.borderStrong,
+  },
+  focusRingValue: { fontSize: 20, fontWeight: '700', color: OrialColors.textPrimary, letterSpacing: -0.5 },
+  focusRingUnit: { fontSize: 8, color: OrialColors.textMuted, letterSpacing: 1, marginTop: 2 },
+  focusBody: { flex: 1, minWidth: 0 },
+  focusKicker: {
+    fontSize: 9, letterSpacing: 1.4, color: OrialColors.textMuted,
+    textTransform: 'uppercase', fontWeight: '500', marginBottom: 4,
+  },
+  focusTitle: { color: OrialColors.textPrimary, marginBottom: 10 },
+  focusAction: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6,
+    backgroundColor: OrialColors.violet, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 14,
   },
   exerciseCard: { padding: 0, overflow: 'hidden' },
   exerciseHeader: {
@@ -720,14 +762,7 @@ const styles = StyleSheet.create({
   },
   formRow: { flexDirection: 'row', gap: 10 },
   fieldLabel: { color: OrialColors.textMuted, marginBottom: 4 },
-  daysRow: { flexDirection: 'row', gap: 6, marginBottom: 16 },
-  dayChip: {
-    width: 36, height: 36, borderRadius: 18,
-    justifyContent: 'center', alignItems: 'center',
-    backgroundColor: OrialColors.surface,
-    borderWidth: 1, borderColor: OrialColors.glassBorder,
-  },
-  dayChipActive: { backgroundColor: OrialColors.violet, borderColor: OrialColors.violet },
+  daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
   cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
   saveBtn: {
