@@ -247,9 +247,10 @@ CREATE TABLE IF NOT EXISTS gym_exercises (
   increment_kg      DOUBLE PRECISION NOT NULL DEFAULT 2.5,
   order_index       BIGINT NOT NULL DEFAULT 0,
   created_at        BIGINT NOT NULL,
-  -- Vitality additions (consumed by task T6 — exercise swaps & 1RM):
+  -- Vitality additions (consumed by task T2 — exercise swaps & 1RM):
   swap_group        TEXT,             -- same group = interchangeable exercises
-  one_rm_estimated  DOUBLE PRECISION  -- estimated one-rep max
+  one_rm_estimated  DOUBLE PRECISION, -- estimated one-rep max
+  last_swapped_at   BIGINT            -- Unix ms, last time this exercise was swapped
 );
 
 CREATE TABLE IF NOT EXISTS gym_sessions (
