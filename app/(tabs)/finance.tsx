@@ -23,6 +23,9 @@ import {
   Package,
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
+import { NetWorthCard } from '../../src/components/NetWorthCard';
+import { Donut } from '../../src/components/Donut';
+import { SegmentedTabs } from '../../src/components/SegmentedTabs';
 import { OnePercentRule } from '../../src/components/OnePercentRule';
 import { financeService } from '../../src/services/financeService';
 import type { NetWorthSummary, SubscriptionAlert, WishlistProgressItem } from '../../src/services/financeService';
@@ -30,7 +33,14 @@ import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
 import type { FinanceAccount, FinanceSubscription, FinanceOrder, FinanceWishlistItem } from '../../drizzle/schema';
 
-type SubTab = 'networth' | 'subscriptions' | 'orders' | 'wishlist';
+// The mockup collapses the 4-tab bar (Net Worth / Subscriptions / Orders /
+// Wishlist) into 3 (Net Worth / Subs / Wishlist). Orders isn't dropped —
+// all of its data and actions (add/delete/mark delivered) move into the
+// Subs tab as a nested "Orders" sub-section, right below the subscriptions
+// list, so nothing that existed before is lost.
+type SubTab = 'networth' | 'subscriptions' | 'wishlist';
+const SUB_TAB_KEYS: SubTab[] = ['networth', 'subscriptions', 'wishlist'];
+const SUB_TAB_LABELS = ['Net Worth', 'Subs', 'Wishlist'];
 
 const ACCOUNT_TYPES = [
   { value: 'bank', label: 'Bank', icon: '🏦' },
@@ -207,6 +217,12 @@ export default function FinanceScreen() {
     return `${currency} ${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
+  /** Short "18.2K" style value for the donut's center label. */
+  function formatCompact(amount: number): string {
+    if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(1)}K`;
+    return amount.toFixed(0);
+  }
+
   function subAlertColor(days: number): string {
     if (days <= 3) return OrialColors.error;
     if (days <= 7) return OrialColors.warning;
@@ -224,65 +240,66 @@ export default function FinanceScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Sub-tab bar */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabScroll}
-        contentContainerStyle={styles.tabContainer}
-      >
-        {(['networth', 'subscriptions', 'orders', 'wishlist'] as SubTab[]).map((t) => (
-          <Pressable
-            key={t}
-            style={[styles.tab, activeTab === t && styles.tabActive]}
-            onPress={() => setActiveTab(t)}
-          >
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
-              {t === 'networth' ? 'Net Worth' : t.charAt(0).toUpperCase() + t.slice(1)}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <View style={styles.tabWrap}>
+        <SegmentedTabs
+          tabs={SUB_TAB_LABELS}
+          activeIndex={SUB_TAB_KEYS.indexOf(activeTab)}
+          onChange={(index) => setActiveTab(SUB_TAB_KEYS[index])}
+        />
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* ── NET WORTH ──────────────────────────────────────────── */}
         {activeTab === 'networth' && (
           <>
-            <View style={styles.header}>
-              <View>
-                <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>Total Net Worth</Text>
-                <Text style={styles.netWorthAmount}>{formatCurrency(netWorth)}</Text>
-              </View>
-              <Pressable style={styles.addButton} onPress={() => setShowAddAccount(true)}>
-                <Plus size={20} color={OrialColors.textPrimary} />
-              </Pressable>
+            {/*
+              % change isn't tracked anywhere in financeService/schema (no
+              historical net-worth snapshots to diff against), so it can't be
+              derived without fabricating a number. Passing 0 rather than
+              inventing a trend — flagged as a concern in the report.
+            */}
+            <View style={styles.netWorthCardWrap}>
+              <NetWorthCard balance={netWorth} changePct={0} />
             </View>
 
-            {/* Horizontal bar chart by type */}
+            {/* Allocation donut, fed the same per-type percentages that drove the old bars */}
             {accountsByType.length > 0 && (
               <GlassCard style={styles.card}>
                 <Text style={[OrialTypography.caption, styles.sectionLabel]}>ALLOCATION</Text>
-                {accountsByType.map((t) => (
-                  <View key={t.value} style={styles.barRow}>
-                    <Text style={styles.barLabel}>{t.icon} {t.label}</Text>
-                    <View style={styles.barTrack}>
-                      <View
-                        style={[
-                          styles.barFill,
-                          {
-                            width: `${t.pct}%` as any,
-                            backgroundColor: ACCOUNT_TYPE_COLORS[t.value],
-                          },
-                        ]}
-                      />
+                <View style={styles.donutRow}>
+                  <View style={styles.donutWrap}>
+                    <Donut
+                      segments={accountsByType.map((t) => ({
+                        pct: t.pct,
+                        color: ACCOUNT_TYPE_COLORS[t.value],
+                      }))}
+                    />
+                    <View style={styles.donutCenter} pointerEvents="none">
+                      <Text style={styles.donutCenterValue}>{formatCompact(netWorth)}</Text>
+                      <Text style={styles.donutCenterLabel}>EUR</Text>
                     </View>
-                    <Text style={styles.barPct}>{t.pct.toFixed(1)}%</Text>
                   </View>
-                ))}
+                  <View style={styles.legend}>
+                    {accountsByType.map((t) => (
+                      <View key={t.value} style={styles.legendRow}>
+                        <View style={[styles.legendDot, { backgroundColor: ACCOUNT_TYPE_COLORS[t.value] }]} />
+                        <Text style={styles.legendLabel}>{t.icon} {t.label}</Text>
+                        <Text style={styles.legendPct}>{t.pct.toFixed(1)}%</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
               </GlassCard>
             )}
 
             {/* Account list */}
+            <View style={styles.header}>
+              <Text style={OrialTypography.headingMedium}>Accounts</Text>
+              <Pressable style={styles.addButton} onPress={() => setShowAddAccount(true)}>
+                <Plus size={20} color={OrialColors.textPrimary} />
+              </Pressable>
+            </View>
             <View style={styles.section}>
               {accounts.length === 0 ? (
                 <GlassCard style={styles.emptyCard}>
@@ -383,12 +400,13 @@ export default function FinanceScreen() {
                 })
               )}
             </View>
-          </>
-        )}
 
-        {/* ── ORDERS ─────────────────────────────────────────────── */}
-        {activeTab === 'orders' && (
-          <>
+            {/*
+              Orders folded in here: the mockup's 3-tab bar has no separate
+              Orders tab, so its full functionality (add/delete/mark
+              delivered) is relocated as a sub-section of Subs rather than
+              dropped.
+            */}
             <View style={styles.header}>
               <Text style={OrialTypography.headingMedium}>Orders</Text>
               <Pressable style={styles.addButton} onPress={() => setShowAddOrder(true)}>
@@ -650,38 +668,30 @@ export default function FinanceScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: OrialColors.deepNavy },
-  tabScroll: { maxHeight: 52, marginTop: 8 },
-  tabContainer: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
-  tab: {
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderRadius: 20, backgroundColor: OrialColors.surface,
-    borderWidth: 1, borderColor: OrialColors.glassBorder,
-  },
-  tabActive: { backgroundColor: OrialColors.violet, borderColor: OrialColors.violet },
-  tabText: { ...OrialTypography.caption, color: OrialColors.textMuted },
-  tabTextActive: { color: OrialColors.textPrimary, fontWeight: '600' },
+  tabWrap: { paddingHorizontal: 16, marginTop: 8 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', padding: 16,
   },
-  netWorthAmount: {
-    fontSize: 28, fontWeight: '700',
-    color: OrialColors.textPrimary, letterSpacing: -0.5,
-  },
+  netWorthCardWrap: { marginHorizontal: 16, marginTop: 8 },
   addButton: { padding: 8, backgroundColor: OrialColors.violet, borderRadius: 12 },
   card: { marginHorizontal: 16, marginBottom: 8 },
   sectionLabel: {
     color: OrialColors.textMuted, textTransform: 'uppercase',
     letterSpacing: 1, marginBottom: 10,
   },
-  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
-  barLabel: { ...OrialTypography.caption, color: OrialColors.textSecondary, width: 80 },
-  barTrack: {
-    flex: 1, height: 6, backgroundColor: OrialColors.surface,
-    borderRadius: 3, overflow: 'hidden',
+  donutRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  donutWrap: { alignItems: 'center', justifyContent: 'center' },
+  donutCenter: {
+    position: 'absolute', alignItems: 'center', justifyContent: 'center',
   },
-  barFill: { height: '100%', borderRadius: 3 },
-  barPct: { ...OrialTypography.caption, color: OrialColors.textMuted, width: 40, textAlign: 'right' },
+  donutCenterValue: { fontSize: 14, fontWeight: '700', color: OrialColors.textPrimary, letterSpacing: -0.3 },
+  donutCenterLabel: { fontSize: 8, letterSpacing: 1.2, color: OrialColors.textMuted, marginTop: 2 },
+  legend: { flex: 1, gap: 10 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  legendDot: { width: 9, height: 9, borderRadius: 5 },
+  legendLabel: { ...OrialTypography.caption, color: OrialColors.textSecondary, flex: 1 },
+  legendPct: { ...OrialTypography.caption, color: OrialColors.textPrimary, fontWeight: '600' },
   section: { padding: 16, paddingTop: 0, gap: 8 },
   emptyCard: { alignItems: 'center', padding: 32 },
   emptyText: { color: OrialColors.textMuted, textAlign: 'center' },
