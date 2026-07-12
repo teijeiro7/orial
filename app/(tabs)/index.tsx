@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { Activity, Heart, Droplets, Pill, TrendingDown,
-  Flame, Moon, Zap, ZapOff, Brain } from 'lucide-react-native';
+  Flame, Moon, Zap, ZapOff, Brain, Settings } from 'lucide-react-native';
 import { calculatePeakState } from '../../src/services/peakStateService';
 import type { PeakStateResult } from '../../src/services/peakStateService';
 import { GlassCard } from '../../src/components/GlassCard';
+import { HeaderIconButton } from '../../src/components/HeaderIconButton';
 import { OrialColors } from '../../src/utils/colors';
 import { whoopService } from '../../src/services/whoopService';
 import { hydrationService } from '../../src/services/hydrationService';
@@ -137,8 +138,20 @@ export default function DashboardScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.dateLabel}>{format(new Date(), 'EEEE, MMMM d').toUpperCase()}</Text>
+          <View>
+            <Text style={styles.greeting}>{getGreeting()}</Text>
+            <Text style={styles.dateLabel}>{format(new Date(), 'EEEE, MMMM d').toUpperCase()}</Text>
+          </View>
+          <View style={styles.headerIconRow}>
+            <HeaderIconButton
+              icon={<Brain size={20} color={OrialColors.textSecondary} />}
+              onPress={() => router.push('/insights')}
+            />
+            <HeaderIconButton
+              icon={<Settings size={20} color={OrialColors.textSecondary} />}
+              onPress={() => router.push('/settings')}
+            />
+          </View>
         </View>
 
         {/* WHOOP */}
@@ -567,7 +580,15 @@ function MacroMiniBar({ label, current, goal, color }: { label: string; current:
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: OrialColors.deepNavy },
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24 },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  headerIconRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   greeting: { fontSize: 30, fontWeight: '700', color: OrialColors.textPrimary, letterSpacing: -0.8, fontFamily: 'Inter-Bold' },
   dateLabel: { fontSize: 10, letterSpacing: 1.6, color: OrialColors.textMuted, marginTop: 5, fontFamily: 'Inter-Medium' },
   section: { marginBottom: 24 },
