@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Moon } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
+import { AreaChart } from '../../src/components/AreaChart';
+import { Chip } from '../../src/components/Chip';
 import { caffeineService, QUICK_SOURCES } from '../../src/services/caffeineService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
@@ -18,6 +20,11 @@ const SOURCE_EMOJI: Record<string, string> = {
   tea: '🫖',
 };
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CHART_HEIGHT = 100;
+// Screen margin (16px x2) + GlassCard padding (16px x2), minus the chart's 4px bleed on each side.
+const CHART_WIDTH = SCREEN_WIDTH - 56;
+
 const SOURCE_OPTIONS = [
   { value: 'coffee', label: 'Café' },
   { value: 'tea', label: 'Té' },
@@ -31,6 +38,7 @@ export default function CaffeineScreen() {
   const [active, setActive] = useState<ActiveCaffeine | null>(null);
   const [sleepCheck, setSleepCheck] = useState<SleepInterferenceCheck | null>(null);
   const [bedtime, setBedtime] = useState<Date>(caffeineService.getDefaultBedtime());
+  const [chartData, setChartData] = useState<number[]>([]);
 
   const [showAdd, setShowAdd] = useState(false);
   const [customSource, setCustomSource] = useState('manual');
@@ -39,15 +47,17 @@ export default function CaffeineScreen() {
   const loadAll = useCallback(async () => {
     const bt = caffeineService.getDefaultBedtime();
     setBedtime(bt);
-    const [todayLogs, activeCaffeine, interference] = await Promise.all([
+    const [todayLogs, activeCaffeine, interference, , dailyChart] = await Promise.all([
       caffeineService.getTodayLogs(),
       caffeineService.getActiveCaffeine(),
       caffeineService.willInterfereWithSleep(bt),
       caffeineService.evaluateDailyCheckInReminder(),
+      caffeineService.getDailyChart(),
     ]);
     setLogs(todayLogs);
     setActive(activeCaffeine);
     setSleepCheck(interference);
+    setChartData(dailyChart.timeline.map((point) => point.mg));
   }, []);
 
   useEffect(() => {
@@ -81,6 +91,12 @@ export default function CaffeineScreen() {
             <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>NIVEL ACTUAL</Text>
             <Text style={styles.levelValue}>{Math.round(active?.currentLevel ?? 0)}mg</Text>
           </View>
+
+          {chartData.length > 0 && (
+            <View style={styles.chartWrap}>
+              <AreaChart data={chartData} width={CHART_WIDTH} height={CHART_HEIGHT} color={OrialColors.cyan} />
+            </View>
+          )}
 
           {active?.peakAt && active.peakMg != null && (
             <Text style={[OrialTypography.bodySmall, styles.statusLine]}>
@@ -146,17 +162,13 @@ export default function CaffeineScreen() {
           <Text style={[OrialTypography.caption, styles.sectionLabel]}>FUENTES RÁPIDAS</Text>
           <View style={styles.quickRow}>
             {QUICK_SOURCES.map((q) => (
-              <Pressable
+              <Chip
                 key={q.key}
-                style={styles.quickChip}
+                label={`${q.emoji} ${q.label}`}
                 onPress={() => handleQuickAdd(q.source, q.mg)}
-              >
-                <Text style={styles.quickChipText}>{q.emoji} {q.label}</Text>
-              </Pressable>
+              />
             ))}
-            <Pressable style={styles.quickChip} onPress={() => setShowAdd(true)}>
-              <Text style={styles.quickChipText}>✏️ Personalizado</Text>
-            </Pressable>
+            <Chip label="✏️ Personalizado" onPress={() => setShowAdd(true)} />
           </View>
         </View>
       </ScrollView>
@@ -221,6 +233,7 @@ const styles = StyleSheet.create({
   statusCard: { marginHorizontal: 16, marginBottom: 8 },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   levelValue: { fontSize: 26, fontWeight: '700', color: OrialColors.textPrimary, letterSpacing: -0.5 },
+  chartWrap: { marginHorizontal: -4, marginVertical: 8 },
   statusLine: { color: OrialColors.textSecondary, marginBottom: 4 },
   sleepRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   section: { padding: 16, paddingTop: 8, gap: 8 },
@@ -232,15 +245,6 @@ const styles = StyleSheet.create({
   logEmoji: { fontSize: 20 },
   logInfo: { flex: 1 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  quickChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: OrialColors.surface,
-    borderWidth: 1,
-    borderColor: OrialColors.glassBorder,
-  },
-  quickChipText: { ...OrialTypography.bodyMedium, color: OrialColors.textPrimary },
   fab: {
     position: 'absolute',
     right: 20,
