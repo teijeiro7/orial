@@ -46,6 +46,9 @@ const DAY_LABELS = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function GymScreen() {
   const [view, setView] = useState<ScreenView>('routines');
   const [routines, setRoutines] = useState<GymRoutine[]>([]);
+  const [routineMeta, setRoutineMeta] = useState<
+    Record<string, { exerciseCount: number; lastSessionDaysAgo: number | null }>
+  >({});
   const [activeRoutine, setActiveRoutine] = useState<GymRoutine | null>(null);
   const [exercises, setExercises] = useState<GymExercise[]>([]);
   const [activeSession, setActiveSession] = useState<GymSession | null>(null);
@@ -86,6 +89,19 @@ export default function GymScreen() {
     setLoading(true);
     const r = await gymService.getRoutines();
     setRoutines(r);
+    const metaEntries = await Promise.all(
+      r.map(async (routine) => {
+        const [routineExercises, lastSession] = await Promise.all([
+          gymService.getExercisesForRoutine(routine.id),
+          gymService.getLastSessionForRoutine(routine.id),
+        ]);
+        const lastSessionDaysAgo = lastSession
+          ? Math.floor((Date.now() - new Date(lastSession.date).getTime()) / 86400000)
+          : null;
+        return [routine.id, { exerciseCount: routineExercises.length, lastSessionDaysAgo }] as const;
+      }),
+    );
+    setRoutineMeta(Object.fromEntries(metaEntries));
     setLoading(false);
   }, []);
 
@@ -273,6 +289,14 @@ export default function GymScreen() {
 
   // ── Routine list view ────────────────────────────────────────────────────
   if (view === 'routines' || !activeRoutine) {
+    const jsDay = new Date().getDay();
+    const todayDow = jsDay === 0 ? 7 : jsDay;
+    const todayRoutine = routines.find((r) => {
+      const days: number[] = JSON.parse(r.days || '[]');
+      return days.includes(todayDow);
+    });
+    const otherRoutines = todayRoutine ? routines.filter((r) => r.id !== todayRoutine.id) : routines;
+
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -292,10 +316,43 @@ export default function GymScreen() {
             </GlassCard>
           ) : (
             <>
-              <SectionLabel label="Rutinas" />
+              {todayRoutine && (
+                <LinearGradient
+                  colors={[OrialColors.surfaceElevated, OrialColors.surface]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={styles.todayHero}
+                >
+                  <Text style={styles.todayKicker}>Hoy toca</Text>
+                  <View style={styles.todayRow}>
+                    <Dumbbell size={34} color={OrialColors.violetLight} />
+                    <View style={styles.todayInfo}>
+                      <Text style={styles.todayName}>{todayRoutine.name}</Text>
+                      <Text style={styles.todayMeta}>
+                        {routineMeta[todayRoutine.id]?.exerciseCount ?? 0} ejercicios
+                        {routineMeta[todayRoutine.id]?.lastSessionDaysAgo != null
+                          ? ` · último: hace ${routineMeta[todayRoutine.id]!.lastSessionDaysAgo} días`
+                          : ''}
+                      </Text>
+                    </View>
+                  </View>
+                  <Pressable
+                    style={styles.todayCta}
+                    onPress={() => { setActiveRoutine(todayRoutine); setView('session'); }}
+                  >
+                    <Dumbbell size={18} color={OrialColors.textPrimary} />
+                    <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textPrimary }]}>
+                      Empezar {todayRoutine.name}
+                    </Text>
+                  </Pressable>
+                </LinearGradient>
+              )}
+
+              <SectionLabel label={todayRoutine ? 'Otras rutinas' : 'Rutinas'} />
               <View style={styles.section}>
-                {routines.map((r) => {
+                {otherRoutines.map((r) => {
                   const days: number[] = JSON.parse(r.days || '[]');
+                  const meta = routineMeta[r.id];
                   return (
                     <Pressable key={r.id} onPress={() => { setActiveRoutine(r); setView('session'); }}>
                       <GlassCard style={styles.routineCard}>
@@ -303,8 +360,18 @@ export default function GymScreen() {
                           <Text style={styles.routineEmoji}>{r.emoji}</Text>
                           <View style={styles.routineInfo}>
                             <Text style={OrialTypography.bodyMedium}>{r.name}</Text>
-                            <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                              {days.map((d) => DAY_LABELS[d]).join(', ') || 'No days set'}
+                            <View style={styles.freqDots}>
+                              {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                                <View
+                                  key={d}
+                                  style={[styles.freqDot, days.includes(d) && styles.freqDotOn]}
+                                />
+                              ))}
+                            </View>
+                            <Text style={[OrialTypography.caption, { color: OrialColors.textMuted, marginTop: 3 }]}>
+                              {meta?.lastSessionDaysAgo != null
+                                ? `Último: hace ${meta.lastSessionDaysAgo} días`
+                                : 'Sin sesiones aún'}
                             </Text>
                           </View>
                           <ChevronRight size={18} color={OrialColors.textMuted} />
@@ -687,10 +754,31 @@ const styles = StyleSheet.create({
   section: { padding: 16, paddingTop: 8, gap: 10 },
   emptyCard: { alignItems: 'center', padding: 32, gap: 12 },
   emptyText: { color: OrialColors.textMuted, textAlign: 'center' },
+  todayHero: {
+    marginHorizontal: 16, marginTop: 14, padding: 18,
+    borderRadius: 16, borderWidth: 1, borderColor: OrialColors.borderStrong,
+    gap: 12,
+  },
+  todayKicker: {
+    fontSize: 9, letterSpacing: 1.4, color: OrialColors.violetLight,
+    textTransform: 'uppercase', fontWeight: '600',
+  },
+  todayRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  todayInfo: { flex: 1, minWidth: 0 },
+  todayName: { fontSize: 19, fontWeight: '700', color: OrialColors.textPrimary },
+  todayMeta: { fontSize: 12, color: OrialColors.textMuted, marginTop: 2 },
+  todayCta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, padding: 14,
+    backgroundColor: OrialColors.violet, borderRadius: 12,
+  },
   routineCard: { padding: 14 },
   routineRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   routineEmoji: { fontSize: 28 },
   routineInfo: { flex: 1 },
+  freqDots: { flexDirection: 'row', gap: 3, marginTop: 5 },
+  freqDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: OrialColors.borderStrong },
+  freqDotOn: { backgroundColor: OrialColors.violetLight },
   alertCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderColor: OrialColors.success + '40', borderWidth: 1 },
   alertBody: { flex: 1 },
   acceptBtn: {

@@ -156,6 +156,16 @@ export const gymService = {
     return db.select().from(gymSessions).orderBy(desc(gymSessions.date)).limit(limit);
   },
 
+  async getLastSessionForRoutine(routineId: string): Promise<GymSession | null> {
+    const results = await db
+      .select()
+      .from(gymSessions)
+      .where(eq(gymSessions.routineId, routineId))
+      .orderBy(desc(gymSessions.date))
+      .limit(1);
+    return results[0] ?? null;
+  },
+
   // ── Sets ──────────────────────────────────────────────────────────────────
 
   async logSet(input: {
