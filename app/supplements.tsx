@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Pill, Plus, Clock, Flame, ChevronLeft, TrendingUp, CalendarDays, CheckCircle2, XCircle, Info, Pencil, Check, X } from 'lucide-react-native';
@@ -342,6 +343,10 @@ export default function SupplementsScreen() {
     </GlassCard>
   );
 
+  const suppTakenToday = supplements.filter((s) => todayLogs[s.id]).length;
+  const suppTotalToday = supplements.length;
+  const suppTodayPct = suppTotalToday > 0 ? (suppTakenToday / suppTotalToday) * 100 : 0;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -356,6 +361,32 @@ export default function SupplementsScreen() {
           </View>
           <Text style={styles.headerSub}>Track your daily intake and streaks</Text>
         </View>
+
+        {/* Aggregate today-adherence focus card (mockup .focus-card) */}
+        {suppTotalToday > 0 && (
+          <GlassCard style={styles.focusCard}>
+            <LinearGradient
+              colors={[`${OrialColors.violet}3D`, 'transparent']}
+              start={{ x: 1, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View style={styles.focusRingWrap}>
+              <Ring pct={suppTodayPct} size={76} strokeWidth={7} color={OrialColors.violetLight}>
+                <Text style={styles.focusRingValue}>
+                  {suppTakenToday}/{suppTotalToday}
+                </Text>
+                <Text style={styles.focusRingUnit}>HOY</Text>
+              </Ring>
+            </View>
+            <View style={styles.focusTextWrap}>
+              <Text style={styles.focusKicker}>SUPLEMENTOS</Text>
+              <Text style={styles.focusSub}>
+                {suppTakenToday} de {suppTotalToday} tomados hoy
+              </Text>
+            </View>
+          </GlassCard>
+        )}
 
         {/* Supplement cards */}
         {supplements.map(renderSupplementDetail)}
@@ -433,6 +464,14 @@ const styles = StyleSheet.create({
   backButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold', letterSpacing: -0.5 },
   headerSub: { fontSize: 12, color: OrialColors.textMuted, textAlign: 'center', fontFamily: 'Inter-Regular' },
+
+  focusCard: { marginHorizontal: 16, marginBottom: 12, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 18, overflow: 'hidden' },
+  focusRingWrap: { flexShrink: 0 },
+  focusRingValue: { fontSize: 16, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold' },
+  focusRingUnit: { fontSize: 7, letterSpacing: 0.8, color: OrialColors.textMuted, fontFamily: 'Inter-Medium' },
+  focusTextWrap: { flex: 1 },
+  focusKicker: { fontSize: 9, letterSpacing: 1.4, color: OrialColors.textMuted, fontFamily: 'Inter-Medium', marginBottom: 4 },
+  focusSub: { fontSize: 13, color: OrialColors.textSecondary, fontFamily: 'Inter-Regular' },
 
   detailCard: { marginHorizontal: 16, marginBottom: 12, padding: 16 },
   detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
