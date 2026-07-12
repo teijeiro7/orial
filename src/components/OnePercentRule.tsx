@@ -18,7 +18,7 @@ interface OnePercentRuleProps {
 }
 
 function formatCurrency(amount: number): string {
-  return `${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€`;
+  return `EUR ${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function alertColor(days: number): string {
@@ -41,23 +41,23 @@ export function OnePercentRule({ netWorth, subscriptionAlerts, wishlistProgress 
   return (
     <GlassCard style={styles.card}>
       {/* ── Net worth summary ─────────────────────────────────────────── */}
-      <Text style={[OrialTypography.caption, styles.sectionLabel]}>PATRIMONIO NETO</Text>
+      <Text style={[OrialTypography.caption, styles.sectionLabel]}>NET WORTH BREAKDOWN</Text>
       <Text style={styles.netWorthAmount}>{formatCurrency(netWorth.total)}</Text>
       <View style={styles.breakdownRow}>
-        <Text style={styles.breakdownItem}>💳 Cuentas: {formatCurrency(netWorth.accounts)}</Text>
-        <Text style={styles.breakdownItem}>📈 Inversiones: {formatCurrency(netWorth.stocks)}</Text>
+        <Text style={styles.breakdownItem}>💳 Accounts: {formatCurrency(netWorth.accounts)}</Text>
+        <Text style={styles.breakdownItem}>📈 Investments: {formatCurrency(netWorth.stocks)}</Text>
         <Text style={styles.breakdownItem}>₿ Crypto: {formatCurrency(netWorth.crypto)}</Text>
       </View>
 
       {/* ── Upcoming subscription alerts ──────────────────────────────── */}
       {subscriptionAlerts.length > 0 && (
         <View style={styles.section}>
-          <Text style={[OrialTypography.caption, styles.sectionLabel]}>🚨 PRÓXIMOS COBROS</Text>
+          <Text style={[OrialTypography.caption, styles.sectionLabel]}>🚨 UPCOMING CHARGES</Text>
           {subscriptionAlerts.map((alert) => (
             <View key={alert.subscriptionId} style={styles.row}>
               <Text style={styles.rowLabel}>{alert.name}</Text>
               <Text style={[styles.rowValue, { color: alertColor(alert.daysUntilBilling) }]}>
-                {alert.daysUntilBilling <= 0 ? 'hoy' : `${alert.daysUntilBilling} días`} ({formatCurrency(alert.amount)})
+                {alert.daysUntilBilling <= 0 ? 'today' : `${alert.daysUntilBilling}d`} ({formatCurrency(alert.amount)})
               </Text>
             </View>
           ))}
@@ -66,13 +66,13 @@ export function OnePercentRule({ netWorth, subscriptionAlerts, wishlistProgress 
 
       {/* ── 1% rule quick check ───────────────────────────────────────── */}
       <View style={styles.section}>
-        <Text style={[OrialTypography.caption, styles.sectionLabel]}>REGLA DEL 1%</Text>
+        <Text style={[OrialTypography.caption, styles.sectionLabel]}>1% RULE</Text>
         <Text style={styles.helperText}>
-          1% de tu patrimonio = {formatCurrency(onePercentValue)}
+          1% of your net worth = {formatCurrency(onePercentValue)}
         </Text>
         <TextInput
           style={styles.input}
-          placeholder="¿Cuánto cuesta lo que quieres comprar?"
+          placeholder="How much does the thing you want cost?"
           placeholderTextColor={OrialColors.textMuted}
           keyboardType="numeric"
           value={purchaseInput}

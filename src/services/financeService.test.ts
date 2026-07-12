@@ -88,7 +88,7 @@ describe('getOnePercentRule', () => {
 
     expect(result.percentage).toBeCloseTo(0.64, 2);
     expect(result.isWithinBudget).toBe(true);
-    expect(result.message).toBe('✅ Es solo el 0.64% de tu patrimonio');
+    expect(result.message).toBe("✅ That's only 0.64% of your net worth");
   });
 
   it('marks a purchase over 1% of net worth as NOT within budget with a warning message', () => {
@@ -96,7 +96,7 @@ describe('getOnePercentRule', () => {
 
     expect(result.percentage).toBeCloseTo(4.0161, 4);
     expect(result.isWithinBudget).toBe(false);
-    expect(result.message).toBe('⚠️ Esto es el 4.02% de tu patrimonio. ¿Seguro?');
+    expect(result.message).toBe("⚠️ That's 4.02% of your net worth. Sure?");
   });
 
   it('treats exactly 1% as NOT within budget (boundary is exclusive)', () => {

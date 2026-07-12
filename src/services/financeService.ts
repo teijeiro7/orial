@@ -67,14 +67,14 @@ export function getOnePercentRule(netWorth: number, purchaseAmount: number): One
     return {
       percentage: Infinity,
       isWithinBudget: false,
-      message: '⚠️ Tu patrimonio neto es 0€ o negativo — cualquier compra merece pensarlo dos veces.',
+      message: '⚠️ Your net worth is 0€ or negative — any purchase is worth thinking twice about.',
     };
   }
   const percentage = (purchaseAmount / netWorth) * 100;
   const isWithinBudget = percentage < 1;
   const message = isWithinBudget
-    ? `✅ Es solo el ${percentage.toFixed(2)}% de tu patrimonio`
-    : `⚠️ Esto es el ${percentage.toFixed(2)}% de tu patrimonio. ¿Seguro?`;
+    ? `✅ That's only ${percentage.toFixed(2)}% of your net worth`
+    : `⚠️ That's ${percentage.toFixed(2)}% of your net worth. Sure?`;
   return { percentage, isWithinBudget, message };
 }
 
