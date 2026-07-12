@@ -15,6 +15,7 @@ import { supplementService } from '../../src/services/supplementService';
 import { manualMetricsService } from '../../src/services/manualMetricsService';
 import { weightPredictionService } from '../../src/services/weightPredictionService';
 import { nutritionService } from '../../src/services/nutritionService';
+import { useNfcWaterQueueDrain } from '../../src/hooks/useNfcWaterQueueDrain';
 import type { WhoopDaily, ManualMetric, WeightPrediction, NutritionLog } from '../../drizzle/schema';
 
 function getGreeting(): string {
@@ -93,6 +94,13 @@ export default function DashboardScreen() {
     const interval = setInterval(loadWhoopData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Refetch dashboard data (including hydration) when the app returns to the
+  // foreground, after any NFC water queue entries have been drained. The
+  // in-flight guard in drainNfcWaterQueue makes it safe to call this alongside
+  // _layout.tsx's own drain call on the same AppState 'active' event — both
+  // resolve to the same underlying drain.
+  useNfcWaterQueueDrain(loadAllData);
 
   const onRefresh = async () => {
     setRefreshing(true);

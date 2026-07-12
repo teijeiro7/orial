@@ -1,0 +1,30 @@
+# Same as .gitignore, but Firebase config files ARE needed for EAS builds
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env
+.env*.local
+*.tsbuildinfo
+/ios
+/android
+build-ios.log
+.codegraph/
+
+# Firebase config: excluded from git, but required in the EAS build upload
+!GoogleService-Info.plist
+!google-services.json
