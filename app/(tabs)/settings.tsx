@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Switch, Image, Alert } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { GlassCard } from '../../src/components/GlassCard';
+import { SectionLabel } from '../../src/components/SectionLabel';
 import { NotionSettingsScreen } from '../settings/notion';
 import { CalendarSettingsScreen } from '../settings/calendar';
 import { JarvisSettingsScreen } from '../settings/jarvis';
@@ -52,8 +53,8 @@ export default function SettingsScreen() {
           </Pressable>
         )}
         
-        <GlassCard style={styles.card}>
-          <View style={styles.settingItem}>
+        <GlassCard style={[styles.card, styles.cardNoPadding]}>
+          <View style={[styles.settingItem, styles.settingItemLast]}>
             <Text style={OrialTypography.bodyMedium}>Notifications</Text>
             <Switch
               value={notificationsEnabled}
@@ -65,20 +66,20 @@ export default function SettingsScreen() {
         </GlassCard>
 
         <View style={styles.section}>
-          <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Integrations</Text>
-          <GlassCard>
+          <SectionLabel label="Integrations" />
+          <GlassCard style={styles.cardNoPadding}>
             <SettingItem title="Notion Sync" onPress={() => setIsNotionVisible(true)} />
             <SettingItem title="Calendar" onPress={() => setIsCalendarVisible(true)} />
             <SettingItem title="JARVIS / OpenClaw" onPress={() => setIsJarvisVisible(true)} />
-            <SettingItem title="Appearance" />
+            <SettingItem title="Appearance" isLast />
           </GlassCard>
         </View>
 
         <View style={styles.section}>
-          <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Getting Started</Text>
-          <GlassCard>
-            <Pressable 
-              style={styles.settingItem} 
+          <SectionLabel label="Getting Started" />
+          <GlassCard style={styles.cardNoPadding}>
+            <Pressable
+              style={[styles.settingItem, styles.settingItemLast]}
               onPress={() => {
                 setOnboardingCompleted(false);
                 router.replace('/onboarding');
@@ -97,9 +98,9 @@ export default function SettingsScreen() {
 
         {user && (
           <View style={styles.section}>
-            <GlassCard>
-              <Pressable 
-                style={styles.settingItem}
+            <GlassCard style={styles.cardNoPadding}>
+              <Pressable
+                style={[styles.settingItem, styles.settingItemLast]}
                 onPress={() => {
                   Alert.alert(
                     'Sign Out',
@@ -141,9 +142,17 @@ export default function SettingsScreen() {
   );
 }
 
-function SettingItem({ title, onPress }: { title: string; onPress?: () => void }) {
+function SettingItem({
+  title,
+  onPress,
+  isLast,
+}: {
+  title: string;
+  onPress?: () => void;
+  isLast?: boolean;
+}) {
   return (
-    <Pressable style={styles.settingItem} onPress={onPress}>
+    <Pressable style={[styles.settingItem, isLast && styles.settingItemLast]} onPress={onPress}>
       <Text style={OrialTypography.bodyMedium}>{title}</Text>
       <ChevronRight size={20} color={OrialColors.textMuted} />
     </Pressable>
@@ -192,26 +201,23 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 16,
   },
+  cardNoPadding: {
+    padding: 0,
+  },
   section: {
     marginTop: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    marginBottom: 12,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: OrialColors.glassBorder,
+  },
+  settingItemLast: {
+    borderBottomWidth: 0,
   },
   settingItemContent: {
     flexDirection: 'row',
