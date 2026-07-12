@@ -10,6 +10,7 @@ import { useDatabaseMigrations } from '../src/services/database';
 import { notificationService } from '../src/services/notificationService';
 import { widgetService } from '../src/services/widgetService';
 import { startSyncScheduler } from '../src/services/syncScheduler';
+import { useNfcWaterQueueDrain } from '../src/hooks/useNfcWaterQueueDrain';
 import { OrialColors } from '../src/utils/colors';
 import { useAppStore } from '../src/stores/appStore';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
@@ -87,7 +88,7 @@ function AppLayout() {
     return stopSync;
   }, []);
 
-  // Update widgets when app goes to background
+  // Update widgets when app goes to background.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background') {
@@ -100,6 +101,10 @@ function AppLayout() {
       subscription.remove();
     };
   }, []);
+
+  // Drain any NFC water queue entries into the DB on cold start and every time
+  // the app returns to the foreground.
+  useNfcWaterQueueDrain();
 
   if (!fontsLoaded || (!success && !error) || authLoading) {
     return (

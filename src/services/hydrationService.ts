@@ -3,6 +3,7 @@ import { hydration, sodiumIntake, type Hydration, type NewHydration, type NewSod
 import { eq, and, gte, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import { hydrationProfileService } from './hydrationProfileService';
+import { writeHydrationBaseline } from './nfcWaterQueue';
 
 const SODIO_PER_LITER_EXTRA = 2300; // mg de sodio que requieren 1L extra
 
@@ -58,6 +59,12 @@ export class HydrationService {
         updatedAt: new Date(),
       })
       .where(eq(hydration.date, date));
+
+    try {
+      await writeHydrationBaseline(date, (record.consumedLiters || 0) + liters);
+    } catch (error) {
+      console.warn('Failed to write hydration baseline:', error);
+    }
   }
 
   async addSodiumIntake(entry: Omit<NewSodiumIntake, 'id' | 'createdAt'>): Promise<void> {
@@ -121,7 +128,7 @@ export class HydrationService {
     await this.addWater(today, ml / 1000, beverageType);
   }
 
-  async getProgress(date?: string): Promise<{ current: number; target: number; percentage: number }> {
+  async getProgress(date?: string): Promise<{ current: number; target: number; percentage: number; consumedLiters: number }> {
     const targetDate = date || new Date().toISOString().split('T')[0];
     const record = await this.getOrCreateForDate(targetDate);
 
@@ -129,6 +136,7 @@ export class HydrationService {
       current: record.effectiveLiters || 0,
       target: record.targetLiters || 3.0,
       percentage: Math.min(100, ((record.effectiveLiters || 0) / (record.targetLiters || 3.0)) * 100),
+      consumedLiters: record.consumedLiters || 0,
     };
   }
 
