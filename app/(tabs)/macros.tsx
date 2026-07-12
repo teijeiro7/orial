@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { GlassCard } from '../../src/components/GlassCard';
 import { Ring } from '../../src/components/Ring';
+import { ProgressBar } from '../../src/components/ProgressBar';
 import { OrialColors } from '../../src/utils/colors';
 import { nutritionService } from '../../src/services/nutritionService';
 import { agentService } from '../../src/services/openclawService';
@@ -132,14 +133,14 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
         {loading ? (
           <View style={styles.skeletonContainer}>
             <GlassCard style={styles.calorieCard}>
-              <View style={styles.calorieRingRow}>
-                <SkeletonBlock width={152} height={152} style={{ borderRadius: 76 }} />
-                <View style={{ gap: 8 }}>
-                  <SkeletonBlock width={40} height={8} style={{ borderRadius: 4 }} />
-                  <SkeletonBlock width={64} height={20} style={{ borderRadius: 4 }} />
+              <View style={styles.calorieRow}>
+                <View>
+                  <SkeletonBlock width={90} height={32} style={{ borderRadius: 6, marginBottom: 6 }} />
                   <SkeletonBlock width={50} height={8} style={{ borderRadius: 4 }} />
                 </View>
+                <SkeletonBlock width={70} height={44} style={{ borderRadius: 12 }} />
               </View>
+              <SkeletonBlock width="100%" height={4} style={{ borderRadius: 2, marginTop: 12 }} />
             </GlassCard>
             <GlassCard style={styles.macroStripCard}>
               <View style={styles.macroStrip}>
@@ -156,17 +157,18 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
         ) : !nutrition ? (
           <>
             <GlassCard style={styles.calorieCard}>
-              <View style={styles.calorieRingRow}>
-                <Ring pct={0} size={152} strokeWidth={12} color={OrialColors.textMuted} trackColor={OrialColors.surfaceElevated}>
-                  <Text style={[styles.calorieRingValue, { color: OrialColors.textMuted }]}>0</Text>
-                  <Text style={styles.calorieRingLabel}>kcal</Text>
-                </Ring>
+              <View style={styles.calorieRow}>
+                <View>
+                  <Text style={[styles.calorieValue, { color: OrialColors.textMuted }]}>0</Text>
+                  <Text style={styles.calorieValueLabel}>KCAL HOY</Text>
+                </View>
                 <View style={styles.calorieGoalBox}>
                   <Text style={styles.calorieGoalLabel}>GOAL</Text>
                   <Text style={styles.calorieGoalValue}>{GOALS.calories}</Text>
                   <Text style={styles.calorieGoalSub}>{GOALS.calories} left</Text>
                 </View>
               </View>
+              <ProgressBar pct={0} color={OrialColors.textMuted} />
             </GlassCard>
 
             <GlassCard style={styles.emptyCard}>
@@ -203,11 +205,11 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
         ) : (
           <>
             <GlassCard style={styles.calorieCard}>
-              <View style={styles.calorieRingRow}>
-                <Ring pct={calPct * 100} size={152} strokeWidth={12} color={calColor} trackColor={OrialColors.surfaceElevated}>
-                  <Text style={[styles.calorieRingValue, { color: calColor }]}>{nutrition.totalCalories ?? 0}</Text>
-                  <Text style={styles.calorieRingLabel}>kcal</Text>
-                </Ring>
+              <View style={styles.calorieRow}>
+                <View>
+                  <Text style={[styles.calorieValue, { color: calColor }]}>{nutrition.totalCalories ?? 0}</Text>
+                  <Text style={styles.calorieValueLabel}>KCAL HOY</Text>
+                </View>
                 <View style={styles.calorieGoalBox}>
                   <Text style={styles.calorieGoalLabel}>GOAL</Text>
                   <Text style={styles.calorieGoalValue}>{GOALS.calories}</Text>
@@ -216,6 +218,7 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
                   </Text>
                 </View>
               </View>
+              <ProgressBar pct={calPct * 100} color={calColor} />
             </GlassCard>
 
             <GlassCard style={styles.macroStripCard}>
@@ -308,9 +311,9 @@ const styles = StyleSheet.create({
   headerDate: { fontSize: 10, letterSpacing: 1.6, color: OrialColors.textMuted, marginTop: 4, fontFamily: 'Inter-Medium' },
   skeletonContainer: { gap: 10 },
   calorieCard: { marginHorizontal: 16, marginBottom: 10, padding: 20 },
-  calorieRingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  calorieRingValue: { fontSize: 26, fontWeight: '700', letterSpacing: -0.8, fontFamily: 'Inter-Bold' },
-  calorieRingLabel: { fontSize: 10, letterSpacing: 1, color: OrialColors.textMuted, marginTop: 2, fontFamily: 'Inter-Medium' },
+  calorieRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },
+  calorieValue: { fontSize: 36, fontWeight: '700', letterSpacing: -1, lineHeight: 38, fontFamily: 'Inter-Bold' },
+  calorieValueLabel: { fontSize: 9, letterSpacing: 1.2, color: OrialColors.textMuted, marginTop: 3, fontFamily: 'Inter-Medium' },
   calorieGoalBox: { alignItems: 'flex-end', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: OrialColors.surfaceElevated, borderRadius: 12, borderWidth: 1, borderColor: OrialColors.border },
   calorieGoalLabel: { fontSize: 8, letterSpacing: 1.2, color: OrialColors.textMuted, fontFamily: 'Inter-Medium' },
   calorieGoalValue: { fontSize: 20, fontWeight: '700', color: OrialColors.textSecondary, fontFamily: 'Inter-Bold', letterSpacing: -0.5 },
