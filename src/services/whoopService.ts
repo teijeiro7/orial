@@ -4,14 +4,15 @@ import { eq, and, gte, lte } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import * as SecureStore from 'expo-secure-store';
 import { todayDateString, dateString } from '../utils/date';
+import { supabaseService } from './supabaseService';
 
 const STORE_KEY_ACCESS = 'whoop_access_token';
 const STORE_KEY_REFRESH = 'whoop_refresh_token';
 const STORE_KEY_EXPIRES = 'whoop_expires_at';
 
 const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
-const WHOOP_TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
 const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer/v2';
+const WHOOP_TOKEN_EDGE_FUNCTION = 'whoop-token';
 
 function getRequiredEnv(key: string): string {
   const value = process.env[key];
@@ -21,10 +22,7 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
-// NOTE: CLIENT_SECRET will be removed when plan 006 (Edge Function) lands.
-// For now, keep it to avoid breaking the existing flow.
 const CLIENT_ID = getRequiredEnv('EXPO_PUBLIC_WHOOP_CLIENT_ID');
-const CLIENT_SECRET = process.env.EXPO_PUBLIC_WHOOP_CLIENT_SECRET!;
 const REDIRECT_URI = 'orial://whoop/callback';
 
 const SCOPES = [
@@ -173,24 +171,17 @@ export class WhoopService {
   }
 
   async handleCallback(code: string): Promise<void> {
-    const response = await fetch(WHOOP_TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
+    const { data, error } = await supabaseService.getClient().functions.invoke(WHOOP_TOKEN_EDGE_FUNCTION, {
+      body: {
         grant_type: 'authorization_code',
         code,
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
         redirect_uri: REDIRECT_URI,
-      }).toString(),
+      },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Whoop token exchange failed: ${response.status} ${errorText}`);
+    if (error) {
+      throw new Error(`Whoop token exchange failed: ${error.message}`);
     }
-
-    const data = await response.json();
 
     await this.saveAuthState({
       accessToken: data.access_token,
@@ -204,25 +195,19 @@ export class WhoopService {
     const state = await this.getAuthState();
     if (!state) throw new Error('Not connected to Whoop');
 
-    const response = await fetch(WHOOP_TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
+    const { data, error } = await supabaseService.getClient().functions.invoke(WHOOP_TOKEN_EDGE_FUNCTION, {
+      body: {
         grant_type: 'refresh_token',
         refresh_token: state.refreshToken,
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        scope: 'offline',
-      }).toString(),
+      },
     });
 
-    if (!response.ok) {
-      console.error('[Whoop] refresh failed:', response.status, response.statusText);
+    if (error) {
+      console.error('[Whoop] refresh failed:', error.message);
       await this.clearAuthState();
-      throw new Error(`Failed to refresh Whoop token: ${response.status}`);
+      throw new Error(`Failed to refresh Whoop token: ${error.message}`);
     }
 
-    const data = await response.json();
     await this.saveAuthState({
       accessToken: data.access_token,
       refreshToken: data.refresh_token,

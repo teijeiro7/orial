@@ -15,6 +15,7 @@
   "exclude": [
     "node_modules",
     "notebooklm-mcp",
-    "dist"
+    "dist",
+    "supabase/functions"
   ]
 }
