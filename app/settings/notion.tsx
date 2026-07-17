@@ -155,7 +155,7 @@ export function NotionSettingsScreen({ visible, onClose }: NotionSettingsScreenP
     setSyncStatus('syncing');
     try {
       // TODO: Implement full sync logic
-      // This would sync all local habits to Notion
+      // This would sync all local data to Notion
       setTimeout(() => {
         setSyncStatus('success');
         setTimeout(() => setSyncStatus('idle'), 2000);
@@ -246,12 +246,8 @@ export function NotionSettingsScreen({ visible, onClose }: NotionSettingsScreenP
               
               <View style={styles.databaseList}>
                 <View style={styles.databaseItem}>
-                  <Text style={OrialTypography.bodySmall}>Orial — Habits</Text>
-                  <Text style={OrialTypography.caption}>Stores all your habits</Text>
-                </View>
-                <View style={styles.databaseItem}>
-                  <Text style={OrialTypography.bodySmall}>Orial — Daily Logs</Text>
-                  <Text style={OrialTypography.caption}>Tracks daily completions</Text>
+                  <Text style={OrialTypography.bodySmall}>Orial — Data</Text>
+                  <Text style={OrialTypography.caption}>Stores your synced records</Text>
                 </View>
               </View>
             </GlassCard>
@@ -263,7 +259,7 @@ export function NotionSettingsScreen({ visible, onClose }: NotionSettingsScreenP
                 Connect to Notion
               </Text>
               <Text style={[OrialTypography.bodyMedium, styles.connectDescription]}>
-                Sync your habits and daily logs with your Notion workspace. Changes are bidirectional.
+                Sync your data with your Notion workspace. Changes are bidirectional.
               </Text>
               
               <View style={styles.features}>

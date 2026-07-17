@@ -37,7 +37,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
         
         <Text style={OrialTypography.headingMedium}>Stay on Track</Text>
         <Text style={[OrialTypography.bodyMedium, styles.description]}>
-          Get gentle reminders to complete your habits and maintain your streaks.
+          Get gentle reminders to stay on track with your goals.
         </Text>
       </View>
 
@@ -52,7 +52,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
         </View>
         <View style={styles.feature}>
           <Check size={16} color={OrialColors.success} />
-          <Text style={OrialTypography.bodySmall}>Smart timing based on habit schedule</Text>
+          <Text style={OrialTypography.bodySmall}>Smart timing based on your schedule</Text>
         </View>
       </GlassCard>
 
@@ -70,7 +70,7 @@ export function NotificationsStep({ onNext, onSkip }: NotificationsStepProps) {
       {permissionStatus === 'denied' && (
         <GlassCard style={styles.warningCard}>
           <Text style={[OrialTypography.bodySmall, { color: OrialColors.warning }]}>
-            Notifications are blocked. Please enable them in your device settings to receive habit reminders.
+            Notifications are blocked. Please enable them in your device settings to receive reminders.
           </Text>
         </GlassCard>
       )}

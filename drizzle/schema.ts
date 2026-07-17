@@ -14,6 +14,7 @@ export const habits = sqliteTable('habits', {
   color: text('color'),
   isArchived: integer('is_archived', { mode: 'boolean' }).notNull().default(false),
   isAiSuggested: integer('is_ai_suggested', { mode: 'boolean' }).notNull().default(false),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const habitEntries = sqliteTable('habit_entries', {
@@ -25,6 +26,7 @@ export const habitEntries = sqliteTable('habit_entries', {
   note: text('note'),
   notionEntryId: text('notion_entry_id'),
   isSynced: integer('is_synced', { mode: 'boolean' }).notNull().default(false),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const reminders = sqliteTable('reminders', {
@@ -68,6 +70,7 @@ export const whoopTokens = sqliteTable('whoop_tokens', {
   scope: text('scope'),
   whoopUserId: integer('whoop_user_id'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const whoopDaily = sqliteTable('whoop_daily', {
@@ -97,6 +100,7 @@ export const bodyMetrics = sqliteTable('body_metrics', {
   notes: text('notes'),
   photoUri: text('photo_uri'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const pedometerHistory = sqliteTable('pedometer_history', {
@@ -123,6 +127,7 @@ export const sodiumIntake = sqliteTable('sodium_intake', {
   mealType: text('meal_type'),
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const supplements = sqliteTable('supplements', {
@@ -133,6 +138,7 @@ export const supplements = sqliteTable('supplements', {
   reminderTime: text('reminder_time'),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const supplementLogs = sqliteTable('supplement_logs', {
@@ -144,6 +150,7 @@ export const supplementLogs = sqliteTable('supplement_logs', {
   skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const manualMetrics = sqliteTable('manual_metrics', {
@@ -191,6 +198,7 @@ export const nutritionLogs = sqliteTable('nutrition_logs', {
   fiberG: integer('fiber_g'),
   rawData: text('raw_data'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export type Habit = typeof habits.$inferSelect;
@@ -238,6 +246,7 @@ export const tasks = sqliteTable('tasks', {
   pushedFrom: text('pushed_from'), // original date if migrated via push-to-tomorrow
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 // ── Gym (Progressive Overload) ───────────────────────────────────────────────
@@ -249,6 +258,7 @@ export const gymRoutines = sqliteTable('gym_routines', {
   days: text('days').notNull().default('[]'), // JSON [1,2,3,4,5,6,7] (1=Mon)
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const gymExercises = sqliteTable('gym_exercises', {
@@ -261,7 +271,11 @@ export const gymExercises = sqliteTable('gym_exercises', {
   currentWeightKg: real('current_weight_kg').notNull().default(0),
   incrementKg: real('increment_kg').notNull().default(2.5),
   orderIndex: integer('order_index').notNull().default(0),
+  swapGroup: text('swap_group'), // same group = interchangeable exercises
+  oneRmEstimated: real('one_rm_estimated'), // auto-estimated 1RM (Epley)
+  lastSwappedAt: integer('last_swapped_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const gymSessions = sqliteTable('gym_sessions', {
@@ -270,6 +284,7 @@ export const gymSessions = sqliteTable('gym_sessions', {
   date: text('date').notNull(), // YYYY-MM-DD
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const gymSets = sqliteTable('gym_sets', {
@@ -280,6 +295,7 @@ export const gymSets = sqliteTable('gym_sets', {
   reps: integer('reps').notNull(),
   weightKg: real('weight_kg').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 // ── Finance ──────────────────────────────────────────────────────────────────
@@ -308,19 +324,7 @@ export const financeSubscriptions = sqliteTable('finance_subscriptions', {
   autoDeduct: integer('auto_deduct', { mode: 'boolean' }).notNull().default(false),
   lastBilledDate: text('last_billed_date'), // YYYY-MM-DD
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-});
-
-export const financeOrders = sqliteTable('finance_orders', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  amount: real('amount').notNull(),
-  currency: text('currency').notNull().default('EUR'),
-  accountId: text('account_id').references(() => financeAccounts.id, { onDelete: 'set null' }),
-  orderDate: text('order_date').notNull(), // YYYY-MM-DD
-  estimatedDeliveryDate: text('estimated_delivery_date'), // YYYY-MM-DD
-  deliveredAt: integer('delivered_at', { mode: 'timestamp' }),
-  status: text('status').notNull().default('pending'), // pending | shipped | delivered
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const financeWishlist = sqliteTable('finance_wishlist', {
@@ -332,6 +336,7 @@ export const financeWishlist = sqliteTable('finance_wishlist', {
   notes: text('notes'),
   priority: integer('priority').notNull().default(0), // 0=normal 1=high
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 // ── Hydration Profile (dynamic calculator) ───────────────────────────────────
@@ -345,6 +350,35 @@ export const hydrationProfile = sqliteTable('hydration_profile', {
   caffeineMgPerDay: integer('caffeine_mg_per_day').notNull().default(0),
   stimulantMeds: integer('stimulant_meds', { mode: 'boolean' }).notNull().default(false),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// ── Caffeine ─────────────────────────────────────────────────────────────────
+
+export const caffeineLogs = sqliteTable('caffeine_logs', {
+  id: text('id').primaryKey(),
+  source: text('source').notNull().default('manual'), // manual, coffee, energy_drink, supplement, tea
+  caffeineMg: integer('caffeine_mg').notNull(),
+  timestamp: integer('timestamp', { mode: 'timestamp_ms' }).notNull(),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  modifiedAt: integer('modified_at').notNull().default(0),
+});
+
+// ── Insights (Jarvis) ─────────────────────────────────────────────────────────
+// Populated by Jarvis (server-side, out of this repo) writing directly to
+// Supabase; the app pulls them via syncService. See src/services/insightService.ts
+// for the read-side API and the documented Jarvis generation contract.
+
+export const insightLogs = sqliteTable('insight_logs', {
+  id: text('id').primaryKey(),
+  generatedAt: integer('generated_at', { mode: 'timestamp' }).notNull(),
+  category: text('category').notNull(), // sleep, gym, finance, nutrition, caffeine, mixed
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  severity: text('severity').notNull().default('info'), // info, warning, critical
+  dismissed: integer('dismissed', { mode: 'boolean' }).notNull().default(false),
+  sourceAgent: text('source_agent').notNull().default('jarvis'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
 // ── New types ────────────────────────────────────────────────────────────────
@@ -363,9 +397,11 @@ export type FinanceAccount = typeof financeAccounts.$inferSelect;
 export type NewFinanceAccount = typeof financeAccounts.$inferInsert;
 export type FinanceSubscription = typeof financeSubscriptions.$inferSelect;
 export type NewFinanceSubscription = typeof financeSubscriptions.$inferInsert;
-export type FinanceOrder = typeof financeOrders.$inferSelect;
-export type NewFinanceOrder = typeof financeOrders.$inferInsert;
 export type FinanceWishlistItem = typeof financeWishlist.$inferSelect;
 export type NewFinanceWishlistItem = typeof financeWishlist.$inferInsert;
 export type HydrationProfile = typeof hydrationProfile.$inferSelect;
 export type NewHydrationProfile = typeof hydrationProfile.$inferInsert;
+export type CaffeineLog = typeof caffeineLogs.$inferSelect;
+export type NewCaffeineLog = typeof caffeineLogs.$inferInsert;
+export type InsightLog = typeof insightLogs.$inferSelect;
+export type NewInsightLog = typeof insightLogs.$inferInsert;

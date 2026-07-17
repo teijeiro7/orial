@@ -2,48 +2,30 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Switch, Image, Alert } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { GlassCard } from '../../src/components/GlassCard';
-import { ReminderCreationSheet } from '../../src/components/ReminderCreationSheet';
+import { SectionLabel } from '../../src/components/SectionLabel';
 import { NotionSettingsScreen } from '../settings/notion';
 import { CalendarSettingsScreen } from '../settings/calendar';
 import { JarvisSettingsScreen } from '../settings/jarvis';
-import { useHabitStore } from '../../src/stores/habitStore';
 import { useAppStore } from '../../src/stores/appStore';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
-import { ChevronRight, Bell, Trash2, RotateCcw, User, LogOut } from 'lucide-react-native';
+import { ChevronRight, RotateCcw, User, LogOut } from 'lucide-react-native';
 import { useAuth } from '../../src/context/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { habits, reminders, loadReminders, loadHabits, deleteReminder } = useHabitStore();
   const { setOnboardingCompleted } = useAppStore();
   const { user, logout } = useAuth();
-  const [isReminderSheetVisible, setIsReminderSheetVisible] = useState(false);
   const [isNotionVisible, setIsNotionVisible] = useState(false);
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
   const [isJarvisVisible, setIsJarvisVisible] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  useEffect(() => {
-    loadHabits();
-    loadReminders();
-  }, []);
-
   async function handleLogout() {
     await logout();
     router.replace('/login');
   }
-
-  const getDayLabels = (daysJson: string) => {
-    try {
-      const days = JSON.parse(daysJson);
-      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      return days.map((d: number) => dayNames[d - 1]).join(', ');
-    } catch {
-      return 'Daily';
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -71,8 +53,8 @@ export default function SettingsScreen() {
           </Pressable>
         )}
         
-        <GlassCard style={styles.card}>
-          <View style={styles.settingItem}>
+        <GlassCard style={[styles.card, styles.cardNoPadding]}>
+          <View style={[styles.settingItem, styles.settingItemLast]}>
             <Text style={OrialTypography.bodyMedium}>Notifications</Text>
             <Switch
               value={notificationsEnabled}
@@ -83,65 +65,21 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        <View style={styles.sectionHeader}>
-          <Text style={OrialTypography.headingSmall}>Reminders</Text>
-          <Pressable 
-            style={styles.addButton}
-            onPress={() => setIsReminderSheetVisible(true)}
-          >
-            <Text style={[OrialTypography.caption, { color: OrialColors.textPrimary }]}>+ Add</Text>
-          </Pressable>
-        </View>
-
-        {reminders.length === 0 ? (
-          <GlassCard style={styles.emptyCard}>
-            <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>
-              No reminders yet. Tap "+ Add" to create one!
-            </Text>
-          </GlassCard>
-        ) : (
-          <View style={styles.remindersList}>
-            {reminders.map(reminder => {
-              const habit = habits.find(h => h.id === reminder.habitId);
-              return (
-                <GlassCard key={reminder.id} style={styles.reminderItem}>
-                  <View style={styles.reminderRow}>
-                    <View style={styles.reminderInfo}>
-                      <Text style={OrialTypography.bodyMedium}>
-                        {habit?.emoji} {habit?.name || 'Unknown Habit'}
-                      </Text>
-                      <Text style={OrialTypography.caption}>
-                        {reminder.time} · {getDayLabels(reminder.days)}
-                      </Text>
-                    </View>
-                    <Pressable 
-                      onPress={() => deleteReminder(reminder.id)}
-                      style={styles.deleteButton}
-                    >
-                      <Trash2 size={18} color={OrialColors.error} />
-                    </Pressable>
-                  </View>
-                </GlassCard>
-              );
-            })}
-          </View>
-        )}
-
         <View style={styles.section}>
-          <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Integrations</Text>
-          <GlassCard>
+          <SectionLabel label="Integrations" />
+          <GlassCard style={styles.cardNoPadding}>
             <SettingItem title="Notion Sync" onPress={() => setIsNotionVisible(true)} />
             <SettingItem title="Calendar" onPress={() => setIsCalendarVisible(true)} />
             <SettingItem title="JARVIS / OpenClaw" onPress={() => setIsJarvisVisible(true)} />
-            <SettingItem title="Appearance" />
+            <SettingItem title="Appearance" isLast />
           </GlassCard>
         </View>
 
         <View style={styles.section}>
-          <Text style={[OrialTypography.headingSmall, styles.sectionTitle]}>Getting Started</Text>
-          <GlassCard>
-            <Pressable 
-              style={styles.settingItem} 
+          <SectionLabel label="Getting Started" />
+          <GlassCard style={styles.cardNoPadding}>
+            <Pressable
+              style={[styles.settingItem, styles.settingItemLast]}
               onPress={() => {
                 setOnboardingCompleted(false);
                 router.replace('/onboarding');
@@ -160,9 +98,9 @@ export default function SettingsScreen() {
 
         {user && (
           <View style={styles.section}>
-            <GlassCard>
-              <Pressable 
-                style={styles.settingItem}
+            <GlassCard style={styles.cardNoPadding}>
+              <Pressable
+                style={[styles.settingItem, styles.settingItemLast]}
                 onPress={() => {
                   Alert.alert(
                     'Sign Out',
@@ -200,27 +138,21 @@ export default function SettingsScreen() {
         visible={isJarvisVisible}
         onClose={() => setIsJarvisVisible(false)}
       />
-
-      <ReminderCreationSheet
-        visible={isReminderSheetVisible}
-        onClose={() => setIsReminderSheetVisible(false)}
-        habits={habits}
-        onSave={async (reminderData) => {
-          const { createReminder } = useHabitStore.getState();
-          await createReminder({
-            ...reminderData,
-            days: JSON.stringify(reminderData.days),
-            calendarEventId: null,
-          });
-        }}
-      />
     </SafeAreaView>
   );
 }
 
-function SettingItem({ title, onPress }: { title: string; onPress?: () => void }) {
+function SettingItem({
+  title,
+  onPress,
+  isLast,
+}: {
+  title: string;
+  onPress?: () => void;
+  isLast?: boolean;
+}) {
   return (
-    <Pressable style={styles.settingItem} onPress={onPress}>
+    <Pressable style={[styles.settingItem, isLast && styles.settingItemLast]} onPress={onPress}>
       <Text style={OrialTypography.bodyMedium}>{title}</Text>
       <ChevronRight size={20} color={OrialColors.textMuted} />
     </Pressable>
@@ -269,32 +201,23 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 16,
   },
+  cardNoPadding: {
+    padding: 0,
+  },
   section: {
     marginTop: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    marginBottom: 12,
-  },
-  addButton: {
-    backgroundColor: OrialColors.violet,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: OrialColors.glassBorder,
+  },
+  settingItemLast: {
+    borderBottomWidth: 0,
   },
   settingItemContent: {
     flexDirection: 'row',
@@ -303,32 +226,6 @@ const styles = StyleSheet.create({
   },
   settingItemText: {
     marginLeft: 4,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    padding: 32,
-    marginBottom: 16,
-  },
-  emptyText: {
-    textAlign: 'center',
-  },
-  remindersList: {
-    gap: 8,
-    marginBottom: 16,
-  },
-  reminderItem: {
-    padding: 16,
-  },
-  reminderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  reminderInfo: {
-    flex: 1,
-  },
-  deleteButton: {
-    padding: 8,
   },
   logoutText: {
     color: '#EF4444',

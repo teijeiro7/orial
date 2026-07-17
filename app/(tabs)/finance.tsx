@@ -13,22 +13,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Plus,
   Trash2,
-  Check,
-  Star,
-  TrendingUp,
   CreditCard,
   ShoppingBag,
+  Tv,
+  Dumbbell,
   Heart,
   AlertCircle,
-  Package,
+  Clock,
+  ChevronRight,
+  Landmark,
+  Bitcoin,
+  TrendingUp,
+  Home,
+  Briefcase,
 } from 'lucide-react-native';
 import { GlassCard } from '../../src/components/GlassCard';
+import { NetWorthCard } from '../../src/components/NetWorthCard';
+import { Donut } from '../../src/components/Donut';
+import { SegmentedTabs } from '../../src/components/SegmentedTabs';
+import { OnePercentRule } from '../../src/components/OnePercentRule';
 import { financeService } from '../../src/services/financeService';
+import type { NetWorthSummary, SubscriptionAlert, WishlistProgressItem } from '../../src/services/financeService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
-import type { FinanceAccount, FinanceSubscription, FinanceOrder, FinanceWishlistItem } from '../../drizzle/schema';
+import type { FinanceAccount, FinanceSubscription, FinanceWishlistItem } from '../../drizzle/schema';
 
-type SubTab = 'networth' | 'subscriptions' | 'orders' | 'wishlist';
+type SubTab = 'networth' | 'subscriptions' | 'wishlist';
+const SUB_TAB_KEYS: SubTab[] = ['networth', 'subscriptions', 'wishlist'];
+const SUB_TAB_LABELS = ['Net Worth', 'Subs', 'Wishlist'];
 
 const ACCOUNT_TYPES = [
   { value: 'bank', label: 'Bank', icon: '🏦' },
@@ -46,20 +58,48 @@ const ACCOUNT_TYPE_COLORS: Record<string, string> = {
   other: '#6B7280',
 };
 
+const ACCOUNT_TYPE_ICONS: Record<string, typeof Landmark> = {
+  bank: Landmark,
+  crypto: Bitcoin,
+  stocks: TrendingUp,
+  real_estate: Home,
+  other: Briefcase,
+};
+
 const SUB_CATEGORIES = ['streaming', 'software', 'fitness', 'other'];
+
+const SUB_CATEGORY_COLORS: Record<string, string> = {
+  streaming: OrialColors.categorySocial,
+  software: OrialColors.categoryWork,
+  fitness: OrialColors.categoryFitness,
+  other: OrialColors.categoryOther,
+};
+
+const SUB_CATEGORY_ICONS: Record<string, typeof Tv> = {
+  streaming: Tv,
+  software: CreditCard,
+  fitness: Dumbbell,
+  other: ShoppingBag,
+};
 
 export default function FinanceScreen() {
   const [activeTab, setActiveTab] = useState<SubTab>('networth');
   const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [subscriptions, setSubscriptions] = useState<FinanceSubscription[]>([]);
-  const [orders, setOrders] = useState<FinanceOrder[]>([]);
   const [wishlist, setWishlist] = useState<FinanceWishlistItem[]>([]);
   const [netWorth, setNetWorth] = useState(0);
+  const [netWorthSummary, setNetWorthSummary] = useState<NetWorthSummary>({
+    total: 0,
+    accounts: 0,
+    crypto: 0,
+    stocks: 0,
+  });
+  const [subscriptionAlerts, setSubscriptionAlerts] = useState<SubscriptionAlert[]>([]);
+  const [wishlistProgress, setWishlistProgress] = useState<WishlistProgressItem[]>([]);
 
   // Add modals
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [showAddSub, setShowAddSub] = useState(false);
-  const [showAddOrder, setShowAddOrder] = useState(false);
   const [showAddWish, setShowAddWish] = useState(false);
 
   // Account form
@@ -77,33 +117,32 @@ export default function FinanceScreen() {
   const [subAutoDeduct, setSubAutoDeduct] = useState(false);
   const [subAccountId, setSubAccountId] = useState('');
 
-  // Order form
-  const [orderName, setOrderName] = useState('');
-  const [orderAmount, setOrderAmount] = useState('');
-  const [orderAccountId, setOrderAccountId] = useState('');
-  const [orderDelivery, setOrderDelivery] = useState('');
-
   // Wishlist form
   const [wishName, setWishName] = useState('');
   const [wishPrice, setWishPrice] = useState('');
   const [wishUrl, setWishUrl] = useState('');
 
   const loadAll = useCallback(async () => {
-    const [accs, subs, ords, wish] = await Promise.all([
+    const [accs, subs, wish, summary, alerts, wishProgress] = await Promise.all([
       financeService.getAccounts(),
       financeService.getSubscriptions(),
-      financeService.getOrders(),
       financeService.getWishlist(),
+      financeService.getNetWorth(),
+      financeService.getSubscriptionAlert(),
+      financeService.getWishlistProgress(),
     ]);
     setAccounts(accs);
     setSubscriptions(subs);
-    setOrders(ords);
     setWishlist(wish);
     setNetWorth(financeService.getTotalNetWorth(accs));
+    setNetWorthSummary(summary);
+    setSubscriptionAlerts(alerts);
+    setWishlistProgress(wishProgress);
   }, []);
 
   useEffect(() => {
     loadAll();
+    financeService.checkAlerts();
   }, []);
 
   // ── Account handlers ──────────────────────────────────────────────────────
@@ -150,26 +189,6 @@ export default function FinanceScreen() {
     loadAll();
   }
 
-  // ── Order handlers ────────────────────────────────────────────────────────
-
-  async function handleAddOrder() {
-    if (!orderName.trim() || !orderAmount) return;
-    await financeService.createOrder({
-      name: orderName.trim(),
-      amount: parseFloat(orderAmount),
-      accountId: orderAccountId || undefined,
-      estimatedDeliveryDate: orderDelivery || undefined,
-    });
-    setOrderName(''); setOrderAmount(''); setOrderAccountId(''); setOrderDelivery('');
-    setShowAddOrder(false);
-    loadAll();
-  }
-
-  async function handleMarkDelivered(id: string) {
-    await financeService.markDelivered(id);
-    loadAll();
-  }
-
   // ── Wishlist handlers ─────────────────────────────────────────────────────
 
   async function handleAddWish() {
@@ -190,10 +209,10 @@ export default function FinanceScreen() {
     return `${currency} ${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
-  function subAlertColor(days: number): string {
-    if (days <= 3) return OrialColors.error;
-    if (days <= 7) return OrialColors.warning;
-    return OrialColors.textMuted;
+  /** Short "18.2K" style value for the donut's center label. */
+  function formatCompact(amount: number): string {
+    if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(1)}K`;
+    return amount.toFixed(0);
   }
 
   // ── Pie chart (simple bar representation) ────────────────────────────────
@@ -204,78 +223,104 @@ export default function FinanceScreen() {
     return { ...t, total, pct: netWorth > 0 ? (total / netWorth) * 100 : 0 };
   }).filter((t) => t.total > 0);
 
+  const nextBill = [...subscriptionAlerts].sort((a, b) => a.daysUntilBilling - b.daysUntilBilling)[0];
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Sub-tab bar */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabScroll}
-        contentContainerStyle={styles.tabContainer}
-      >
-        {(['networth', 'subscriptions', 'orders', 'wishlist'] as SubTab[]).map((t) => (
-          <Pressable
-            key={t}
-            style={[styles.tab, activeTab === t && styles.tabActive]}
-            onPress={() => setActiveTab(t)}
-          >
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
-              {t === 'networth' ? 'Net Worth' : t.charAt(0).toUpperCase() + t.slice(1)}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <View style={styles.tabWrap}>
+        <SegmentedTabs
+          tabs={SUB_TAB_LABELS}
+          activeIndex={SUB_TAB_KEYS.indexOf(activeTab)}
+          onChange={(index) => setActiveTab(SUB_TAB_KEYS[index])}
+        />
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* ── NET WORTH ──────────────────────────────────────────── */}
         {activeTab === 'networth' && (
           <>
-            <View style={styles.header}>
-              <View>
-                <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>Total Net Worth</Text>
-                <Text style={styles.netWorthAmount}>{formatCurrency(netWorth)}</Text>
-              </View>
-              <Pressable style={styles.addButton} onPress={() => setShowAddAccount(true)}>
-                <Plus size={20} color={OrialColors.textPrimary} />
-              </Pressable>
+            {/*
+              % change isn't tracked anywhere in financeService/schema (no
+              historical net-worth snapshots to diff against), so changePct is
+              omitted rather than passing a fake 0 — NetWorthCard hides the
+              trend pill entirely when it's not given.
+            */}
+            <View style={styles.netWorthCardWrap}>
+              <NetWorthCard balance={netWorth} />
             </View>
 
-            {/* Horizontal bar chart by type */}
+            {nextBill && (
+              <Pressable style={styles.nextBill} onPress={() => setActiveTab('subscriptions')}>
+                <View style={styles.nextBillLabel}>
+                  <Clock size={16} color={OrialColors.error} />
+                  <Text style={OrialTypography.caption}>
+                    {nextBill.name} se cobra {nextBill.daysUntilBilling <= 0 ? 'hoy' : `en ${nextBill.daysUntilBilling}d`}
+                  </Text>
+                </View>
+                <View style={styles.nextBillRight}>
+                  <Text style={[OrialTypography.caption, styles.nextBillAmount]}>
+                    {formatCurrency(nextBill.amount, nextBill.currency)}
+                  </Text>
+                  <ChevronRight size={16} color={OrialColors.textMuted} />
+                </View>
+              </Pressable>
+            )}
+
+            {/* Allocation donut, fed the same per-type percentages that drove the old bars */}
             {accountsByType.length > 0 && (
               <GlassCard style={styles.card}>
                 <Text style={[OrialTypography.caption, styles.sectionLabel]}>ALLOCATION</Text>
-                {accountsByType.map((t) => (
-                  <View key={t.value} style={styles.barRow}>
-                    <Text style={styles.barLabel}>{t.icon} {t.label}</Text>
-                    <View style={styles.barTrack}>
-                      <View
-                        style={[
-                          styles.barFill,
-                          {
-                            width: `${t.pct}%` as any,
-                            backgroundColor: ACCOUNT_TYPE_COLORS[t.value],
-                          },
-                        ]}
-                      />
+                <View style={styles.donutRow}>
+                  <View style={styles.donutWrap}>
+                    <Donut
+                      size={108}
+                      strokeWidth={14}
+                      segments={accountsByType.map((t) => ({
+                        pct: t.pct,
+                        color: ACCOUNT_TYPE_COLORS[t.value],
+                      }))}
+                    />
+                    <View style={styles.donutCenter} pointerEvents="none">
+                      <Text style={styles.donutCenterValue}>{formatCompact(netWorth)}</Text>
+                      <Text style={styles.donutCenterLabel}>EUR</Text>
                     </View>
-                    <Text style={styles.barPct}>{t.pct.toFixed(1)}%</Text>
                   </View>
-                ))}
+                  <View style={styles.legend}>
+                    {accountsByType.map((t) => (
+                      <View key={t.value} style={styles.legendRow}>
+                        <View style={[styles.legendDot, { backgroundColor: ACCOUNT_TYPE_COLORS[t.value] }]} />
+                        <Text style={styles.legendLabel}>{t.label}</Text>
+                        <Text style={styles.legendPct}>{t.pct.toFixed(1)}%</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
               </GlassCard>
             )}
 
             {/* Account list */}
+            <View style={styles.header}>
+              <Text style={OrialTypography.headingMedium}>Accounts</Text>
+              <Pressable style={styles.addButton} onPress={() => setShowAddAccount(true)}>
+                <Plus size={20} color={OrialColors.textPrimary} />
+              </Pressable>
+            </View>
             <View style={styles.section}>
               {accounts.length === 0 ? (
                 <GlassCard style={styles.emptyCard}>
                   <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>No accounts. Add one to start.</Text>
                 </GlassCard>
               ) : (
-                accounts.map((a) => (
+                accounts.map((a) => {
+                  const AccIcon = ACCOUNT_TYPE_ICONS[a.type] ?? Briefcase;
+                  return (
                   <GlassCard key={a.id} style={styles.accountCard}>
                     <View style={styles.accountRow}>
-                      <Text style={{ fontSize: 24 }}>{a.icon}</Text>
+                      <View style={[styles.accountIconCircle, { backgroundColor: ACCOUNT_TYPE_COLORS[a.type] + '2E' }]}>
+                        <AccIcon size={17} color={ACCOUNT_TYPE_COLORS[a.type]} />
+                      </View>
                       <View style={styles.accountInfo}>
                         <Text style={OrialTypography.bodyMedium}>{a.name}</Text>
                         <Text style={[OrialTypography.caption, { color: ACCOUNT_TYPE_COLORS[a.type] }]}>
@@ -295,9 +340,16 @@ export default function FinanceScreen() {
                       </Pressable>
                     </View>
                   </GlassCard>
-                ))
+                  );
+                })
               )}
             </View>
+
+            <OnePercentRule
+              netWorth={netWorthSummary}
+              subscriptionAlerts={subscriptionAlerts}
+              wishlistProgress={wishlistProgress}
+            />
           </>
         )}
 
@@ -319,108 +371,47 @@ export default function FinanceScreen() {
               </Pressable>
             </View>
 
-            <View style={styles.section}>
-              {subscriptions.length === 0 ? (
+            {subscriptions.length === 0 ? (
+              <View style={styles.section}>
                 <GlassCard style={styles.emptyCard}>
                   <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>No subscriptions tracked.</Text>
                 </GlassCard>
-              ) : (
-                subscriptions.map((s) => {
+              </View>
+            ) : (
+              <View style={styles.subGrid}>
+                {subscriptions.map((s) => {
                   const days = financeService.daysUntilBilling(s);
-                  const alertColor = subAlertColor(days);
+                  const badgeColor =
+                    days <= 0 ? OrialColors.error : days <= 7 ? OrialColors.warning : OrialColors.textMuted;
+                  const badgeLabel = days <= 0 ? 'TODAY' : `${days}D`;
+                  const catColor = SUB_CATEGORY_COLORS[s.category] ?? SUB_CATEGORY_COLORS.other;
+                  const CatIcon = SUB_CATEGORY_ICONS[s.category] ?? SUB_CATEGORY_ICONS.other;
                   return (
-                    <GlassCard
-                      key={s.id}
-                      style={[styles.subCard, days <= 3 && styles.subCardAlert]}
-                    >
-                      <View style={styles.subRow}>
-                        <View style={styles.subInfo}>
-                          <Text style={OrialTypography.bodyMedium}>{s.name}</Text>
-                          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                            {s.billingCycle} · day {s.billingDay} · {s.category}
-                          </Text>
-                        </View>
-                        <View style={styles.subRight}>
-                          <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textPrimary }]}>
-                            {formatCurrency(s.amount, s.currency)}
-                          </Text>
-                          <Text style={[OrialTypography.caption, { color: alertColor }]}>
-                            {days <= 0 ? 'Due today' : `${days}d`}
-                          </Text>
-                        </View>
-                        <Pressable
-                          onPress={async () => { await financeService.deleteSubscription(s.id); loadAll(); }}
-                          style={styles.deleteBtn}
-                        >
-                          <Trash2 size={16} color={OrialColors.textMuted} />
-                        </Pressable>
+                    <GlassCard key={s.id} style={styles.subTile}>
+                      <View style={[styles.subTileBadge, { backgroundColor: badgeColor + '33' }]}>
+                        <Text style={[styles.subTileBadgeText, { color: badgeColor }]}>
+                          {badgeLabel}
+                        </Text>
                       </View>
+                      <View style={[styles.subTileIcon, { backgroundColor: catColor + '2E' }]}>
+                        <CatIcon size={19} color={catColor} />
+                      </View>
+                      <Text style={OrialTypography.bodyMedium} numberOfLines={1}>{s.name}</Text>
+                      <Text style={[OrialTypography.caption, styles.subTileCycle]}>
+                        {s.billingCycle.charAt(0).toUpperCase() + s.billingCycle.slice(1)} · day {s.billingDay}
+                      </Text>
+                      <Text style={styles.subTilePrice}>{formatCurrency(s.amount, s.currency)}</Text>
+                      <Pressable
+                        onPress={async () => { await financeService.deleteSubscription(s.id); loadAll(); }}
+                        style={styles.subTileDelete}
+                      >
+                        <Trash2 size={14} color={OrialColors.textMuted} />
+                      </Pressable>
                     </GlassCard>
                   );
-                })
-              )}
-            </View>
-          </>
-        )}
-
-        {/* ── ORDERS ─────────────────────────────────────────────── */}
-        {activeTab === 'orders' && (
-          <>
-            <View style={styles.header}>
-              <Text style={OrialTypography.headingMedium}>Orders</Text>
-              <Pressable style={styles.addButton} onPress={() => setShowAddOrder(true)}>
-                <Plus size={20} color={OrialColors.textPrimary} />
-              </Pressable>
-            </View>
-
-            <View style={styles.section}>
-              {orders.length === 0 ? (
-                <GlassCard style={styles.emptyCard}>
-                  <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>No orders tracked.</Text>
-                </GlassCard>
-              ) : (
-                orders.map((o) => {
-                  const daysLeft = o.estimatedDeliveryDate
-                    ? Math.ceil((new Date(o.estimatedDeliveryDate).getTime() - Date.now()) / 86400000)
-                    : null;
-                  return (
-                    <GlassCard key={o.id} style={styles.orderCard}>
-                      <View style={styles.orderRow}>
-                        <Package size={20} color={o.status === 'delivered' ? OrialColors.success : OrialColors.textMuted} />
-                        <View style={styles.orderInfo}>
-                          <Text style={OrialTypography.bodyMedium}>{o.name}</Text>
-                          <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
-                            {o.orderDate}
-                            {daysLeft !== null && o.status !== 'delivered'
-                              ? daysLeft >= 0 ? ` · arrives in ${daysLeft}d` : ' · past est. delivery'
-                              : ''}
-                          </Text>
-                        </View>
-                        <View style={styles.orderRight}>
-                          <Text style={OrialTypography.caption}>
-                            {formatCurrency(o.amount, o.currency)}
-                          </Text>
-                          {o.status !== 'delivered' && (
-                            <Pressable
-                              style={styles.deliveredBtn}
-                              onPress={() => handleMarkDelivered(o.id)}
-                            >
-                              <Check size={12} color={OrialColors.textPrimary} />
-                            </Pressable>
-                          )}
-                        </View>
-                        <Pressable
-                          onPress={async () => { await financeService.deleteOrder(o.id); loadAll(); }}
-                          style={styles.deleteBtn}
-                        >
-                          <Trash2 size={16} color={OrialColors.textMuted} />
-                        </Pressable>
-                      </View>
-                    </GlassCard>
-                  );
-                })
-              )}
-            </View>
+                })}
+              </View>
+            )}
           </>
         )}
 
@@ -440,9 +431,11 @@ export default function FinanceScreen() {
                   <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>Your wishlist is empty.</Text>
                 </GlassCard>
               ) : (
-                wishlist.map((w) => {
-                  const pct = financeService.wishlistPercentage(w.price, netWorth);
-                  const safe = pct < 5;
+                wishlistProgress.map((w) => {
+                  // Affordability uses the same 1%-rule (getOnePercentRule via
+                  // getWishlistProgress) as the OnePercentRule widget below, so
+                  // this tab and that widget never disagree on the same item.
+                  const safe = w.isWithinBudget;
                   return (
                     <GlassCard key={w.id} style={styles.wishCard}>
                       <View style={styles.wishRow}>
@@ -464,7 +457,7 @@ export default function FinanceScreen() {
                               { color: safe ? OrialColors.success : OrialColors.warning, fontWeight: '700' },
                             ]}
                           >
-                            {pct}% NW
+                            {w.percentage.toFixed(1)}% NW
                           </Text>
                           {!safe && (
                             <AlertCircle size={14} color={OrialColors.warning} />
@@ -495,15 +488,18 @@ export default function FinanceScreen() {
             <TextInput style={styles.input} placeholder="Balance" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={accBalance} onChangeText={setAccBalance} />
             <TextInput style={styles.input} placeholder="Currency (EUR)" placeholderTextColor={OrialColors.textMuted} value={accCurrency} onChangeText={setAccCurrency} autoCapitalize="characters" />
             <View style={styles.typeRow}>
-              {ACCOUNT_TYPES.map((t) => (
-                <Pressable
-                  key={t.value}
-                  style={[styles.typeChip, accType === t.value && styles.typeChipActive]}
-                  onPress={() => setAccType(t.value)}
-                >
-                  <Text style={styles.typeChipText}>{t.icon}</Text>
-                </Pressable>
-              ))}
+              {ACCOUNT_TYPES.map((t) => {
+                const TypeIcon = ACCOUNT_TYPE_ICONS[t.value] ?? Briefcase;
+                return (
+                  <Pressable
+                    key={t.value}
+                    style={[styles.typeChip, accType === t.value && styles.typeChipActive]}
+                    onPress={() => setAccType(t.value)}
+                  >
+                    <TypeIcon size={18} color={accType === t.value ? '#fff' : OrialColors.textMuted} />
+                  </Pressable>
+                );
+              })}
             </View>
             <View style={styles.modalActions}>
               <Pressable style={styles.cancelBtn} onPress={() => setShowAddAccount(false)}>
@@ -550,7 +546,7 @@ export default function FinanceScreen() {
                   </Pressable>
                   {accounts.map((a) => (
                     <Pressable key={a.id} style={[styles.typeChip, subAccountId === a.id && styles.typeChipActive, { marginRight: 6 }]} onPress={() => setSubAccountId(a.id)}>
-                      <Text style={[OrialTypography.caption, { color: subAccountId === a.id ? '#fff' : OrialColors.textMuted }]}>{a.icon} {a.name}</Text>
+                      <Text style={[OrialTypography.caption, { color: subAccountId === a.id ? '#fff' : OrialColors.textMuted }]}>{a.name}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -561,38 +557,6 @@ export default function FinanceScreen() {
                 <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>Cancel</Text>
               </Pressable>
               <Pressable style={styles.saveBtn} onPress={handleAddSub}>
-                <Text style={OrialTypography.bodyMedium}>Add</Text>
-              </Pressable>
-            </View>
-          </GlassCard>
-        </View>
-      </Modal>
-
-      {/* ── Add Order Modal ────────────────────────────────────────────── */}
-      <Modal visible={showAddOrder} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
-            <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Order</Text>
-            <TextInput style={styles.input} placeholder="Item name" placeholderTextColor={OrialColors.textMuted} value={orderName} onChangeText={setOrderName} />
-            <TextInput style={styles.input} placeholder="Amount paid" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={orderAmount} onChangeText={setOrderAmount} />
-            <TextInput style={styles.input} placeholder="Est. delivery (YYYY-MM-DD)" placeholderTextColor={OrialColors.textMuted} value={orderDelivery} onChangeText={setOrderDelivery} />
-            {accounts.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                <Pressable style={[styles.typeChip, !orderAccountId && styles.typeChipActive]} onPress={() => setOrderAccountId('')}>
-                  <Text style={[OrialTypography.caption, { color: !orderAccountId ? '#fff' : OrialColors.textMuted }]}>No account</Text>
-                </Pressable>
-                {accounts.map((a) => (
-                  <Pressable key={a.id} style={[styles.typeChip, orderAccountId === a.id && styles.typeChipActive, { marginRight: 6 }]} onPress={() => setOrderAccountId(a.id)}>
-                    <Text style={[OrialTypography.caption, { color: orderAccountId === a.id ? '#fff' : OrialColors.textMuted }]}>{a.icon} {a.name}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-            <View style={styles.modalActions}>
-              <Pressable style={styles.cancelBtn} onPress={() => setShowAddOrder(false)}>
-                <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.saveBtn} onPress={handleAddOrder}>
                 <Text style={OrialTypography.bodyMedium}>Add</Text>
               </Pressable>
             </View>
@@ -625,60 +589,71 @@ export default function FinanceScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: OrialColors.deepNavy },
-  tabScroll: { maxHeight: 52, marginTop: 8 },
-  tabContainer: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
-  tab: {
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderRadius: 20, backgroundColor: OrialColors.surface,
-    borderWidth: 1, borderColor: OrialColors.glassBorder,
-  },
-  tabActive: { backgroundColor: OrialColors.violet, borderColor: OrialColors.violet },
-  tabText: { ...OrialTypography.caption, color: OrialColors.textMuted },
-  tabTextActive: { color: OrialColors.textPrimary, fontWeight: '600' },
+  tabWrap: { paddingHorizontal: 16, marginTop: 8 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', padding: 16,
   },
-  netWorthAmount: {
-    fontSize: 28, fontWeight: '700',
-    color: OrialColors.textPrimary, letterSpacing: -0.5,
+  netWorthCardWrap: { marginHorizontal: 16, marginTop: 8 },
+  nextBill: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginHorizontal: 16, marginTop: 10, padding: 13,
+    backgroundColor: OrialColors.surface, borderRadius: 14,
   },
+  nextBillLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  nextBillRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  nextBillAmount: { color: OrialColors.error, fontWeight: '600' },
   addButton: { padding: 8, backgroundColor: OrialColors.violet, borderRadius: 12 },
-  card: { marginHorizontal: 16, marginBottom: 8 },
+  card: { marginHorizontal: 16, marginTop: 14, marginBottom: 8 },
   sectionLabel: {
     color: OrialColors.textMuted, textTransform: 'uppercase',
     letterSpacing: 1, marginBottom: 10,
   },
-  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
-  barLabel: { ...OrialTypography.caption, color: OrialColors.textSecondary, width: 80 },
-  barTrack: {
-    flex: 1, height: 6, backgroundColor: OrialColors.surface,
-    borderRadius: 3, overflow: 'hidden',
+  donutRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  donutWrap: { alignItems: 'center', justifyContent: 'center' },
+  donutCenter: {
+    position: 'absolute', alignItems: 'center', justifyContent: 'center',
   },
-  barFill: { height: '100%', borderRadius: 3 },
-  barPct: { ...OrialTypography.caption, color: OrialColors.textMuted, width: 40, textAlign: 'right' },
+  donutCenterValue: { fontSize: 14, fontWeight: '700', color: OrialColors.textPrimary, letterSpacing: -0.3 },
+  donutCenterLabel: { fontSize: 8, letterSpacing: 1.2, color: OrialColors.textMuted, marginTop: 2 },
+  legend: { flex: 1, gap: 10 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  legendDot: { width: 9, height: 9, borderRadius: 5 },
+  legendLabel: { ...OrialTypography.caption, color: OrialColors.textSecondary, flex: 1 },
+  legendPct: { ...OrialTypography.caption, color: OrialColors.textPrimary, fontWeight: '600' },
   section: { padding: 16, paddingTop: 0, gap: 8 },
   emptyCard: { alignItems: 'center', padding: 32 },
   emptyText: { color: OrialColors.textMuted, textAlign: 'center' },
   accountCard: { padding: 14 },
   accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  accountIconCircle: {
+    width: 34, height: 34, borderRadius: 17,
+    justifyContent: 'center', alignItems: 'center',
+  },
   accountInfo: { flex: 1 },
   accountRight: { alignItems: 'flex-end' },
   deleteBtn: { padding: 4 },
-  subCard: { padding: 14 },
-  subCardAlert: { borderColor: OrialColors.error + '60', borderWidth: 1 },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  subInfo: { flex: 1 },
-  subRight: { alignItems: 'flex-end' },
-  orderCard: { padding: 14 },
-  orderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  orderInfo: { flex: 1 },
-  orderRight: { alignItems: 'flex-end', gap: 4 },
-  deliveredBtn: {
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: OrialColors.success,
-    justifyContent: 'center', alignItems: 'center',
+  subGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
+    paddingHorizontal: 16, gap: 10,
   },
+  subTile: { width: '47%', padding: 16, marginBottom: 0 },
+  subTileBadge: {
+    position: 'absolute', top: 14, right: 14,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+  },
+  subTileBadgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.2 },
+  subTileIcon: {
+    width: 42, height: 42, borderRadius: 13,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 14,
+  },
+  subTileCycle: { color: OrialColors.textMuted, marginTop: 1 },
+  subTilePrice: {
+    fontSize: 21, fontWeight: '700', letterSpacing: -0.5,
+    color: OrialColors.textPrimary, marginTop: 10,
+  },
+  subTileDelete: { position: 'absolute', bottom: 14, right: 14, padding: 2 },
   wishCard: { padding: 14 },
   wishRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   wishInfo: { flex: 1 },
@@ -702,7 +677,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: OrialColors.glassBorder,
   },
   typeChipActive: { backgroundColor: OrialColors.violet, borderColor: OrialColors.violet },
-  typeChipText: { fontSize: 18 },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
   cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
   saveBtn: { paddingHorizontal: 24, paddingVertical: 10, backgroundColor: OrialColors.violet, borderRadius: 10 },

@@ -1,9 +1,11 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Pill, Plus, Clock, Flame, ChevronLeft, TrendingUp, CalendarDays, CheckCircle2, XCircle, Info, Pencil, Check, X } from 'lucide-react-native';
 import { GlassCard } from '@/src/components/GlassCard';
+import { Ring } from '@/src/components/Ring';
 import { OrialColors } from '@/src/utils/colors';
 import { supplementService } from '@/src/services/supplementService';
 import type { Supplement } from '@/drizzle/schema';
@@ -114,6 +116,16 @@ export default function SupplementsScreen() {
     return days;
   };
 
+  const getAdherencePct = (supplementId: string): number => {
+    const last7 = getLast7Days();
+    const suppHistory = history[supplementId] || [];
+    const takenCount = last7.filter((date) => {
+      const entry = suppHistory.find((h) => h.date === date);
+      return entry && !entry.skipped && !!entry.takenAt;
+    }).length;
+    return Math.round((takenCount / last7.length) * 100);
+  };
+
   const renderDayDots = (supplementId: string) => {
     const last7 = getLast7Days();
     const suppHistory = history[supplementId] || [];
@@ -185,6 +197,7 @@ export default function SupplementsScreen() {
 
   const renderSupplementDetail = (supplement: Supplement) => {
     const streak = streaks[supplement.id] || 0;
+    const adherencePct = getAdherencePct(supplement.id);
     const isCreatine = supplement.name.toLowerCase().includes('creatine') || supplement.type === 'creatine';
     const isEditing = editingId === supplement.id;
 
@@ -248,18 +261,25 @@ export default function SupplementsScreen() {
           </View>
         )}
 
-        {/* Streak */}
+        {/* Adherence ring + streak */}
         <View style={styles.streakRow}>
-          <Flame size={18} color={streak > 0 ? OrialColors.warning : OrialColors.textMuted} />
-          <Text style={[styles.streakValue, { color: streak > 0 ? OrialColors.warning : OrialColors.textMuted }]}>
-            {streak > 0 ? `${streak} day streak` : 'No active streak'}
-          </Text>
-          {streak >= 7 && (
-            <View style={styles.streakBadge}>
-              <TrendingUp size={12} color={OrialColors.success} />
-              <Text style={styles.streakBadgeText}>Consistent</Text>
+          <Ring pct={adherencePct} size={36} strokeWidth={4} color={OrialColors.violetLight}>
+            <Text style={styles.adherenceRingText}>{adherencePct}%</Text>
+          </Ring>
+          <View style={styles.streakInfo}>
+            <View style={styles.streakTextRow}>
+              <Flame size={16} color={streak > 0 ? OrialColors.warning : OrialColors.textMuted} />
+              <Text style={[styles.streakValue, { color: streak > 0 ? OrialColors.warning : OrialColors.textMuted }]}>
+                {streak > 0 ? `${streak} day streak` : 'No active streak'}
+              </Text>
             </View>
-          )}
+            {streak >= 7 && (
+              <View style={styles.streakBadge}>
+                <TrendingUp size={12} color={OrialColors.success} />
+                <Text style={styles.streakBadgeText}>Consistent</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Last 7 days */}
@@ -323,6 +343,10 @@ export default function SupplementsScreen() {
     </GlassCard>
   );
 
+  const suppTakenToday = supplements.filter((s) => todayLogs[s.id]).length;
+  const suppTotalToday = supplements.length;
+  const suppTodayPct = suppTotalToday > 0 ? (suppTakenToday / suppTotalToday) * 100 : 0;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -337,6 +361,32 @@ export default function SupplementsScreen() {
           </View>
           <Text style={styles.headerSub}>Track your daily intake and streaks</Text>
         </View>
+
+        {/* Aggregate today-adherence focus card (mockup .focus-card) */}
+        {suppTotalToday > 0 && (
+          <GlassCard style={styles.focusCard}>
+            <LinearGradient
+              colors={[`${OrialColors.violet}3D`, 'transparent']}
+              start={{ x: 1, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View style={styles.focusRingWrap}>
+              <Ring pct={suppTodayPct} size={76} strokeWidth={7} color={OrialColors.violetLight}>
+                <Text style={styles.focusRingValue}>
+                  {suppTakenToday}/{suppTotalToday}
+                </Text>
+                <Text style={styles.focusRingUnit}>HOY</Text>
+              </Ring>
+            </View>
+            <View style={styles.focusTextWrap}>
+              <Text style={styles.focusKicker}>SUPLEMENTOS</Text>
+              <Text style={styles.focusSub}>
+                {suppTakenToday} de {suppTotalToday} tomados hoy
+              </Text>
+            </View>
+          </GlassCard>
+        )}
 
         {/* Supplement cards */}
         {supplements.map(renderSupplementDetail)}
@@ -415,6 +465,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold', letterSpacing: -0.5 },
   headerSub: { fontSize: 12, color: OrialColors.textMuted, textAlign: 'center', fontFamily: 'Inter-Regular' },
 
+  focusCard: { marginHorizontal: 16, marginBottom: 12, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 18, overflow: 'hidden' },
+  focusRingWrap: { flexShrink: 0 },
+  focusRingValue: { fontSize: 16, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold' },
+  focusRingUnit: { fontSize: 7, letterSpacing: 0.8, color: OrialColors.textMuted, fontFamily: 'Inter-Medium' },
+  focusTextWrap: { flex: 1 },
+  focusKicker: { fontSize: 9, letterSpacing: 1.4, color: OrialColors.textMuted, fontFamily: 'Inter-Medium', marginBottom: 4 },
+  focusSub: { fontSize: 13, color: OrialColors.textSecondary, fontFamily: 'Inter-Regular' },
+
   detailCard: { marginHorizontal: 16, marginBottom: 12, padding: 16 },
   detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   detailHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
@@ -434,7 +492,10 @@ const styles = StyleSheet.create({
   takeButtonText: { fontWeight: '600', fontSize: 13, fontFamily: 'Inter-SemiBold' },
   takeButtonTextDone: { color: OrialColors.success },
 
-  streakRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: OrialColors.surfaceElevated, borderRadius: 10 },
+  streakRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: OrialColors.surfaceElevated, borderRadius: 10 },
+  adherenceRingText: { fontSize: 10, fontWeight: '700', color: OrialColors.textPrimary, fontFamily: 'Inter-Bold' },
+  streakInfo: { flex: 1, gap: 6, alignItems: 'flex-start' },
+  streakTextRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   streakValue: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter-SemiBold' },
   streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, backgroundColor: OrialColors.success + '15', borderRadius: 6, borderWidth: 1, borderColor: OrialColors.success + '25' },
   streakBadgeText: { fontSize: 10, color: OrialColors.success, fontFamily: 'Inter-SemiBold', letterSpacing: 0.3 },

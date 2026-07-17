@@ -49,5 +49,8 @@ google-services.json
 # CodeGraph local index
 .codegraph/
 
+# Local agent tool state
+.claude/
+
 # Serena local tool state
 .serena/

@@ -96,6 +96,7 @@ export class SupplementService {
           skipped: false,
           notes: null,
           createdAt: new Date(),
+          modifiedAt: 0,
         }),
         supplement,
       };

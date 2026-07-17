@@ -9,6 +9,7 @@ import { AppState, View, ActivityIndicator, Text } from 'react-native';
 import { useDatabaseMigrations } from '../src/services/database';
 import { notificationService } from '../src/services/notificationService';
 import { widgetService } from '../src/services/widgetService';
+import { startSyncScheduler } from '../src/services/syncScheduler';
 import { useNfcWaterQueueDrain } from '../src/hooks/useNfcWaterQueueDrain';
 import { OrialColors } from '../src/utils/colors';
 import { useAppStore } from '../src/stores/appStore';
@@ -67,17 +68,21 @@ function AppLayout() {
     // Listen for notification responses (when user taps notification)
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
-      
-      if (data?.habitId) {
-        // Navigate to habit detail
-        router.push(`/habit/${data.habitId}`);
-      }
+      // Handle notification tap navigation for other notification types here.
+      void data;
     });
 
     return () => {
       notificationListener.current?.remove();
       responseListener.current?.remove();
     };
+  }, []);
+
+  // Start automatic Supabase sync (initial poll + foreground interval +
+  // sync-on-foreground). No-op while Supabase credentials are absent.
+  useEffect(() => {
+    const stopSync = startSyncScheduler();
+    return stopSync;
   }, []);
 
   // Update widgets when app goes to background.
@@ -132,7 +137,6 @@ function AppLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         <Stack.Screen name="login" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="habit/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="whoop/callback" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>

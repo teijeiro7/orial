@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { WelcomeStep } from './steps/WelcomeStep';
-import { HabitsStep } from './steps/HabitsStep';
 import { NotificationsStep } from './steps/NotificationsStep';
 import { NotionStep } from './steps/NotionStep';
 import { CalendarStep } from './steps/CalendarStep';
@@ -15,7 +14,6 @@ import { OrialTypography } from '../../src/utils/typography';
 
 const STEPS = [
   { id: 'welcome', component: WelcomeStep, title: 'Welcome' },
-  { id: 'habits', component: HabitsStep, title: 'Habits' },
   { id: 'notifications', component: NotificationsStep, title: 'Reminders' },
   { id: 'notion', component: NotionStep, title: 'Notion' },
   { id: 'calendar', component: CalendarStep, title: 'Calendar' },
