@@ -50,7 +50,6 @@
     "expo-task-manager": "~14.0.9",
     "expo-updates": "~29.0.17",
     "lucide-react-native": "^1.14.0",
-    "prop-types": "^15.8.1",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-default-preference": "^1.4.4",

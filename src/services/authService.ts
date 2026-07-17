@@ -245,8 +245,8 @@ class AuthService {
   async signOut(): Promise<void> {
     try {
       // Sign out from all providers
-      try { await GoogleSignin.signOut(); } catch {}
-      try { LoginManager.logOut(); } catch {}
+      try { await GoogleSignin.signOut(); } catch (e) { console.warn('[AuthService] Google signOut failed:', e); }
+      try { LoginManager.logOut(); } catch (e) { console.warn('[AuthService] Facebook logOut failed:', e); }
       await auth().signOut();
     } catch (error: any) {
       throw this.handleAuthError(error);

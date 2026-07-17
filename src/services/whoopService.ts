@@ -12,7 +12,17 @@ const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const WHOOP_TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
 const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer/v2';
 
-const CLIENT_ID = process.env.EXPO_PUBLIC_WHOOP_CLIENT_ID!;
+function getRequiredEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+}
+
+// NOTE: CLIENT_SECRET will be removed when plan 006 (Edge Function) lands.
+// For now, keep it to avoid breaking the existing flow.
+const CLIENT_ID = getRequiredEnv('EXPO_PUBLIC_WHOOP_CLIENT_ID');
 const CLIENT_SECRET = process.env.EXPO_PUBLIC_WHOOP_CLIENT_SECRET!;
 const REDIRECT_URI = 'orial://whoop/callback';
 

@@ -1,6 +1,6 @@
 import { db } from './database';
 import { nutritionLogs, manualMetrics, sodiumIntake, hydration, type NutritionLog, type NewNutritionLog } from '../../drizzle/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, gte } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import { manualMetricsService } from './manualMetricsService';
 import { hydrationService } from './hydrationService';
@@ -161,7 +161,7 @@ export class NutritionService {
     return db
       .select()
       .from(nutritionLogs)
-      .where(eq(nutritionLogs.date, startDate)) // Simplified - should use gte
+      .where(gte(nutritionLogs.date, startDate))
       .orderBy(desc(nutritionLogs.date));
   }
 
