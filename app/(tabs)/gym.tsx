@@ -34,6 +34,8 @@ import { gymCoachService } from '../../src/services/gymCoachService';
 import type { ProgressionResult, SwapAlternative } from '../../src/services/gymCoachService';
 import { progressPhotoService } from '../../src/services/progressPhotoService';
 import type { ProgressPhoto } from '../../src/services/progressPhotoService';
+import { searchExercises } from '../../src/services/exerciseCatalogService';
+import type { CatalogExercise } from '../../src/services/exerciseCatalogService';
 import { OrialColors } from '../../src/utils/colors';
 import { OrialTypography } from '../../src/utils/typography';
 import type { GymRoutine, GymExercise, GymSession, GymSet } from '../../drizzle/schema';
@@ -79,6 +81,7 @@ export default function GymScreen() {
 
   // New exercise form
   const [newExName, setNewExName] = useState('');
+  const [exerciseSuggestions, setExerciseSuggestions] = useState<CatalogExercise[]>([]);
   const [newExSets, setNewExSets] = useState('3');
   const [newExRepsMin, setNewExRepsMin] = useState('8');
   const [newExRepsMax, setNewExRepsMax] = useState('12');
@@ -153,6 +156,7 @@ export default function GymScreen() {
       incrementKg: parseFloat(newExIncrement) || 2.5,
     });
     setNewExName('');
+    setExerciseSuggestions([]);
     setNewExSets('3');
     setNewExRepsMin('8');
     setNewExRepsMax('12');
@@ -160,6 +164,18 @@ export default function GymScreen() {
     setNewExIncrement('2.5');
     setShowAddExercise(false);
     loadRoutineDetail(activeRoutine);
+  }
+
+  // Catalog search backs the exercise-name field: free text still works (the
+  // dataset doesn't cover every exercise), suggestions are just a shortcut.
+  function handleExerciseNameChange(text: string) {
+    setNewExName(text);
+    setExerciseSuggestions(searchExercises(text));
+  }
+
+  function handleSelectExerciseSuggestion(exercise: CatalogExercise) {
+    setNewExName(exercise.name);
+    setExerciseSuggestions([]);
   }
 
   async function handleStartSession() {
@@ -697,9 +713,28 @@ export default function GymScreen() {
               placeholder="Exercise name"
               placeholderTextColor={OrialColors.textMuted}
               value={newExName}
-              onChangeText={setNewExName}
+              onChangeText={handleExerciseNameChange}
               autoFocus
             />
+
+            {exerciseSuggestions.length > 0 && (
+              <ScrollView style={styles.suggestionList} keyboardShouldPersistTaps="handled">
+                {exerciseSuggestions.map((exercise) => (
+                  <Pressable
+                    key={exercise.id}
+                    style={styles.suggestionItem}
+                    onPress={() => handleSelectExerciseSuggestion(exercise)}
+                  >
+                    <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textPrimary }]}>
+                      {exercise.name}
+                    </Text>
+                    <Text style={[OrialTypography.caption, { color: OrialColors.textMuted }]}>
+                      {exercise.target} · {exercise.equipment}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
 
             <View style={styles.formRow}>
               <View style={{ flex: 1 }}>
@@ -728,7 +763,13 @@ export default function GymScreen() {
             </View>
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.cancelBtn} onPress={() => setShowAddExercise(false)}>
+              <Pressable
+                style={styles.cancelBtn}
+                onPress={() => {
+                  setShowAddExercise(false);
+                  setExerciseSuggestions([]);
+                }}
+              >
                 <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textMuted }]}>Cancel</Text>
               </Pressable>
               <Pressable style={styles.saveBtn} onPress={handleCreateExercise}>
@@ -850,6 +891,18 @@ const styles = StyleSheet.create({
   },
   formRow: { flexDirection: 'row', gap: 10 },
   fieldLabel: { color: OrialColors.textMuted, marginBottom: 4 },
+  suggestionList: {
+    maxHeight: 220,
+    marginTop: -6, marginBottom: 12,
+    backgroundColor: OrialColors.surface,
+    borderRadius: 10,
+    borderWidth: 1, borderColor: OrialColors.glassBorder,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1, borderBottomColor: OrialColors.glassBorder,
+  },
   daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
   cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
