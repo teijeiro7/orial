@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const habits = sqliteTable('habits', {
   id: text('id').primaryKey(),
@@ -101,7 +101,9 @@ export const bodyMetrics = sqliteTable('body_metrics', {
   photoUri: text('photo_uri'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('modified_at').notNull().default(0),
-});
+}, (t) => [
+  uniqueIndex('body_metrics_date_unique').on(t.date),
+]);
 
 export const pedometerHistory = sqliteTable('pedometer_history', {
   date: text('date').primaryKey(),

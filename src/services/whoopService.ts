@@ -360,9 +360,10 @@ export class WhoopService {
         weightKg: bodyMeasurement.weight_kilogram,
         createdAt: new Date(),
       }).onConflictDoUpdate({
-        target: bodyMetrics.id,
+        target: bodyMetrics.date, // FIX: upsert by date, not by id (id is always a new UUID and never conflicts)
         set: {
           weightKg: bodyMeasurement.weight_kilogram,
+          // modified_at is bumped automatically by the DB trigger (see migration 0004)
         },
       });
     }

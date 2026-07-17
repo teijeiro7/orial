@@ -1,4 +1,4 @@
-import { db } from './database';
+import { db, expoDb } from './database';
 import { hydration, sodiumIntake, type Hydration, type NewHydration, type NewSodiumIntake } from '../../drizzle/schema';
 import { eq, and, gte, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
@@ -39,8 +39,9 @@ export class HydrationService {
   }
 
   async addWater(date: string, liters: number, beverageType: 'water' | 'soda_zero' | 'tea' | 'coffee' | 'other' = 'water'): Promise<void> {
-    const record = await this.getOrCreateForDate(date);
-    
+    // Ensure a row exists for this date before the atomic increment below.
+    await this.getOrCreateForDate(date);
+
     // Different beverages have different hydration effectiveness
     const effectivenessMap = {
       water: 1.0,
@@ -51,17 +52,20 @@ export class HydrationService {
     };
 
     const effectiveLiters = liters * effectivenessMap[beverageType];
-    
-    await db.update(hydration)
-      .set({
-        consumedLiters: (record.consumedLiters || 0) + liters,
-        effectiveLiters: (record.effectiveLiters || 0) + effectiveLiters,
-        updatedAt: new Date(),
-      })
-      .where(eq(hydration.date, date));
+
+    // Atomic increment via raw SQL — avoids the read-then-write race where two
+    // concurrent addWater calls both read the same starting value and one
+    // overwrite silently loses the other's intake. `updated_at` is an integer
+    // "timestamp" column (Drizzle stores/reads it in whole seconds), so it must
+    // be written in seconds here too, not milliseconds.
+    await expoDb.runAsync(
+      `UPDATE hydration SET consumed_liters = consumed_liters + ?, effective_liters = effective_liters + ?, updated_at = ? WHERE date = ?`,
+      [liters, effectiveLiters, Math.floor(Date.now() / 1000), date],
+    );
 
     try {
-      await writeHydrationBaseline(date, (record.consumedLiters || 0) + liters);
+      const updated = await this.getOrCreateForDate(date);
+      await writeHydrationBaseline(date, updated.consumedLiters || 0);
     } catch (error) {
       console.warn('Failed to write hydration baseline:', error);
     }

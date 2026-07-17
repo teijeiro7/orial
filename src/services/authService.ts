@@ -52,9 +52,11 @@ class AuthService {
     return !!this.getCurrentUser();
   }
 
-  async getUserProfile(): Promise<UserProfile | null> {
+  async getUserProfile(): Promise<UserProfile> {
     const user = this.getCurrentUser();
-    if (!user) return null;
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
 
     return {
       uid: user.uid,
@@ -77,7 +79,7 @@ class AuthService {
         await userCredential.user.updateProfile({ displayName });
       }
 
-      return this.getUserProfile() as Promise<UserProfile>;
+      return this.getUserProfile();
     } catch (error: any) {
       throw this.handleAuthError(error);
     }
@@ -86,7 +88,7 @@ class AuthService {
   async loginWithEmail(email: string, password: string): Promise<UserProfile> {
     try {
       await auth().signInWithEmailAndPassword(email, password);
-      return this.getUserProfile() as Promise<UserProfile>;
+      return this.getUserProfile();
     } catch (error: any) {
       throw this.handleAuthError(error);
     }
@@ -105,7 +107,7 @@ class AuthService {
       const googleCredential = auth.GoogleAuthProvider.credential(signInResult.data.idToken);
       await auth().signInWithCredential(googleCredential);
       
-      return this.getUserProfile() as Promise<UserProfile>;
+      return this.getUserProfile();
     } catch (error: any) {
       throw this.handleAuthError(error);
     }
@@ -138,7 +140,7 @@ class AuthService {
         await userCredential.user.updateProfile({ displayName });
       }
 
-      return this.getUserProfile() as Promise<UserProfile>;
+      return this.getUserProfile();
     } catch (error: any) {
       throw this.handleAuthError(error);
     }
@@ -162,7 +164,7 @@ class AuthService {
       const facebookCredential = auth.FacebookAuthProvider.credential(data.accessToken);
       await auth().signInWithCredential(facebookCredential);
       
-      return this.getUserProfile() as Promise<UserProfile>;
+      return this.getUserProfile();
     } catch (error: any) {
       throw this.handleAuthError(error);
     }

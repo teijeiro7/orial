@@ -50,6 +50,13 @@
       "when": 1783809773697,
       "tag": "0006_next_sasquatch",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784312305578,
+      "tag": "0007_regular_sheva_callister",
+      "breakpoints": true
     }
   ]
 }

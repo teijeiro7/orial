@@ -107,7 +107,12 @@ export const sqliteLocalStore: LocalStore = {
   },
   async upsertIfNewer(config, row) {
     const key = row[config.conflictKey];
-    const incomingTs = typeof row[config.timestampField] === 'number' ? (row[config.timestampField] as number) : 0;
+    const rawTs = row[config.timestampField];
+    const incomingTs = typeof rawTs === 'number'
+      ? rawTs
+      : typeof rawTs === 'string'
+        ? Date.parse(rawTs) || 0
+        : 0;
 
     const existing = (await expoDb.getFirstAsync(
       `SELECT ${config.timestampField} AS ts FROM ${config.table} WHERE ${config.conflictKey} = ?`,
