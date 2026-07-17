@@ -151,12 +151,10 @@ export class ForgeNotionSync {
 
   private async getNotionSettings(): Promise<{
     notionLogsDbId: string | null;
-    notionAccessToken: string | null;
   }> {
     const result = await db.select().from(userSettings).limit(1);
     return {
       notionLogsDbId: result[0]?.notionLogsDbId || null,
-      notionAccessToken: result[0]?.notionAccessToken || null,
     };
   }
 
@@ -164,16 +162,10 @@ export class ForgeNotionSync {
     databaseId: string,
     properties: Record<string, any>
   ): Promise<void> {
-    const settings = await this.getNotionSettings();
-    if (!settings.notionAccessToken) {
-      throw new Error('No Notion access token');
-    }
-
     const response = await fetch(`${NOTION_API_BASE}/pages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${settings.notionAccessToken}`,
         'Notion-Version': '2022-06-28',
       },
       body: JSON.stringify({

@@ -1,5 +1,5 @@
 import { db } from './database';
-import { whoopTokens, whoopDaily, bodyMetrics, pedometerHistory, type WhoopDaily, type NewWhoopToken, type NewWhoopDaily, type NewBodyMetric, type NewPedometerEntry } from '../../drizzle/schema';
+import { whoopDaily, bodyMetrics, pedometerHistory, type WhoopDaily, type NewWhoopDaily, type NewBodyMetric, type NewPedometerEntry } from '../../drizzle/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import * as SecureStore from 'expo-secure-store';
@@ -146,27 +146,6 @@ export class WhoopService {
     await SecureStore.setItemAsync(STORE_KEY_ACCESS, state.accessToken);
     await SecureStore.setItemAsync(STORE_KEY_REFRESH, state.refreshToken);
     await SecureStore.setItemAsync(STORE_KEY_EXPIRES, state.expiresAt.toISOString());
-
-    try {
-      await db.insert(whoopTokens).values({
-        id: 'default',
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-        expiresAt: state.expiresAt,
-        scope: state.scope,
-        createdAt: new Date(),
-      }).onConflictDoUpdate({
-        target: whoopTokens.id,
-        set: {
-          accessToken: state.accessToken,
-          refreshToken: state.refreshToken,
-          expiresAt: state.expiresAt,
-          scope: state.scope,
-        },
-      });
-    } catch (dbError) {
-      console.error('[Whoop] Failed to backup tokens to database:', dbError);
-    }
   }
 
   private async clearAuthState(): Promise<void> {
@@ -174,11 +153,6 @@ export class WhoopService {
     await SecureStore.deleteItemAsync(STORE_KEY_ACCESS);
     await SecureStore.deleteItemAsync(STORE_KEY_REFRESH);
     await SecureStore.deleteItemAsync(STORE_KEY_EXPIRES);
-    try {
-      await db.delete(whoopTokens);
-    } catch (dbError) {
-      console.error('[Whoop] Failed to delete tokens from database:', dbError);
-    }
   }
 
   isConnected(): Promise<boolean> {
@@ -242,10 +216,9 @@ export class WhoopService {
     });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      console.error('[Whoop] refresh failed', response.status, body);
+      console.error('[Whoop] refresh failed:', response.status, response.statusText);
       await this.clearAuthState();
-      throw new Error(`Failed to refresh Whoop token: ${response.status} ${body}`);
+      throw new Error(`Failed to refresh Whoop token: ${response.status}`);
     }
 
     const data = await response.json();

@@ -57,6 +57,13 @@
       "when": 1784312305578,
       "tag": "0007_regular_sheva_callister",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784312869676,
+      "tag": "0008_smart_gauntlet",
+      "breakpoints": true
     }
   ]
 }

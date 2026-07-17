@@ -51,7 +51,6 @@ export const syncQueue = sqliteTable('sync_queue', {
 
 export const userSettings = sqliteTable('user_settings', {
   id: text('id').primaryKey().default('default'),
-  notionAccessToken: text('notion_access_token'),
   notionHabitsDbId: text('notion_habits_db_id'),
   notionLogsDbId: text('notion_logs_db_id'),
   calendarAccountId: text('calendar_account_id'),
@@ -60,17 +59,6 @@ export const userSettings = sqliteTable('user_settings', {
   aiRemindersEnabled: integer('ai_reminders_enabled', { mode: 'boolean' }).notNull().default(true),
   syncFrequency: text('sync_frequency').default('realtime'),
   fcmToken: text('fcm_token'),
-});
-
-export const whoopTokens = sqliteTable('whoop_tokens', {
-  id: text('id').primaryKey().default('default'),
-  accessToken: text('access_token'),
-  refreshToken: text('refresh_token'),
-  expiresAt: integer('expires_at', { mode: 'timestamp' }),
-  scope: text('scope'),
-  whoopUserId: integer('whoop_user_id'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const whoopDaily = sqliteTable('whoop_daily', {
@@ -213,8 +201,6 @@ export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;
 export type UserSettings = typeof userSettings.$inferSelect;
 export type NewUserSettings = typeof userSettings.$inferInsert;
-export type WhoopToken = typeof whoopTokens.$inferSelect;
-export type NewWhoopToken = typeof whoopTokens.$inferInsert;
 export type WhoopDaily = typeof whoopDaily.$inferSelect;
 export type NewWhoopDaily = typeof whoopDaily.$inferInsert;
 export type BodyMetric = typeof bodyMetrics.$inferSelect;
