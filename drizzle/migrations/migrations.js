@@ -10,6 +10,7 @@ import m0005 from './0005_amusing_proudstar.sql';
 import m0006 from './0006_next_sasquatch.sql';
 import m0007 from './0007_regular_sheva_callister.sql';
 import m0008 from './0008_smart_gauntlet.sql';
+import m0009 from './0009_graceful_gideon.sql';
 
   export default {
     journal,
@@ -22,7 +23,8 @@ m0004,
 m0005,
 m0006,
 m0007,
-m0008
+m0008,
+m0009
     }
   }
   

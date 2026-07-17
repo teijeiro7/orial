@@ -1,6 +1,7 @@
 import { db } from './database';
 import { pedometerHistory, type NewPedometerEntry } from '../../drizzle/schema';
 import { eq } from 'drizzle-orm';
+import { dateString } from '../utils/date';
 
 let Pedometer: typeof import('expo-sensors').Pedometer | null = null;
 try {
@@ -32,7 +33,7 @@ export class PedometerService {
   async getStepsForDate(date: Date): Promise<number> {
     if (!(await this.isAvailable())) return 0;
 
-    const dateKey = date.toISOString().split('T')[0];
+    const dateKey = dateString(date);
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
     const end = new Date(date);
@@ -73,7 +74,7 @@ export class PedometerService {
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateKey = d.toISOString().split('T')[0];
+      const dateKey = dateString(d);
 
       const cached = await db
         .select()

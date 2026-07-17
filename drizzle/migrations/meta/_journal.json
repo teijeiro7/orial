@@ -64,6 +64,13 @@
       "when": 1784312869676,
       "tag": "0008_smart_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784313713760,
+      "tag": "0009_graceful_gideon",
+      "breakpoints": true
     }
   ]
 }

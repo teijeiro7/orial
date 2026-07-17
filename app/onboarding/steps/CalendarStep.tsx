@@ -2,9 +2,9 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { ArrowRight, Calendar, SkipForward, Check } from 'lucide-react-native';
 import { useState } from 'react';
 import { CalendarSettingsScreen } from '../../settings/calendar';
-import { OrialColors } from '../../../src/utils/colors';
-import { OrialTypography } from '../../../src/utils/typography';
-import { GlassCard } from '../../../src/components/GlassCard';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
 
 interface CalendarStepProps {
   onNext: () => void;

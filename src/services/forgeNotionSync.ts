@@ -1,6 +1,7 @@
 import { db } from './database';
 import { bodyMetrics, whoopDaily, userSettings } from '../../drizzle/schema';
 import { eq, desc, gte } from 'drizzle-orm';
+import { dateString } from '../utils/date';
 
 const NOTION_API_BASE = 'https://api.notion.com/v1';
 
@@ -44,7 +45,7 @@ export class ForgeNotionSync {
     }
 
     const notionEntry: NotionWeightEntry = {
-      date: entry.date.toISOString().split('T')[0],
+      date: dateString(entry.date),
       weight: entry.weightKg || 0,
       notes: entry.notes,
     };

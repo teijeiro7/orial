@@ -9,6 +9,7 @@ import { weightPredictionService } from '@/src/services/weightPredictionService'
 import { manualMetricsService } from '@/src/services/manualMetricsService';
 import { whoopService } from '@/src/services/whoopService';
 import { hydrationService } from '@/src/services/hydrationService';
+import { todayDateString } from '@/src/utils/date';
 import type { WeightPrediction } from '@/drizzle/schema';
 
 export default function PredictionDetailScreen() {
@@ -28,7 +29,7 @@ export default function PredictionDetailScreen() {
   }, []);
 
   const loadData = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     
     const [pred, manual, whoop, hyd] = await Promise.all([
       weightPredictionService.getTodayPrediction(),

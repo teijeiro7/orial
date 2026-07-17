@@ -12,10 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as Linking from 'expo-linking';
 import { X, Check, ExternalLink, RefreshCw, Database } from 'lucide-react-native';
-import { GlassCard } from '../../src/components/GlassCard';
-import { notionService, type NotionCredentials } from '../../src/services/notionService';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
+import { notionService, type NotionCredentials } from '@/src/services/notionService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
 
 const NOTION_CLIENT_ID = process.env.EXPO_PUBLIC_NOTION_CLIENT_ID || '';
 const NOTION_REDIRECT_URI = 'orial://notion-callback';

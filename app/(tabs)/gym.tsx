@@ -24,20 +24,20 @@ import {
   Images,
   Trophy,
 } from 'lucide-react-native';
-import { GlassCard } from '../../src/components/GlassCard';
-import { GymSetRow } from '../../src/components/GymSetRow';
-import { SectionLabel } from '../../src/components/SectionLabel';
-import { Ring } from '../../src/components/Ring';
-import { Chip } from '../../src/components/Chip';
-import { gymService } from '../../src/services/gymService';
-import { gymCoachService } from '../../src/services/gymCoachService';
-import type { ProgressionResult, SwapAlternative } from '../../src/services/gymCoachService';
-import { progressPhotoService } from '../../src/services/progressPhotoService';
-import type { ProgressPhoto } from '../../src/services/progressPhotoService';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
+import { GymSetRow } from '@/src/components/GymSetRow';
+import { SectionLabel } from '@/src/components/SectionLabel';
+import { Ring } from '@/src/components/Ring';
+import { Chip } from '@/src/components/Chip';
+import { gymService } from '@/src/services/gymService';
+import { gymCoachService } from '@/src/services/gymCoachService';
+import type { ProgressionResult, SwapAlternative } from '@/src/services/gymCoachService';
+import { progressPhotoService } from '@/src/services/progressPhotoService';
+import type { ProgressPhoto } from '@/src/services/progressPhotoService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
 import type { GymRoutine, GymExercise, GymSession, GymSet } from '../../drizzle/schema';
-import type { OverloadAlert } from '../../src/services/gymService';
+import type { OverloadAlert } from '@/src/services/gymService';
 
 type ScreenView = 'routines' | 'session';
 

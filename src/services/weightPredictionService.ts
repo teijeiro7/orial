@@ -1,6 +1,7 @@
 import { db } from './database';
 import { weightPredictions, bodyMetrics, manualMetrics, hydration, whoopDaily, type WeightPrediction, type NewWeightPrediction } from '../../drizzle/schema';
 import { eq, gte, desc, and } from 'drizzle-orm';
+import { todayDateString, dateString } from '../utils/date';
 
 export class WeightPredictionService {
   private static instance: WeightPredictionService;
@@ -21,7 +22,7 @@ export class WeightPredictionService {
     // Get previous day's actual weight
     const prevDate = new Date(date);
     prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = prevDate.toISOString().split('T')[0];
+    const prevDateStr = dateString(prevDate);
 
     const prevWeight = await db
       .select()
@@ -129,7 +130,7 @@ export class WeightPredictionService {
   }
 
   async getTodayPrediction(): Promise<WeightPrediction | null> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const existing = await db.select().from(weightPredictions).where(eq(weightPredictions.date, today)).limit(1);
     
     if (existing[0]) return existing[0];
@@ -139,7 +140,7 @@ export class WeightPredictionService {
   async getHistory(days: number = 14): Promise<WeightPrediction[]> {
     const start = new Date();
     start.setDate(start.getDate() - days);
-    const startDate = start.toISOString().split('T')[0];
+    const startDate = dateString(start);
 
     return db
       .select()

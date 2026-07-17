@@ -28,15 +28,14 @@ export type {
  * (sync_queue) are intentionally excluded.
  *
  * Cursor choice:
- *   - Tables carrying a mutable `updated_at` (they rewrite it on every edit)
- *     use it directly.
- *   - Every other synced table uses `modified_at` — a dedicated cursor column
- *     bumped by an AFTER INSERT/UPDATE trigger (see migration 0004). `created_at`
- *     is NEVER used as the cursor because it is immutable, so edits to an
- *     existing row would never advance the cursor and would never be pushed.
+ *   - Every synced table's cursor column is named `updated_at`. Some tables
+ *     rewrite it directly on every edit; others bump it via a dedicated
+ *     AFTER INSERT/UPDATE trigger (see migration 0004). `created_at` is NEVER
+ *     used as the cursor because it is immutable, so edits to an existing row
+ *     would never advance the cursor and would never be pushed.
  *
  * caffeine_logs (T1) is registered below now that its local schema and
- * modified_at cursor exist, using the standard modified_at cursor.
+ * updated_at cursor exist, using the standard updated_at cursor.
  *
  * `insight_logs` (T6) is pull-only in practice: Jarvis is the only writer of
  * new rows (generated_at never changes after insert), so it uses generated_at
@@ -49,25 +48,25 @@ export type {
  */
 export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
   { table: 'whoop_daily', timestampField: 'updated_at', conflictKey: 'date' },
-  { table: 'body_metrics', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'body_metrics', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'pedometer_history', timestampField: 'updated_at', conflictKey: 'date' },
   { table: 'hydration', timestampField: 'updated_at', conflictKey: 'date' },
-  { table: 'sodium_intake', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'supplements', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'supplement_logs', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'sodium_intake', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'supplements', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'supplement_logs', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'manual_metrics', timestampField: 'updated_at', conflictKey: 'date' },
   { table: 'weight_predictions', timestampField: 'updated_at', conflictKey: 'date' },
-  { table: 'nutrition_logs', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'tasks', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'gym_routines', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'gym_exercises', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'gym_sessions', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'gym_sets', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'nutrition_logs', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'tasks', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'gym_routines', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'gym_exercises', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'gym_sessions', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'gym_sets', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'finance_accounts', timestampField: 'updated_at', conflictKey: 'id' },
-  { table: 'finance_subscriptions', timestampField: 'modified_at', conflictKey: 'id' },
-  { table: 'finance_wishlist', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'finance_subscriptions', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'finance_wishlist', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'hydration_profile', timestampField: 'updated_at', conflictKey: 'id' },
-  { table: 'caffeine_logs', timestampField: 'modified_at', conflictKey: 'id' },
+  { table: 'caffeine_logs', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'insight_logs', timestampField: 'generated_at', conflictKey: 'id' },
 ];
 

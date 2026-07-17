@@ -1,16 +1,16 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, Switch, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { GlassCard } from '../../src/components/GlassCard';
-import { SectionLabel } from '../../src/components/SectionLabel';
+import { GlassCard } from '@/src/components/GlassCard';
+import { SectionLabel } from '@/src/components/SectionLabel';
 import { NotionSettingsScreen } from '../settings/notion';
 import { CalendarSettingsScreen } from '../settings/calendar';
 import { JarvisSettingsScreen } from '../settings/jarvis';
-import { useAppStore } from '../../src/stores/appStore';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { useAppStore } from '@/src/stores/appStore';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
 import { ChevronRight, RotateCcw, User, LogOut } from 'lucide-react-native';
-import { useAuth } from '../../src/context/AuthContext';
+import { useAuth } from '@/src/context/AuthContext';
 import { useState } from 'react';
 
 export default function SettingsScreen() {

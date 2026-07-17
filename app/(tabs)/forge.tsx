@@ -12,20 +12,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Flame, Heart, Footprints, Zap, Moon, Dumbbell, Link, LogIn, TrendingDown, Plus, Scale } from 'lucide-react-native';
 import { format } from 'date-fns';
-import { GlassCard } from '../../src/components/GlassCard';
-import { WeightChart } from '../../src/components/WeightChart';
-import { WeightEntryModal } from '../../src/components/WeightEntryModal';
-import { whoopService } from '../../src/services/whoopService';
-import { pedometerService } from '../../src/services/pedometerService';
-import { forgeNotificationService } from '../../src/services/forgeNotificationService';
-import { forgeNotionSync } from '../../src/services/forgeNotionSync';
-import { db } from '../../src/services/database';
+import { GlassCard } from '@/src/components/GlassCard';
+import { WeightChart } from '@/src/components/WeightChart';
+import { WeightEntryModal } from '@/src/components/WeightEntryModal';
+import { whoopService } from '@/src/services/whoopService';
+import { pedometerService } from '@/src/services/pedometerService';
+import { forgeNotificationService } from '@/src/services/forgeNotificationService';
+import { forgeNotionSync } from '@/src/services/forgeNotionSync';
+import { db } from '@/src/services/database';
 import { bodyMetrics } from '../../drizzle/schema';
 import { desc } from 'drizzle-orm';
-import { biometricAuthService } from '../../src/services/biometricAuthService';
+import { biometricAuthService } from '@/src/services/biometricAuthService';
 import type { WhoopDaily } from '../../drizzle/schema';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { dateString } from '@/src/utils/date';
 
 export default function ForgeScreen() {
   const [isConnected, setIsConnected] = useState(false);
@@ -58,7 +59,7 @@ export default function ForgeScreen() {
 
       const weightEntries = await db.select().from(bodyMetrics).orderBy(desc(bodyMetrics.date)).limit(30);
       const history = weightEntries.map((e) => ({
-        date: e.date.toISOString().split('T')[0],
+        date: dateString(e.date),
         weight: e.weightKg || 0,
       })).reverse();
       setWeightHistory(history);

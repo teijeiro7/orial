@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from './database';
 import { bodyMetrics, whoopDaily } from '../../drizzle/schema';
 import { eq, gte, lte, desc } from 'drizzle-orm';
+import { todayDateString } from '../utils/date';
 
 const NOTIFICATION_HISTORY_STORAGE_KEY = 'forge_notification_last_sent';
 const NOTIFICATION_HISTORY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -70,7 +71,7 @@ export class ForgeNotificationService {
   private async checkLowRecovery(): Promise<void> {
     if (!this.settings.lowRecoveryEnabled) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const result = await db
       .select()
       .from(whoopDaily)
@@ -124,7 +125,7 @@ export class ForgeNotificationService {
   private async checkHighStrain(): Promise<void> {
     if (!this.settings.highStrainEnabled) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const result = await db
       .select()
       .from(whoopDaily)

@@ -1,6 +1,7 @@
 import { db } from './database';
 import { manualMetrics, type ManualMetric, type NewManualMetric } from '../../drizzle/schema';
 import { eq, gte, desc } from 'drizzle-orm';
+import { todayDateString, dateString } from '../utils/date';
 
 export class ManualMetricsService {
   private static instance: ManualMetricsService;
@@ -52,14 +53,14 @@ export class ManualMetricsService {
   }
 
   async getTodayMetrics(): Promise<ManualMetric> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     return this.getOrCreateForDate(today);
   }
 
   async getHistory(days: number = 14): Promise<ManualMetric[]> {
     const start = new Date();
     start.setDate(start.getDate() - days);
-    const startDate = start.toISOString().split('T')[0];
+    const startDate = dateString(start);
 
     return db
       .select()

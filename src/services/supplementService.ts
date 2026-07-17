@@ -3,6 +3,7 @@ import { supplements, supplementLogs, type Supplement, type NewSupplement, type 
 import { eq, and, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import * as Notifications from 'expo-notifications';
+import { todayDateString } from '../utils/date';
 
 export class SupplementService {
   private static instance: SupplementService;
@@ -76,7 +77,7 @@ export class SupplementService {
   }
 
   async getTodayLogs(date?: string): Promise<(SupplementLog & { supplement: Supplement })[]> {
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || todayDateString();
     const activeSupplements = await this.getSupplements();
     
     const logs = await db

@@ -5,23 +5,24 @@ import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { Activity, Heart, Droplets, Pill, TrendingDown,
   Flame, Moon, Zap, ZapOff, Brain, Settings, Footprints } from 'lucide-react-native';
-import { calculatePeakState } from '../../src/services/peakStateService';
-import type { PeakStateResult } from '../../src/services/peakStateService';
-import { GlassCard } from '../../src/components/GlassCard';
-import { HeaderIconButton } from '../../src/components/HeaderIconButton';
-import { Ring } from '../../src/components/Ring';
-import { StatTileGrid } from '../../src/components/StatTileGrid';
-import { SectionLabel } from '../../src/components/SectionLabel';
-import { ProgressBar } from '../../src/components/ProgressBar';
-import { OrialColors } from '../../src/utils/colors';
-import { whoopService } from '../../src/services/whoopService';
-import { hydrationService } from '../../src/services/hydrationService';
-import type { HydrationTargetBreakdown } from '../../src/services/hydrationProfileService';
-import { supplementService } from '../../src/services/supplementService';
-import { manualMetricsService } from '../../src/services/manualMetricsService';
-import { weightPredictionService } from '../../src/services/weightPredictionService';
-import { nutritionService } from '../../src/services/nutritionService';
-import { useNfcWaterQueueDrain } from '../../src/hooks/useNfcWaterQueueDrain';
+import { calculatePeakState } from '@/src/services/peakStateService';
+import type { PeakStateResult } from '@/src/services/peakStateService';
+import { GlassCard } from '@/src/components/GlassCard';
+import { HeaderIconButton } from '@/src/components/HeaderIconButton';
+import { Ring } from '@/src/components/Ring';
+import { StatTileGrid } from '@/src/components/StatTileGrid';
+import { SectionLabel } from '@/src/components/SectionLabel';
+import { ProgressBar } from '@/src/components/ProgressBar';
+import { OrialColors } from '@/src/utils/colors';
+import { whoopService } from '@/src/services/whoopService';
+import { hydrationService } from '@/src/services/hydrationService';
+import type { HydrationTargetBreakdown } from '@/src/services/hydrationProfileService';
+import { supplementService } from '@/src/services/supplementService';
+import { manualMetricsService } from '@/src/services/manualMetricsService';
+import { weightPredictionService } from '@/src/services/weightPredictionService';
+import { nutritionService } from '@/src/services/nutritionService';
+import { useNfcWaterQueueDrain } from '@/src/hooks/useNfcWaterQueueDrain';
+import { todayDateString } from '@/src/utils/date';
 import type { WhoopDaily, ManualMetric, WeightPrediction, NutritionLog } from '../../drizzle/schema';
 
 const MACRO_CALORIE_GOAL = 2100;
@@ -55,7 +56,7 @@ export default function DashboardScreen() {
 
   const loadAllData = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayDateString();
       const connected = await whoopService.isConnected();
       if (connected) await whoopService.syncToday();
       // Recalculate today's target first so it reflects any hydration profile
@@ -123,14 +124,14 @@ export default function DashboardScreen() {
   };
 
   const handleAddWater = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     await hydrationService.addWater(today, 0.25);
     const progress = await hydrationService.getProgress(today);
     setHydrationData(progress);
   };
 
   const handleLogSupplement = async (supplementId: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const supp = supplements.find(s => s.supplementId === supplementId);
     if (supp) {
       await supplementService.logSupplement(supplementId, today, supp.dailyDoseMg);
@@ -401,7 +402,7 @@ export default function DashboardScreen() {
                 <Pressable
                   style={[styles.waterBtn, styles.waterBtnSecondary]}
                   onPress={async () => {
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = todayDateString();
                     await hydrationService.addWater(today, 0.5, 'soda_zero');
                     const progress = await hydrationService.getProgress(today);
                     setHydrationData(progress);

@@ -3,6 +3,7 @@ import { whoopDaily, bodyMetrics, pedometerHistory, type WhoopDaily, type NewWho
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import * as SecureStore from 'expo-secure-store';
+import { todayDateString, dateString } from '../utils/date';
 
 const STORE_KEY_ACCESS = 'whoop_access_token';
 const STORE_KEY_REFRESH = 'whoop_refresh_token';
@@ -326,7 +327,7 @@ export class WhoopService {
     // Fetch body measurement and update if available
     const bodyMeasurement = await this.fetchBodyMeasurement();
     if (bodyMeasurement?.weight_kilogram) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayDateString();
       await db.insert(bodyMetrics).values({
         id: generateUUID(),
         date: new Date(today),
@@ -341,7 +342,7 @@ export class WhoopService {
       });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const dailyData: NewWhoopDaily = {
       date: today,
       strain: cycle.score?.strain ?? null,
@@ -368,7 +369,7 @@ export class WhoopService {
   }
 
   async getTodayMetrics(): Promise<WhoopDaily | null> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const result = await db.select().from(whoopDaily).where(eq(whoopDaily.date, today)).limit(1);
     return result[0] || null;
   }
@@ -376,7 +377,7 @@ export class WhoopService {
   async getHistory(days: number = 7): Promise<WhoopDaily[]> {
     const start = new Date();
     start.setDate(start.getDate() - days);
-    const startDate = start.toISOString().split('T')[0];
+    const startDate = dateString(start);
 
     return db
       .select()

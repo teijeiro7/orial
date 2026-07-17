@@ -8,6 +8,7 @@ import {
 import { eq, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import { notificationService } from './notificationService';
+import { todayDateString, dateString } from '../utils/date';
 import type {
   FinanceAccount,
   FinanceSubscription,
@@ -206,7 +207,7 @@ export const financeService = {
       .where(eq(financeAccounts.id, sub.accountId));
     if (!account) return;
     const newBalance = account.balanceAmount - sub.amount;
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     await Promise.all([
       this.updateBalance(account.id, newBalance),
       db
@@ -329,7 +330,7 @@ export const financeService = {
     let changed = false;
 
     for (const sub of upcoming) {
-      const nextBillingDateISO = this.getNextBillingDate(sub).toISOString().split('T')[0];
+      const nextBillingDateISO = dateString(this.getNextBillingDate(sub));
       const notifyKey = `${sub.id}:${nextBillingDateISO}`;
       if (notified.has(notifyKey)) continue;
 

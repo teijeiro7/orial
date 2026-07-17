@@ -6,16 +6,17 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { Flame, Coffee, Pill, ChevronRight, Check, AlertTriangle } from 'lucide-react-native';
-import { ScreenHeader } from '../../src/components/ScreenHeader';
-import { GlassCard } from '../../src/components/GlassCard';
-import { Ring } from '../../src/components/Ring';
-import { AreaChart } from '../../src/components/AreaChart';
-import { OrialColors } from '../../src/utils/colors';
-import { nutritionService } from '../../src/services/nutritionService';
-import { caffeineService } from '../../src/services/caffeineService';
-import { supplementService } from '../../src/services/supplementService';
+import { ScreenHeader } from '@/src/components/ScreenHeader';
+import { GlassCard } from '@/src/components/GlassCard';
+import { Ring } from '@/src/components/Ring';
+import { AreaChart } from '@/src/components/AreaChart';
+import { OrialColors } from '@/src/utils/colors';
+import { nutritionService } from '@/src/services/nutritionService';
+import { caffeineService } from '@/src/services/caffeineService';
+import { supplementService } from '@/src/services/supplementService';
 import type { NutritionLog, Supplement, SupplementLog } from '../../drizzle/schema';
-import type { ActiveCaffeine, SleepInterferenceCheck } from '../../src/services/caffeineService';
+import type { ActiveCaffeine, SleepInterferenceCheck } from '@/src/services/caffeineService';
+import { todayDateString } from '@/src/utils/date';
 
 type CaffeineTimelinePoint = { atMs: number; mg: number };
 
@@ -47,7 +48,7 @@ export default function IntakeScreen() {
 
   const loadSummaries = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayDateString();
       const [nutrition, caffeine, sleep, dailyChart, supplementLogs] = await Promise.all([
         nutritionService.getTodayNutrition(),
         caffeineService.getActiveCaffeine(),

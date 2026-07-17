@@ -2,9 +2,9 @@ import { View, Text, StyleSheet, Pressable, TextInput, ScrollView } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight, SkipForward, Sparkles } from 'lucide-react-native';
 import { useState } from 'react';
-import { OrialColors } from '../../../src/utils/colors';
-import { OrialTypography } from '../../../src/utils/typography';
-import { GlassCard } from '../../../src/components/GlassCard';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
 
 interface WelcomeStepProps {
   onNext: () => void;

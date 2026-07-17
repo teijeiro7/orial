@@ -27,15 +27,15 @@ import {
   Home,
   Briefcase,
 } from 'lucide-react-native';
-import { GlassCard } from '../../src/components/GlassCard';
-import { NetWorthCard } from '../../src/components/NetWorthCard';
-import { Donut } from '../../src/components/Donut';
-import { SegmentedTabs } from '../../src/components/SegmentedTabs';
-import { OnePercentRule } from '../../src/components/OnePercentRule';
-import { financeService } from '../../src/services/financeService';
-import type { NetWorthSummary, SubscriptionAlert, WishlistProgressItem } from '../../src/services/financeService';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
+import { NetWorthCard } from '@/src/components/NetWorthCard';
+import { Donut } from '@/src/components/Donut';
+import { SegmentedTabs } from '@/src/components/SegmentedTabs';
+import { OnePercentRule } from '@/src/components/OnePercentRule';
+import { financeService } from '@/src/services/financeService';
+import type { NetWorthSummary, SubscriptionAlert, WishlistProgressItem } from '@/src/services/financeService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
 import type { FinanceAccount, FinanceSubscription, FinanceWishlistItem } from '../../drizzle/schema';
 
 type SubTab = 'networth' | 'subscriptions' | 'wishlist';

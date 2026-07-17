@@ -7,6 +7,7 @@ import { OrialColors } from '@/src/utils/colors';
 import { OrialTypography } from '@/src/utils/typography';
 import { manualMetricsService } from '@/src/services/manualMetricsService';
 import { weightPredictionService } from '@/src/services/weightPredictionService';
+import { todayDateString } from '@/src/utils/date';
 import type { ManualMetric } from '@/drizzle/schema';
 
 export default function ManualMetricsScreen() {
@@ -40,7 +41,7 @@ export default function ManualMetricsScreen() {
   }, []);
 
   const handleSave = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     
     const updateData: Partial<Omit<ManualMetric, 'date' | 'updatedAt'>> = {};
     

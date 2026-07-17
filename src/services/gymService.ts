@@ -7,6 +7,7 @@ import {
 } from '../../drizzle/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
+import { todayDateString } from '../utils/date';
 import type {
   GymRoutine,
   GymExercise,
@@ -130,7 +131,7 @@ export const gymService = {
   // ── Sessions ──────────────────────────────────────────────────────────────
 
   async startSession(routineId: string): Promise<GymSession> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const session: NewGymSession = {
       id: generateUUID(),
       routineId,
@@ -143,7 +144,7 @@ export const gymService = {
   },
 
   async getTodaySession(routineId: string): Promise<GymSession | null> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const results = await db
       .select()
       .from(gymSessions)

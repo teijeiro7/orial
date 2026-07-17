@@ -2,9 +2,9 @@ import { View, Text, StyleSheet, Pressable, TextInput, Alert } from 'react-nativ
 import { ArrowRight, Check, SkipForward, AlertTriangle, Zap } from 'lucide-react-native';
 import { useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { OrialColors } from '../../../src/utils/colors';
-import { OrialTypography } from '../../../src/utils/typography';
-import { GlassCard } from '../../../src/components/GlassCard';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
 
 interface OpenclawStepProps {
   onNext: () => void;

@@ -5,6 +5,7 @@ import { generateUUID } from '../utils/uuid';
 import { manualMetricsService } from './manualMetricsService';
 import { hydrationService } from './hydrationService';
 import type { OCRResult } from './openclawService';
+import { todayDateString, dateString } from '../utils/date';
 
 export interface OpenclawNutritionData {
   date: string;
@@ -95,7 +96,7 @@ export class NutritionService {
    * today) rather than replacing it. If no row exists yet for that date, one
    * is created with `source: 'ocr'`.
    */
-  async logMeal(result: OCRResult, date: string = new Date().toISOString().split('T')[0]): Promise<void> {
+  async logMeal(result: OCRResult, date: string = todayDateString()): Promise<void> {
     const existingRows = await db.select().from(nutritionLogs).where(eq(nutritionLogs.date, date)).limit(1);
     const existing = existingRows[0];
 
@@ -129,7 +130,7 @@ export class NutritionService {
   }
 
   async getTodayNutrition(): Promise<NutritionLog | null> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const result = await db.select().from(nutritionLogs).where(eq(nutritionLogs.date, today)).limit(1);
     if (result[0]) return result[0];
 
@@ -156,7 +157,7 @@ export class NutritionService {
   async getHistory(days: number = 7): Promise<NutritionLog[]> {
     const start = new Date();
     start.setDate(start.getDate() - days);
-    const startDate = start.toISOString().split('T')[0];
+    const startDate = dateString(start);
 
     return db
       .select()

@@ -4,6 +4,7 @@ import { eq, and, gte, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import { hydrationProfileService } from './hydrationProfileService';
 import { writeHydrationBaseline } from './nfcWaterQueue';
+import { todayDateString, dateString } from '../utils/date';
 
 const SODIO_PER_LITER_EXTRA = 2300; // mg de sodio que requieren 1L extra
 
@@ -18,7 +19,7 @@ export class HydrationService {
   }
 
   async getOrCreateToday(): Promise<Hydration> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const existing = await db.select().from(hydration).where(eq(hydration.date, today)).limit(1);
 
     if (existing[0]) return existing[0];
@@ -122,18 +123,18 @@ export class HydrationService {
    * after the hydration profile changes so the stored target stays in sync.
    */
   async recalculateTarget(date?: string): Promise<void> {
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || todayDateString();
     await this.recalculateHydrationTarget(targetDate);
   }
 
   /** Logs a water intake in milliliters for today. Thin convenience wrapper around `addWater`. */
   async logWater(ml: number, beverageType?: 'water' | 'soda_zero' | 'tea' | 'coffee' | 'other'): Promise<void> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     await this.addWater(today, ml / 1000, beverageType);
   }
 
   async getProgress(date?: string): Promise<{ current: number; target: number; percentage: number; consumedLiters: number }> {
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || todayDateString();
     const record = await this.getOrCreateForDate(targetDate);
 
     return {
@@ -147,7 +148,7 @@ export class HydrationService {
   async getHistory(days: number = 7): Promise<Hydration[]> {
     const start = new Date();
     start.setDate(start.getDate() - days);
-    const startDate = start.toISOString().split('T')[0];
+    const startDate = dateString(start);
 
     return db
       .select()
