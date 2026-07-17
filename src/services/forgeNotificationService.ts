@@ -1,8 +1,12 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from './database';
 import { bodyMetrics, whoopDaily } from '../../drizzle/schema';
 import { eq, gte, lte, desc } from 'drizzle-orm';
+
+const NOTIFICATION_HISTORY_STORAGE_KEY = 'forge_notification_last_sent';
+const NOTIFICATION_HISTORY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export interface ForgeNotificationSettings {
   lowRecoveryEnabled: boolean;
@@ -169,17 +173,40 @@ export class ForgeNotificationService {
   }
 
   private async getLastNotificationTime(key: string): Promise<number | null> {
-    try {
-      const stored = await Notifications.getAllScheduledNotificationsAsync();
-      // Simplified: in production, store in AsyncStorage
-      return null;
-    } catch {
-      return null;
-    }
+    const history = await this.loadNotificationHistory();
+    return history[key] ?? null;
   }
 
   private async setLastNotificationTime(key: string, timestamp: number): Promise<void> {
-    // Simplified: in production, store in AsyncStorage
+    const history = await this.loadNotificationHistory();
+    history[key] = timestamp;
+    await this.saveNotificationHistory(history);
+  }
+
+  /** Loads persisted last-sent timestamps, pruning entries past the cleanup window. */
+  private async loadNotificationHistory(): Promise<Record<string, number>> {
+    try {
+      const stored = await AsyncStorage.getItem(NOTIFICATION_HISTORY_STORAGE_KEY);
+      if (!stored) return {};
+      const history: Record<string, number> = JSON.parse(stored);
+      const now = Date.now();
+      return Object.fromEntries(
+        Object.entries(history).filter(
+          ([, timestamp]) => now - timestamp < NOTIFICATION_HISTORY_MAX_AGE_MS
+        )
+      );
+    } catch (error) {
+      console.error('[ForgeNotification] Failed to load notification history:', error);
+      return {};
+    }
+  }
+
+  private async saveNotificationHistory(history: Record<string, number>): Promise<void> {
+    try {
+      await AsyncStorage.setItem(NOTIFICATION_HISTORY_STORAGE_KEY, JSON.stringify(history));
+    } catch (error) {
+      console.error('[ForgeNotification] Failed to save notification history:', error);
+    }
   }
 
   updateSettings(newSettings: Partial<ForgeNotificationSettings>): void {
