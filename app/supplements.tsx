@@ -370,7 +370,7 @@ export default function SupplementsScreen() {
               colors={[`${OrialColors.violet}3D`, 'transparent']}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
             <View style={styles.focusRingWrap}>
               <Ring pct={suppTodayPct} size={76} strokeWidth={7} color={OrialColors.violetLight}>

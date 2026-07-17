@@ -2,6 +2,10 @@ import * as Calendar from 'expo-calendar';
 import { Platform, Alert } from 'react-native';
 import { OrialColors } from '../utils/colors';
 
+// expo-calendar no longer re-exports its `Event` type from the package root (SDK 57);
+// derive it from getEventsAsync's return type instead.
+type CalendarNativeEvent = Awaited<ReturnType<typeof Calendar.getEventsAsync>>[number];
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -88,7 +92,7 @@ export class CalendarService {
     }
   }
 
-  async getEventsForDate(date: Date): Promise<Calendar.Event[]> {
+  async getEventsForDate(date: Date): Promise<CalendarNativeEvent[]> {
     if (!this.selectedCalendarId) return [];
 
     try {
@@ -108,7 +112,7 @@ export class CalendarService {
     }
   }
 
-  async getEventsForMonth(year: number, month: number): Promise<Calendar.Event[]> {
+  async getEventsForMonth(year: number, month: number): Promise<CalendarNativeEvent[]> {
     if (!this.selectedCalendarId) return [];
 
     try {

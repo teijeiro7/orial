@@ -1,8 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, Animated, RefreshControl, ViewStyle, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { format } from 'date-fns';
 import { GlassCard } from '@/src/components/GlassCard';
 import { Ring } from '@/src/components/Ring';

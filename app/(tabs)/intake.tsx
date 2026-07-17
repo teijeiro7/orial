@@ -2,8 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { format } from 'date-fns';
 import { Flame, Coffee, Pill, ChevronRight, Check, AlertTriangle } from 'lucide-react-native';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -101,7 +100,7 @@ export default function IntakeScreen() {
               colors={[`${OrialColors.warning}26`, 'transparent']}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
             <View style={styles.moduleTop}>
               <View style={styles.moduleTitleRow}>
@@ -135,7 +134,7 @@ export default function IntakeScreen() {
               colors={[`${OrialColors.cyan}26`, 'transparent']}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
             <View style={styles.moduleTop}>
               <View style={styles.moduleTitleRow}>
@@ -182,7 +181,7 @@ export default function IntakeScreen() {
               colors={[`${OrialColors.violet}26`, 'transparent']}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
             <View style={styles.moduleTop}>
               <View style={styles.moduleTitleRow}>
