@@ -8,6 +8,8 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Check, AlertTriangle, Zap } from 'lucide-react-native';
@@ -96,6 +98,7 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={styles.header}>
           <View style={styles.headerIcon}>
             <Zap size={20} color={OrialColors.cyan} />
@@ -181,6 +184,7 @@ export function JarvisSettingsScreen({ visible, onClose }: JarvisSettingsScreenP
             </GlassCard>
           </View>
         )}
+      </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );

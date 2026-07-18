@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Modal, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Moon } from 'lucide-react-native';
 import { GlassCard } from '@/src/components/GlassCard';
+import { BottomSheetModal } from '@/src/components/BottomSheetModal';
 import { AreaChart } from '@/src/components/AreaChart';
 import { Chip } from '@/src/components/Chip';
 import { caffeineService, QUICK_SOURCES } from '@/src/services/caffeineService';
@@ -177,9 +178,7 @@ export default function CaffeineScreen() {
         <Plus size={22} color={OrialColors.textPrimary} />
       </Pressable>
 
-      <Modal visible={showAdd} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
+      <BottomSheetModal visible={showAdd} onClose={() => setShowAdd(false)}>
             <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>Añadir cafeína</Text>
             <TextInput
               style={styles.input}
@@ -215,9 +214,7 @@ export default function CaffeineScreen() {
                 <Text style={OrialTypography.bodyMedium}>Añadir</Text>
               </Pressable>
             </View>
-          </GlassCard>
-        </View>
-      </Modal>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -256,8 +253,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalCard: { margin: 16, padding: 20 },
   input: {
     backgroundColor: OrialColors.surface,
     borderRadius: 10,

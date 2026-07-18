@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  Modal,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +27,7 @@ import {
   Briefcase,
 } from 'lucide-react-native';
 import { GlassCard } from '@/src/components/GlassCard';
+import { BottomSheetModal } from '@/src/components/BottomSheetModal';
 import { NetWorthCard } from '@/src/components/NetWorthCard';
 import { Donut } from '@/src/components/Donut';
 import { SegmentedTabs } from '@/src/components/SegmentedTabs';
@@ -480,9 +480,7 @@ export default function FinanceScreen() {
       </ScrollView>
 
       {/* ── Add Account Modal ─────────────────────────────────────────── */}
-      <Modal visible={showAddAccount} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
+      <BottomSheetModal visible={showAddAccount} onClose={() => setShowAddAccount(false)}>
             <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Account</Text>
             <TextInput style={styles.input} placeholder="Account name" placeholderTextColor={OrialColors.textMuted} value={accName} onChangeText={setAccName} />
             <TextInput style={styles.input} placeholder="Balance" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={accBalance} onChangeText={setAccBalance} />
@@ -509,14 +507,10 @@ export default function FinanceScreen() {
                 <Text style={OrialTypography.bodyMedium}>Add</Text>
               </Pressable>
             </View>
-          </GlassCard>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* ── Add Subscription Modal ────────────────────────────────────── */}
-      <Modal visible={showAddSub} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
+      <BottomSheetModal visible={showAddSub} onClose={() => setShowAddSub(false)}>
             <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Subscription</Text>
             <TextInput style={styles.input} placeholder="Service name" placeholderTextColor={OrialColors.textMuted} value={subName} onChangeText={setSubName} />
             <View style={styles.rowInputs}>
@@ -560,14 +554,10 @@ export default function FinanceScreen() {
                 <Text style={OrialTypography.bodyMedium}>Add</Text>
               </Pressable>
             </View>
-          </GlassCard>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* ── Add Wishlist Modal ─────────────────────────────────────────── */}
-      <Modal visible={showAddWish} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
+      <BottomSheetModal visible={showAddWish} onClose={() => setShowAddWish(false)}>
             <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>Add to Wishlist</Text>
             <TextInput style={styles.input} placeholder="Item name" placeholderTextColor={OrialColors.textMuted} value={wishName} onChangeText={setWishName} />
             <TextInput style={styles.input} placeholder="Price" placeholderTextColor={OrialColors.textMuted} keyboardType="numeric" value={wishPrice} onChangeText={setWishPrice} />
@@ -580,9 +570,7 @@ export default function FinanceScreen() {
                 <Text style={OrialTypography.bodyMedium}>Add</Text>
               </Pressable>
             </View>
-          </GlassCard>
-        </View>
-      </Modal>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -658,9 +646,6 @@ const styles = StyleSheet.create({
   wishRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   wishInfo: { flex: 1 },
   wishRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalCard: { margin: 16, padding: 20 },
   input: {
     backgroundColor: OrialColors.surface,
     borderRadius: 10, padding: 12,

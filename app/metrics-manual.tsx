@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import { Scale, Footprints, Dumbbell, Utensils, Save } from 'lucide-react-native';
@@ -90,7 +90,8 @@ export default function ManualMetricsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={OrialTypography.headingLarge}>Daily Metrics</Text>
           <Text style={OrialTypography.caption}>Track activity, nutrition, and wellness</Text>
@@ -225,6 +226,7 @@ export default function ManualMetricsScreen() {
           <Text style={styles.saveButtonText}>Save Metrics</Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

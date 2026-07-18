@@ -7,7 +7,6 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  Modal,
   ActivityIndicator,
   Image,
 } from 'react-native';
@@ -25,6 +24,7 @@ import {
   Trophy,
 } from 'lucide-react-native';
 import { GlassCard } from '@/src/components/GlassCard';
+import { BottomSheetModal } from '@/src/components/BottomSheetModal';
 import { GymSetRow } from '@/src/components/GymSetRow';
 import { SectionLabel } from '@/src/components/SectionLabel';
 import { Ring } from '@/src/components/Ring';
@@ -309,9 +309,7 @@ export default function GymScreen() {
         </ScrollView>
 
         {/* Add Routine Modal */}
-        <Modal visible={showAddRoutine} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <GlassCard style={styles.modalCard}>
+        <BottomSheetModal visible={showAddRoutine} onClose={() => setShowAddRoutine(false)}>
               <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Routine</Text>
 
               <TextInput
@@ -359,9 +357,7 @@ export default function GymScreen() {
                   <Text style={OrialTypography.bodyMedium}>Create</Text>
                 </Pressable>
               </View>
-            </GlassCard>
-          </View>
-        </Modal>
+        </BottomSheetModal>
       </SafeAreaView>
     );
   }
@@ -533,9 +529,7 @@ export default function GymScreen() {
       </ScrollView>
 
       {/* Swap Modal */}
-      <Modal visible={!!swapFor} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
+      <BottomSheetModal visible={!!swapFor} onClose={() => setSwapFor(null)}>
             <Text style={[OrialTypography.headingSmall, { marginBottom: 4 }]}>
               🔄 Cambiar ejercicio
             </Text>
@@ -569,14 +563,10 @@ export default function GymScreen() {
                 </Text>
               </Pressable>
             </View>
-          </GlassCard>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* Progress Photo Timeline Modal */}
-      <Modal visible={showTimeline} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
+      <BottomSheetModal visible={showTimeline} onClose={() => setShowTimeline(false)}>
             <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>
               🖼️ Progreso (antes / después)
             </Text>
@@ -605,14 +595,10 @@ export default function GymScreen() {
                 </Text>
               </Pressable>
             </View>
-          </GlassCard>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* Add Exercise Modal */}
-      <Modal visible={showAddExercise} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.modalCard}>
+      <BottomSheetModal visible={showAddExercise} onClose={() => { setShowAddExercise(false); setExerciseSuggestions([]); }}>
             <Text style={[OrialTypography.headingSmall, { marginBottom: 16 }]}>New Exercise</Text>
 
             <TextInput
@@ -683,9 +669,7 @@ export default function GymScreen() {
                 <Text style={OrialTypography.bodyMedium}>Add</Text>
               </Pressable>
             </View>
-          </GlassCard>
-        </View>
-      </Modal>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -785,9 +769,6 @@ const styles = StyleSheet.create({
     backgroundColor: OrialColors.violet,
     justifyContent: 'center', alignItems: 'center',
   },
-  // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalCard: { margin: 16, padding: 20 },
   input: {
     backgroundColor: OrialColors.surface,
     borderRadius: 10, padding: 12,
