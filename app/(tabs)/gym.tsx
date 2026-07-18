@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -24,39 +24,62 @@ import {
   Images,
   Trophy,
 } from 'lucide-react-native';
-import { GlassCard } from '../../src/components/GlassCard';
-import { GymSetRow } from '../../src/components/GymSetRow';
-import { SectionLabel } from '../../src/components/SectionLabel';
-import { Ring } from '../../src/components/Ring';
-import { Chip } from '../../src/components/Chip';
-import { gymService } from '../../src/services/gymService';
-import { gymCoachService } from '../../src/services/gymCoachService';
-import type { ProgressionResult, SwapAlternative } from '../../src/services/gymCoachService';
-import { progressPhotoService } from '../../src/services/progressPhotoService';
-import type { ProgressPhoto } from '../../src/services/progressPhotoService';
-import { searchExercises } from '../../src/services/exerciseCatalogService';
-import type { CatalogExercise } from '../../src/services/exerciseCatalogService';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
-import type { GymRoutine, GymExercise, GymSession, GymSet } from '../../drizzle/schema';
-import type { OverloadAlert } from '../../src/services/gymService';
+import { GlassCard } from '@/src/components/GlassCard';
+import { GymSetRow } from '@/src/components/GymSetRow';
+import { SectionLabel } from '@/src/components/SectionLabel';
+import { Ring } from '@/src/components/Ring';
+import { Chip } from '@/src/components/Chip';
+import type { SwapAlternative } from '@/src/services/gymCoachService';
+import { searchExercises } from '@/src/services/exerciseCatalogService';
+import type { CatalogExercise } from '@/src/services/exerciseCatalogService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import type { GymExercise } from '../../drizzle/schema';
+import type { OverloadAlert } from '@/src/services/gymService';
+import { useGymData } from '@/src/hooks/useGymData';
 
 type ScreenView = 'routines' | 'session';
 
 const DAY_LABELS = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function GymScreen() {
+  const {
+    loading,
+    routines,
+    routineMeta,
+    activeRoutine,
+    setActiveRoutine,
+    exercises,
+    activeSession,
+    sessionSets,
+    overloadAlerts,
+    swapFor,
+    setSwapFor,
+    swapAlternatives,
+    progressions,
+    finishing,
+    photoBusy,
+    showTimeline,
+    setShowTimeline,
+    timeline,
+    getExerciseSets,
+    totalTargetSets,
+    completedSets,
+    sessionProgressPct,
+    nextExercise,
+    createRoutine,
+    createExercise,
+    startSession,
+    logSet,
+    acceptOverload,
+    finishSession,
+    openSwap,
+    selectSwap,
+    takePhoto,
+    openTimeline,
+  } = useGymData();
+
   const [view, setView] = useState<ScreenView>('routines');
-  const [routines, setRoutines] = useState<GymRoutine[]>([]);
-  const [routineMeta, setRoutineMeta] = useState<
-    Record<string, { exerciseCount: number; lastSessionDaysAgo: number | null }>
-  >({});
-  const [activeRoutine, setActiveRoutine] = useState<GymRoutine | null>(null);
-  const [exercises, setExercises] = useState<GymExercise[]>([]);
-  const [activeSession, setActiveSession] = useState<GymSession | null>(null);
-  const [sessionSets, setSessionSets] = useState<GymSet[]>([]);
-  const [overloadAlerts, setOverloadAlerts] = useState<OverloadAlert[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Modal states
   const [showAddRoutine, setShowAddRoutine] = useState(false);
@@ -64,15 +87,6 @@ export default function GymScreen() {
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
   const [logReps, setLogReps] = useState<Record<string, string>>({});
   const [logWeight, setLogWeight] = useState<Record<string, string>>({});
-
-  // Gym Coach: swaps, auto-progression, progress photos
-  const [swapFor, setSwapFor] = useState<GymExercise | null>(null);
-  const [swapAlternatives, setSwapAlternatives] = useState<SwapAlternative[]>([]);
-  const [progressions, setProgressions] = useState<Record<string, ProgressionResult>>({});
-  const [finishing, setFinishing] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
-  const [showTimeline, setShowTimeline] = useState(false);
-  const [timeline, setTimeline] = useState<ProgressPhoto[]>([]);
 
   // New routine form
   const [newRoutineName, setNewRoutineName] = useState('');
@@ -88,73 +102,26 @@ export default function GymScreen() {
   const [newExWeight, setNewExWeight] = useState('0');
   const [newExIncrement, setNewExIncrement] = useState('2.5');
 
-  const loadRoutines = useCallback(async () => {
-    setLoading(true);
-    const r = await gymService.getRoutines();
-    setRoutines(r);
-    const metaEntries = await Promise.all(
-      r.map(async (routine) => {
-        const [routineExercises, lastSession] = await Promise.all([
-          gymService.getExercisesForRoutine(routine.id),
-          gymService.getLastSessionForRoutine(routine.id),
-        ]);
-        const lastSessionDaysAgo = lastSession
-          ? Math.floor((Date.now() - new Date(lastSession.date).getTime()) / 86400000)
-          : null;
-        return [routine.id, { exerciseCount: routineExercises.length, lastSessionDaysAgo }] as const;
-      }),
-    );
-    setRoutineMeta(Object.fromEntries(metaEntries));
-    setLoading(false);
-  }, []);
-
-  const loadRoutineDetail = useCallback(async (routine: GymRoutine) => {
-    const [exs, alerts, session] = await Promise.all([
-      gymService.getExercisesForRoutine(routine.id),
-      gymService.checkOverloadAlerts(routine.id),
-      gymService.getTodaySession(routine.id),
-    ]);
-    setExercises(exs);
-    setOverloadAlerts(alerts);
-    if (session) {
-      const sets = await gymService.getSetsForSession(session.id);
-      setActiveSession(session);
-      setSessionSets(sets);
-    } else {
-      setActiveSession(null);
-      setSessionSets([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadRoutines();
-  }, []);
-
-  useEffect(() => {
-    if (activeRoutine) loadRoutineDetail(activeRoutine);
-  }, [activeRoutine]);
-
   async function handleCreateRoutine() {
-    if (!newRoutineName.trim()) return;
-    await gymService.createRoutine(newRoutineName.trim(), newRoutineEmoji, newRoutineDays);
+    const created = await createRoutine(newRoutineName, newRoutineEmoji, newRoutineDays);
+    if (!created) return;
     setNewRoutineName('');
     setNewRoutineEmoji('💪');
     setNewRoutineDays([]);
     setShowAddRoutine(false);
-    loadRoutines();
   }
 
   async function handleCreateExercise() {
-    if (!activeRoutine || !newExName.trim()) return;
-    await gymService.createExercise({
-      routineId: activeRoutine.id,
-      name: newExName.trim(),
+    if (!activeRoutine) return;
+    const created = await createExercise(activeRoutine, {
+      name: newExName,
       targetSets: parseInt(newExSets) || 3,
       targetRepsMin: parseInt(newExRepsMin) || 8,
       targetRepsMax: parseInt(newExRepsMax) || 12,
       currentWeightKg: parseFloat(newExWeight) || 0,
       incrementKg: parseFloat(newExIncrement) || 2.5,
     });
+    if (!created) return;
     setNewExName('');
     setExerciseSuggestions([]);
     setNewExSets('3');
@@ -163,7 +130,6 @@ export default function GymScreen() {
     setNewExWeight('0');
     setNewExIncrement('2.5');
     setShowAddExercise(false);
-    loadRoutineDetail(activeRoutine);
   }
 
   // Catalog search backs the exercise-name field: free text still works (the
@@ -178,48 +144,20 @@ export default function GymScreen() {
     setExerciseSuggestions([]);
   }
 
-  async function handleStartSession() {
-    if (!activeRoutine) return;
-    const session = await gymService.startSession(activeRoutine.id);
-    setActiveSession(session);
-    setSessionSets([]);
-  }
-
   async function handleLogSet(exercise: GymExercise) {
-    if (!activeSession) return;
-    const reps = parseInt(logReps[exercise.id] || '0');
-    const weight = parseFloat(logWeight[exercise.id] || String(exercise.currentWeightKg));
-    if (!reps) return;
-
-    const setsForExercise = sessionSets.filter((s) => s.exerciseId === exercise.id);
-    const set = await gymService.logSet({
-      sessionId: activeSession.id,
-      exerciseId: exercise.id,
-      setNumber: setsForExercise.length + 1,
-      reps,
-      weightKg: weight,
-    });
-
-    setSessionSets((prev) => [...prev, set]);
+    const logged = await logSet(exercise, logReps[exercise.id] || '', logWeight[exercise.id] || '');
+    if (!logged) return;
     setLogReps((prev) => ({ ...prev, [exercise.id]: '' }));
   }
 
   async function handleAcceptOverload(alert: OverloadAlert) {
-    await gymService.updateExerciseWeight(alert.exerciseId, alert.nextWeightKg);
-    setOverloadAlerts((prev) => prev.filter((a) => a.exerciseId !== alert.exerciseId));
-    if (activeRoutine) loadRoutineDetail(activeRoutine);
+    await acceptOverload(alert);
     Alert.alert('Weight updated!', `${alert.exerciseName}: ${alert.nextWeightKg} kg`);
   }
 
   async function handleFinishSession() {
-    if (!activeSession || !activeRoutine) return;
-    setFinishing(true);
     try {
-      const results = await gymCoachService.processCompletedSession(activeSession.id);
-      const byExercise: Record<string, ProgressionResult> = {};
-      for (const r of results) byExercise[r.exerciseId] = r;
-      setProgressions(byExercise);
-      await loadRoutineDetail(activeRoutine);
+      const results = await finishSession();
       if (results.length > 0) {
         setExpandedExercise(results[0].exerciseId);
         Alert.alert(
@@ -231,69 +169,38 @@ export default function GymScreen() {
       }
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo procesar la sesión');
-    } finally {
-      setFinishing(false);
-    }
-  }
-
-  async function handleOpenSwap(exercise: GymExercise) {
-    setSwapFor(exercise);
-    setSwapAlternatives([]);
-    try {
-      const alternatives = await gymCoachService.getSwapAlternatives(exercise.id);
-      setSwapAlternatives(alternatives);
-    } catch {
-      setSwapAlternatives([]);
     }
   }
 
   async function handleSelectSwap(alternative: SwapAlternative) {
-    if (!swapFor || !activeRoutine) return;
+    const exerciseName = swapFor?.name;
     try {
-      await gymCoachService.applySwap(swapFor.id, alternative.exerciseId);
+      await selectSwap(alternative);
       Alert.alert(
         '🔄 Ejercicio cambiado',
-        `${swapFor.name} → ${alternative.name} a ${alternative.equivalentWeightKg} kg (misma intensidad)`,
+        `${exerciseName} → ${alternative.name} a ${alternative.equivalentWeightKg} kg (misma intensidad)`,
       );
-      setSwapFor(null);
-      await loadRoutineDetail(activeRoutine);
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo cambiar el ejercicio');
     }
   }
 
   async function handleTakePhoto() {
-    setPhotoBusy(true);
     try {
-      const url = await progressPhotoService.takePhoto();
+      const url = await takePhoto();
       if (url) Alert.alert('📸 Foto guardada', 'Tu foto de progreso se ha subido.');
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo guardar la foto');
-    } finally {
-      setPhotoBusy(false);
     }
   }
 
   async function handleOpenTimeline() {
-    setShowTimeline(true);
     try {
-      const photos = await progressPhotoService.getTimeline();
-      setTimeline(photos);
+      await openTimeline();
     } catch (e) {
-      setTimeline([]);
       Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo cargar el timeline');
     }
   }
-
-  function getExerciseSets(exerciseId: string) {
-    return sessionSets.filter((s) => s.exerciseId === exerciseId);
-  }
-
-  // Session progress: completed sets vs. total sets targeted for this routine.
-  const totalTargetSets = exercises.reduce((sum, ex) => sum + ex.targetSets, 0);
-  const completedSets = sessionSets.length;
-  const sessionProgressPct = totalTargetSets > 0 ? (completedSets / totalTargetSets) * 100 : 0;
-  const nextExercise = exercises.find((ex) => getExerciseSets(ex.id).length < ex.targetSets) ?? null;
 
   if (loading) {
     return (
@@ -506,7 +413,7 @@ export default function GymScreen() {
         {/* Start session button */}
         {!activeSession && (
           <View style={styles.section}>
-            <Pressable style={styles.startSessionBtn} onPress={handleStartSession}>
+            <Pressable style={styles.startSessionBtn} onPress={startSession}>
               <Dumbbell size={20} color={OrialColors.textPrimary} />
               <Text style={[OrialTypography.bodyMedium, { color: OrialColors.textPrimary }]}>
                 Start Today's Session
@@ -573,7 +480,7 @@ export default function GymScreen() {
                 onChangeReps={(v) => setLogReps((p) => ({ ...p, [ex.id]: v }))}
                 onChangeWeight={(v) => setLogWeight((p) => ({ ...p, [ex.id]: v }))}
                 onLogSet={() => handleLogSet(ex)}
-                onSwap={() => handleOpenSwap(ex)}
+                onSwap={() => openSwap(ex)}
               />
             ))
           )}

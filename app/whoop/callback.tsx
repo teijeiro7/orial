@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { whoopService } from '../../src/services/whoopService';
-import { OrialColors } from '../../src/utils/colors';
+import { whoopService } from '@/src/services/whoopService';
+import { OrialColors } from '@/src/utils/colors';
 
 export default function WhoopCallback() {
   const { code, error } = useLocalSearchParams<{ code?: string; error?: string }>();

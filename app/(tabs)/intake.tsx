@@ -2,20 +2,20 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { format } from 'date-fns';
 import { Flame, Coffee, Pill, ChevronRight, Check, AlertTriangle } from 'lucide-react-native';
-import { ScreenHeader } from '../../src/components/ScreenHeader';
-import { GlassCard } from '../../src/components/GlassCard';
-import { Ring } from '../../src/components/Ring';
-import { AreaChart } from '../../src/components/AreaChart';
-import { OrialColors } from '../../src/utils/colors';
-import { nutritionService } from '../../src/services/nutritionService';
-import { caffeineService } from '../../src/services/caffeineService';
-import { supplementService } from '../../src/services/supplementService';
+import { ScreenHeader } from '@/src/components/ScreenHeader';
+import { GlassCard } from '@/src/components/GlassCard';
+import { Ring } from '@/src/components/Ring';
+import { AreaChart } from '@/src/components/AreaChart';
+import { OrialColors } from '@/src/utils/colors';
+import { nutritionService } from '@/src/services/nutritionService';
+import { caffeineService } from '@/src/services/caffeineService';
+import { supplementService } from '@/src/services/supplementService';
 import type { NutritionLog, Supplement, SupplementLog } from '../../drizzle/schema';
-import type { ActiveCaffeine, SleepInterferenceCheck } from '../../src/services/caffeineService';
+import type { ActiveCaffeine, SleepInterferenceCheck } from '@/src/services/caffeineService';
+import { todayDateString } from '@/src/utils/date';
 
 type CaffeineTimelinePoint = { atMs: number; mg: number };
 
@@ -47,7 +47,7 @@ export default function IntakeScreen() {
 
   const loadSummaries = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayDateString();
       const [nutrition, caffeine, sleep, dailyChart, supplementLogs] = await Promise.all([
         nutritionService.getTodayNutrition(),
         caffeineService.getActiveCaffeine(),
@@ -100,7 +100,7 @@ export default function IntakeScreen() {
               colors={[`${OrialColors.warning}26`, 'transparent']}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
             <View style={styles.moduleTop}>
               <View style={styles.moduleTitleRow}>
@@ -134,7 +134,7 @@ export default function IntakeScreen() {
               colors={[`${OrialColors.cyan}26`, 'transparent']}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
             <View style={styles.moduleTop}>
               <View style={styles.moduleTitleRow}>
@@ -181,7 +181,7 @@ export default function IntakeScreen() {
               colors={[`${OrialColors.violet}26`, 'transparent']}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
             <View style={styles.moduleTop}>
               <View style={styles.moduleTitleRow}>

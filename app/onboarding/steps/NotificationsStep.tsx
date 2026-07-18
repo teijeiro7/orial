@@ -2,9 +2,9 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { ArrowRight, Bell, SkipForward, Check } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
-import { OrialColors } from '../../../src/utils/colors';
-import { OrialTypography } from '../../../src/utils/typography';
-import { GlassCard } from '../../../src/components/GlassCard';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
 
 interface NotificationsStepProps {
   onNext: () => void;

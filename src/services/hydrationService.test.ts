@@ -1,5 +1,5 @@
 import { hydrationService } from './hydrationService';
-import { db } from './database';
+import { db, expoDb } from './database';
 import { writeHydrationBaseline } from './nfcWaterQueue';
 
 jest.mock('./database', () => ({
@@ -7,6 +7,9 @@ jest.mock('./database', () => ({
     select: jest.fn(),
     insert: jest.fn(),
     update: jest.fn(),
+  },
+  expoDb: {
+    runAsync: jest.fn(),
   },
 }));
 
@@ -21,6 +24,7 @@ jest.mock('./hydrationProfileService', () => ({
 }));
 
 const mockedDb = db as jest.Mocked<typeof db>;
+const mockedExpoDb = expoDb as jest.Mocked<typeof expoDb>;
 const mockedWriteHydrationBaseline = writeHydrationBaseline as jest.Mock;
 
 describe('hydrationService.addWater', () => {
@@ -36,30 +40,33 @@ describe('hydrationService.addWater', () => {
     updatedAt: new Date(),
   };
 
-  const mockSelectResolvesTo = (rows: unknown[]) => {
-    mockedDb.select.mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue(rows),
-        }),
-      }),
-    } as any);
+  // addWater does an atomic UPDATE via expoDb.runAsync, then re-reads the row
+  // to report the post-update total — it never computes the new total in JS.
+  const updatedRecord = {
+    ...existingRecord,
+    consumedLiters: 2.0,
+    effectiveLiters: 2.0,
   };
 
-  const mockUpdateResolves = () => {
-    const whereMock = jest.fn().mockResolvedValue(undefined);
-    const setMock = jest.fn().mockReturnValue({ where: whereMock });
-    mockedDb.update.mockReturnValue({ set: setMock } as any);
-    return { setMock, whereMock };
+  /** First select() call (ensure row exists) resolves `first`, every call after resolves `rest`. */
+  const mockSelectSequence = (first: unknown[], rest: unknown[]) => {
+    let callCount = 0;
+    mockedDb.select.mockImplementation(() => ({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockImplementation(() => Promise.resolve(callCount++ === 0 ? first : rest)),
+        }),
+      }),
+    }) as any);
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockSelectResolvesTo([existingRecord]);
-    mockUpdateResolves();
+    mockSelectSequence([existingRecord], [updatedRecord]);
+    mockedExpoDb.runAsync.mockResolvedValue(undefined as any);
   });
 
-  it('calls writeHydrationBaseline with the date and the post-update total (record.consumedLiters + liters)', async () => {
+  it('calls writeHydrationBaseline with the date and the post-update total read back from the DB', async () => {
     mockedWriteHydrationBaseline.mockResolvedValue(undefined);
 
     await hydrationService.addWater(DATE, 0.5, 'water');
@@ -68,16 +75,18 @@ describe('hydrationService.addWater', () => {
     expect(mockedWriteHydrationBaseline).toHaveBeenCalledWith(DATE, 2.0);
   });
 
-  it('calls writeHydrationBaseline after the DB update has been issued', async () => {
-    const { setMock } = mockUpdateResolves();
+  it('issues an atomic increment via expoDb.runAsync before calling writeHydrationBaseline', async () => {
     mockedWriteHydrationBaseline.mockResolvedValue(undefined);
 
     await hydrationService.addWater(DATE, 0.5, 'water');
 
-    expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ consumedLiters: 2.0 })
+    expect(mockedExpoDb.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('consumed_liters = consumed_liters +'),
+      [0.5, 0.5, expect.any(Number), DATE],
     );
-    expect(mockedWriteHydrationBaseline).toHaveBeenCalledWith(DATE, 2.0);
+    const runOrder = mockedExpoDb.runAsync.mock.invocationCallOrder[0];
+    const baselineOrder = mockedWriteHydrationBaseline.mock.invocationCallOrder[0];
+    expect(runOrder).toBeLessThan(baselineOrder);
   });
 
   it('does not let a rejected writeHydrationBaseline propagate out of addWater', async () => {

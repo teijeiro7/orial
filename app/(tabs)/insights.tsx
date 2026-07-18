@@ -2,16 +2,16 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, RefreshCw } from 'lucide-react-native';
-import { GlassCard } from '../../src/components/GlassCard';
+import { GlassCard } from '@/src/components/GlassCard';
 import {
   insightService,
   applyDismiss,
   type Insight,
   type InsightCategory,
   type InsightSeverity,
-} from '../../src/services/insightService';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+} from '@/src/services/insightService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
 
 const CATEGORY_EMOJI: Record<InsightCategory, string> = {
   sleep: '😴',

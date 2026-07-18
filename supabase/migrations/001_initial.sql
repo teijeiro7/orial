@@ -66,7 +66,6 @@ CREATE TABLE IF NOT EXISTS sync_queue (
 
 CREATE TABLE IF NOT EXISTS user_settings (
   id                    TEXT PRIMARY KEY DEFAULT 'default',
-  notion_access_token   TEXT,
   notion_habits_db_id   TEXT,
   notion_logs_db_id     TEXT,
   calendar_account_id   TEXT,
@@ -78,16 +77,6 @@ CREATE TABLE IF NOT EXISTS user_settings (
 );
 
 -- ── WHOOP ────────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS whoop_tokens (
-  id            TEXT PRIMARY KEY DEFAULT 'default',
-  access_token  TEXT,
-  refresh_token TEXT,
-  expires_at    BIGINT,
-  scope         TEXT,
-  whoop_user_id BIGINT,
-  created_at    BIGINT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS whoop_daily (
   date                TEXT PRIMARY KEY,
   strain              DOUBLE PRECISION,
@@ -365,7 +354,6 @@ CREATE TABLE IF NOT EXISTS insight_logs (
 -- preserved (NEW.modified_at is left untouched when the writer already set it).
 ALTER TABLE habits                  ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE habit_entries           ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
-ALTER TABLE whoop_tokens            ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE body_metrics            ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE sodium_intake           ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE supplements             ADD COLUMN IF NOT EXISTS modified_at BIGINT NOT NULL DEFAULT 0;
@@ -393,7 +381,6 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER trg_habits_modified_at         BEFORE INSERT OR UPDATE ON habits                  FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
 CREATE OR REPLACE TRIGGER trg_habit_entries_modified_at  BEFORE INSERT OR UPDATE ON habit_entries           FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
-CREATE OR REPLACE TRIGGER trg_whoop_tokens_modified_at   BEFORE INSERT OR UPDATE ON whoop_tokens            FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
 CREATE OR REPLACE TRIGGER trg_body_metrics_modified_at   BEFORE INSERT OR UPDATE ON body_metrics            FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
 CREATE OR REPLACE TRIGGER trg_sodium_intake_modified_at  BEFORE INSERT OR UPDATE ON sodium_intake           FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
 CREATE OR REPLACE TRIGGER trg_supplements_modified_at    BEFORE INSERT OR UPDATE ON supplements             FOR EACH ROW EXECUTE FUNCTION bump_modified_at();
@@ -412,7 +399,6 @@ CREATE OR REPLACE TRIGGER trg_caffeine_logs_modified_at  BEFORE INSERT OR UPDATE
 -- modified_at range-scan indexes (speed up pullChanges):
 CREATE INDEX IF NOT EXISTS idx_habits_modified_at         ON habits                  (modified_at);
 CREATE INDEX IF NOT EXISTS idx_habit_entries_modified_at  ON habit_entries           (modified_at);
-CREATE INDEX IF NOT EXISTS idx_whoop_tokens_modified_at   ON whoop_tokens            (modified_at);
 CREATE INDEX IF NOT EXISTS idx_body_metrics_modified_at   ON body_metrics            (modified_at);
 CREATE INDEX IF NOT EXISTS idx_sodium_intake_modified_at  ON sodium_intake           (modified_at);
 CREATE INDEX IF NOT EXISTS idx_supplements_modified_at    ON supplements             (modified_at);

@@ -2,6 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "types": ["jest", "node"],
     "paths": {
       "@/*": [
         "./*"
@@ -15,6 +16,7 @@
   "exclude": [
     "node_modules",
     "notebooklm-mcp",
-    "dist"
+    "dist",
+    "supabase/functions"
   ]
 }

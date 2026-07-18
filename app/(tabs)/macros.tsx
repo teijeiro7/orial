@@ -1,15 +1,15 @@
 import { View, Text, StyleSheet, ScrollView, Animated, RefreshControl, ViewStyle, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { format } from 'date-fns';
-import { GlassCard } from '../../src/components/GlassCard';
-import { Ring } from '../../src/components/Ring';
-import { ProgressBar } from '../../src/components/ProgressBar';
-import { OrialColors } from '../../src/utils/colors';
-import { nutritionService } from '../../src/services/nutritionService';
-import { agentService } from '../../src/services/openclawService';
+import { GlassCard } from '@/src/components/GlassCard';
+import { Ring } from '@/src/components/Ring';
+import { ProgressBar } from '@/src/components/ProgressBar';
+import { OrialColors } from '@/src/utils/colors';
+import { nutritionService } from '@/src/services/nutritionService';
+import { agentService } from '@/src/services/openclawService';
+import { todayDateString } from '@/src/utils/date';
 import type { NutritionLog } from '../../drizzle/schema';
 
 const GOALS = { calories: 2100, protein: 160, carbs: 220, fat: 70 };
@@ -58,7 +58,7 @@ export default function MacrosScreen() {
         setFetching(false);
         return;
       }
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayDateString();
       const existing = await nutritionService.getTodayNutrition();
 
       const response = await agentService.chat([
