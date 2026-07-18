@@ -85,11 +85,12 @@ function AppLayout() {
     return stopSync;
   }, []);
 
-  // Update widgets when app goes to background.
+  // Update widgets when the app goes to background AND when it becomes
+  // active again — a freshly-added widget has no data until the app has
+  // been backgrounded once, so also sync on activation to cover that case.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'background') {
-        // Update widget data when app goes to background
+      if (nextAppState === 'background' || nextAppState === 'active') {
         widgetService.updateWidgetData();
       }
     });
