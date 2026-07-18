@@ -1,28 +1,17 @@
 import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { Activity, Heart, Droplets, Pill, TrendingDown,
   Flame, Moon, Zap, ZapOff, Brain, Settings, Footprints } from 'lucide-react-native';
-import { calculatePeakState } from '../../src/services/peakStateService';
-import type { PeakStateResult } from '../../src/services/peakStateService';
-import { GlassCard } from '../../src/components/GlassCard';
-import { HeaderIconButton } from '../../src/components/HeaderIconButton';
-import { Ring } from '../../src/components/Ring';
-import { StatTileGrid } from '../../src/components/StatTileGrid';
-import { SectionLabel } from '../../src/components/SectionLabel';
-import { ProgressBar } from '../../src/components/ProgressBar';
-import { OrialColors } from '../../src/utils/colors';
-import { whoopService } from '../../src/services/whoopService';
-import { hydrationService } from '../../src/services/hydrationService';
-import type { HydrationTargetBreakdown } from '../../src/services/hydrationProfileService';
-import { supplementService } from '../../src/services/supplementService';
-import { manualMetricsService } from '../../src/services/manualMetricsService';
-import { weightPredictionService } from '../../src/services/weightPredictionService';
-import { nutritionService } from '../../src/services/nutritionService';
-import { useNfcWaterQueueDrain } from '../../src/hooks/useNfcWaterQueueDrain';
-import type { WhoopDaily, ManualMetric, WeightPrediction, NutritionLog } from '../../drizzle/schema';
+import { GlassCard } from '@/src/components/GlassCard';
+import { HeaderIconButton } from '@/src/components/HeaderIconButton';
+import { Ring } from '@/src/components/Ring';
+import { StatTileGrid } from '@/src/components/StatTileGrid';
+import { SectionLabel } from '@/src/components/SectionLabel';
+import { ProgressBar } from '@/src/components/ProgressBar';
+import { OrialColors } from '@/src/utils/colors';
+import { useDashboardData } from '@/src/hooks/useDashboardData';
 
 const MACRO_CALORIE_GOAL = 2100;
 
@@ -41,104 +30,22 @@ function scoreColor(score: number | null | undefined): string {
 }
 
 export default function DashboardScreen() {
-  const [refreshing, setRefreshing] = useState(false);
-  const [whoopData, setWhoopData] = useState<WhoopDaily | null>(null);
-  const [isWhoopConnected, setIsWhoopConnected] = useState(false);
-  const [hydrationData, setHydrationData] = useState<{ current: number; target: number; percentage: number }>({ current: 0, target: 3, percentage: 0 });
-  const [hydrationBreakdown, setHydrationBreakdown] = useState<HydrationTargetBreakdown | null>(null);
-  const [supplements, setSupplements] = useState<{ supplementId: string; name: string; dailyDoseMg: number; takenAt: Date | null; streak: number }[]>([]);
-  const [manualData, setManualData] = useState<ManualMetric | null>(null);
-  const [prediction, setPrediction] = useState<WeightPrediction | null>(null);
-  const [nutritionData, setNutritionData] = useState<NutritionLog | null>(null);
-  const [peakState, setPeakState] = useState<PeakStateResult | null>(null);
   const router = useRouter();
-
-  const loadAllData = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const connected = await whoopService.isConnected();
-      if (connected) await whoopService.syncToday();
-      // Recalculate today's target first so it reflects any hydration profile
-      // changes (weight/age/training/caffeine/stimulants) before reading progress.
-      await hydrationService.recalculateTarget(today);
-      const [whoop, hyd, breakdown, allSupps, manual, pred, nutrition, todayLogs] = await Promise.all([
-        whoopService.getTodayMetrics(),
-        hydrationService.getProgress(),
-        hydrationService.getTargetBreakdown(),
-        supplementService.getSupplements(),
-        manualMetricsService.getTodayMetrics(),
-        weightPredictionService.getTodayPrediction(),
-        nutritionService.getTodayNutrition(),
-        supplementService.getTodayLogs(today),
-      ]);
-      setIsWhoopConnected(connected);
-      setWhoopData(whoop);
-      if (whoop) setPeakState(calculatePeakState(whoop));
-      setHydrationData(hyd);
-      setHydrationBreakdown(breakdown);
-      setManualData(manual);
-      setPrediction(pred);
-      setNutritionData(nutrition);
-
-      const suppList = await Promise.all(allSupps.map(async (s) => {
-        const tlog = (todayLogs as any[]).find((l: any) => l.supplementId === s.id);
-        const streak = await supplementService.getStreak(s.id);
-        return { supplementId: s.id, name: s.name, dailyDoseMg: s.dailyDoseMg, takenAt: tlog?.takenAt || null, streak };
-      }));
-      setSupplements(suppList);
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    }
-  };
-
-  const loadWhoopData = async () => {
-    try {
-      const connected = await whoopService.isConnected();
-      if (connected) await whoopService.syncToday();
-      const whoop = await whoopService.getTodayMetrics();
-      setIsWhoopConnected(connected);
-      setWhoopData(whoop);
-    } catch (error) {
-      console.error('Error syncing WHOOP:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadAllData();
-    const interval = setInterval(loadWhoopData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Refetch dashboard data (including hydration) when the app returns to the
-  // foreground, after any NFC water queue entries have been drained. The
-  // in-flight guard in drainNfcWaterQueue makes it safe to call this alongside
-  // _layout.tsx's own drain call on the same AppState 'active' event — both
-  // resolve to the same underlying drain.
-  useNfcWaterQueueDrain(loadAllData);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadAllData();
-    setRefreshing(false);
-  };
-
-  const handleAddWater = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    await hydrationService.addWater(today, 0.25);
-    const progress = await hydrationService.getProgress(today);
-    setHydrationData(progress);
-  };
-
-  const handleLogSupplement = async (supplementId: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    const supp = supplements.find(s => s.supplementId === supplementId);
-    if (supp) {
-      await supplementService.logSupplement(supplementId, today, supp.dailyDoseMg);
-      setSupplements(prev => prev.map(s =>
-        s.supplementId === supplementId ? { ...s, takenAt: new Date() } : s
-      ));
-    }
-  };
+  const {
+    refreshing,
+    whoopData,
+    isWhoopConnected,
+    hydrationData,
+    hydrationBreakdown,
+    supplements,
+    manualData,
+    prediction,
+    nutritionData,
+    peakState,
+    onRefresh,
+    addWater,
+    logSupplement,
+  } = useDashboardData();
 
   const hydPct = Math.min(hydrationData.percentage, 100);
   const macroCalories = nutritionData?.totalCalories ?? 0;
@@ -395,17 +302,12 @@ export default function DashboardScreen() {
                 </View>
               )}
               <View style={styles.hydrationActions}>
-                <Pressable style={styles.waterBtn} onPress={handleAddWater}>
+                <Pressable style={styles.waterBtn} onPress={() => addWater(0.25)}>
                   <Text style={styles.waterBtnText}>+250 ml</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.waterBtn, styles.waterBtnSecondary]}
-                  onPress={async () => {
-                    const today = new Date().toISOString().split('T')[0];
-                    await hydrationService.addWater(today, 0.5, 'soda_zero');
-                    const progress = await hydrationService.getProgress(today);
-                    setHydrationData(progress);
-                  }}
+                  onPress={() => addWater(0.5, 'soda_zero')}
                 >
                   <Text style={[styles.waterBtnText, styles.waterBtnSecondaryText]}>+500 ml Zero</Text>
                 </Pressable>
@@ -509,7 +411,7 @@ export default function DashboardScreen() {
                     </View>
                     <Pressable
                       style={[styles.supplementButton, s.takenAt ? styles.supplementTaken : styles.supplementPending]}
-                      onPress={(e) => { e.stopPropagation(); if (!s.takenAt) handleLogSupplement(s.supplementId); }}
+                      onPress={(e) => { e.stopPropagation(); if (!s.takenAt) logSupplement(s.supplementId); }}
                     >
                       <Text style={[styles.supplementButtonText, s.takenAt && styles.supplementTakenText]}>
                         {s.takenAt ? '✓' : 'Take'}

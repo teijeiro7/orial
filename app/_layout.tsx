@@ -6,14 +6,14 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { AppState, View, ActivityIndicator, Text } from 'react-native';
-import { useDatabaseMigrations } from '../src/services/database';
-import { notificationService } from '../src/services/notificationService';
-import { widgetService } from '../src/services/widgetService';
-import { startSyncScheduler } from '../src/services/syncScheduler';
-import { useNfcWaterQueueDrain } from '../src/hooks/useNfcWaterQueueDrain';
-import { OrialColors } from '../src/utils/colors';
-import { useAppStore } from '../src/stores/appStore';
-import { AuthProvider, useAuth } from '../src/context/AuthContext';
+import { useDatabaseMigrations } from '@/src/services/database';
+import { notificationService } from '@/src/services/notificationService';
+import { widgetService } from '@/src/services/widgetService';
+import { startSyncScheduler } from '@/src/services/syncScheduler';
+import { useNfcWaterQueueDrain } from '@/src/hooks/useNfcWaterQueueDrain';
+import { OrialColors } from '@/src/utils/colors';
+import { useAppStore } from '@/src/stores/appStore';
+import { AuthProvider, useAuth } from '@/src/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 

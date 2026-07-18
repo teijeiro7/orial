@@ -12,10 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Check, AlertTriangle, Zap } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
-import { GlassCard } from '../../src/components/GlassCard';
-import { agentService } from '../../src/services/openclawService';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
+import { agentService } from '@/src/services/openclawService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
 
 interface JarvisSettingsScreenProps {
   visible: boolean;

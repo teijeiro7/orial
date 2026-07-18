@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Home, Dumbbell, Wallet, Utensils } from 'lucide-react-native';
-import { OrialColors } from '../../src/utils/colors';
+import { OrialColors } from '@/src/utils/colors';
 
 export default function TabLayout() {
   return (

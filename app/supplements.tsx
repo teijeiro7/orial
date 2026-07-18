@@ -8,6 +8,7 @@ import { GlassCard } from '@/src/components/GlassCard';
 import { Ring } from '@/src/components/Ring';
 import { OrialColors } from '@/src/utils/colors';
 import { supplementService } from '@/src/services/supplementService';
+import { todayDateString, dateString } from '@/src/utils/date';
 import type { Supplement } from '@/drizzle/schema';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -34,7 +35,7 @@ export default function SupplementsScreen() {
     const supps = await supplementService.getSupplements();
     setSupplements(supps);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const logs = await supplementService.getTodayLogs(today.split('T')[0]);
     const todayMap: Record<string, boolean> = {};
     logs.forEach(l => {
@@ -78,7 +79,7 @@ export default function SupplementsScreen() {
   };
 
   const handleLogToday = async (supplement: Supplement) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     await supplementService.logSupplement(supplement.id, today, supplement.dailyDoseMg);
     loadSupplements();
   };
@@ -111,7 +112,7 @@ export default function SupplementsScreen() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      days.push(d.toISOString().split('T')[0]);
+      days.push(dateString(d));
     }
     return days;
   };
@@ -369,7 +370,7 @@ export default function SupplementsScreen() {
               colors={[`${OrialColors.violet}3D`, 'transparent']}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
             <View style={styles.focusRingWrap}>
               <Ring pct={suppTodayPct} size={76} strokeWidth={7} color={OrialColors.violetLight}>

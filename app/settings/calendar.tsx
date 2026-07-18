@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Check, Calendar, AlertCircle } from 'lucide-react-native';
-import { GlassCard } from '../../src/components/GlassCard';
-import { calendarService, type DeviceCalendar } from '../../src/services/calendarService';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
+import { calendarService, type DeviceCalendar } from '@/src/services/calendarService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
 
 interface CalendarSettingsScreenProps {
   visible: boolean;

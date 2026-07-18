@@ -6,6 +6,7 @@ import { GlassCard } from '@/src/components/GlassCard';
 import { OrialColors } from '@/src/utils/colors';
 import { OrialTypography } from '@/src/utils/typography';
 import { hydrationService } from '@/src/services/hydrationService';
+import { todayDateString } from '@/src/utils/date';
 
 const BEVERAGES = [
   { id: 'water', label: 'Water', factor: 1.0 },
@@ -21,7 +22,7 @@ export default function HydrationScreen() {
   const [customAmount, setCustomAmount] = useState('');
 
   const handleAdd = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const liters = amount / 1000;
     await hydrationService.addWater(today, liters, selectedBeverage as any);
   };

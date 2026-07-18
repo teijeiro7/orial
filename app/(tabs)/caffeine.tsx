@@ -2,15 +2,15 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Moon } from 'lucide-react-native';
-import { GlassCard } from '../../src/components/GlassCard';
-import { AreaChart } from '../../src/components/AreaChart';
-import { Chip } from '../../src/components/Chip';
-import { caffeineService, QUICK_SOURCES } from '../../src/services/caffeineService';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
-import { formatHM } from '../../src/utils/time';
+import { GlassCard } from '@/src/components/GlassCard';
+import { AreaChart } from '@/src/components/AreaChart';
+import { Chip } from '@/src/components/Chip';
+import { caffeineService, QUICK_SOURCES } from '@/src/services/caffeineService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { formatHM } from '@/src/utils/time';
 import type { CaffeineLog } from '../../drizzle/schema';
-import type { ActiveCaffeine, SleepInterferenceCheck } from '../../src/services/caffeineService';
+import type { ActiveCaffeine, SleepInterferenceCheck } from '@/src/services/caffeineService';
 
 const SOURCE_EMOJI: Record<string, string> = {
   manual: '✏️',

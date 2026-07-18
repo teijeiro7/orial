@@ -2,11 +2,8 @@ import { db } from './database';
 import { tasks } from '../../drizzle/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
+import { todayDateString, dateString } from '../utils/date';
 import type { Task, NewTask } from '../../drizzle/schema';
-
-function dateString(d: Date = new Date()): string {
-  return d.toISOString().split('T')[0];
-}
 
 export const taskService = {
   async getTasksForDate(date: string): Promise<Task[]> {
@@ -27,7 +24,7 @@ export const taskService = {
     const task: NewTask = {
       id: generateUUID(),
       title: input.title,
-      date: input.date ?? dateString(),
+      date: input.date ?? todayDateString(),
       scheduledHour: input.scheduledHour ?? null,
       completed: false,
       priority: input.priority ?? 0,
@@ -84,7 +81,7 @@ export const taskService = {
 
   async getDailyStreak(): Promise<number> {
     // Count consecutive days (ending today) where user completed at least one task
-    const today = dateString();
+    const today = todayDateString();
     let streak = 0;
     let checking = new Date();
 

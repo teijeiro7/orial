@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,119 +7,38 @@ import {
   Pressable,
   RefreshControl,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Flame, Heart, Footprints, Zap, Moon, Dumbbell, Link, LogIn, TrendingDown, Plus, Scale } from 'lucide-react-native';
 import { format } from 'date-fns';
-import { GlassCard } from '../../src/components/GlassCard';
-import { WeightChart } from '../../src/components/WeightChart';
-import { WeightEntryModal } from '../../src/components/WeightEntryModal';
-import { whoopService } from '../../src/services/whoopService';
-import { pedometerService } from '../../src/services/pedometerService';
-import { forgeNotificationService } from '../../src/services/forgeNotificationService';
-import { forgeNotionSync } from '../../src/services/forgeNotionSync';
-import { db } from '../../src/services/database';
-import { bodyMetrics } from '../../drizzle/schema';
-import { desc } from 'drizzle-orm';
-import { biometricAuthService } from '../../src/services/biometricAuthService';
-import type { WhoopDaily } from '../../drizzle/schema';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
+import { WeightChart } from '@/src/components/WeightChart';
+import { WeightEntryModal } from '@/src/components/WeightEntryModal';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { useForgeData } from '@/src/hooks/useForgeData';
 
 export default function ForgeScreen() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [metrics, setMetrics] = useState<WhoopDaily | null>(null);
-  const [steps, setSteps] = useState(0);
-  const [weightHistory, setWeightHistory] = useState<{ date: string; weight: number }[]>([]);
-  const [latestWeight, setLatestWeight] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    isConnected,
+    metrics,
+    steps,
+    weightHistory,
+    latestWeight,
+    isLoading,
+    isConnecting,
+    refreshing,
+    error,
+    forgeLocked,
+    authenticating,
+    refreshAll,
+    authenticate,
+    connectWhoop,
+    disconnectWhoop,
+    onRefresh,
+  } = useForgeData();
+
   const [isWeightModalVisible, setIsWeightModalVisible] = useState(false);
-  const [forgeLocked, setForgeLocked] = useState(true);
-  const [authenticating, setAuthenticating] = useState(false);
-
-  const refreshAll = useCallback(async () => {
-    setError(null);
-    try {
-      const connected = await whoopService.isConnected();
-      setIsConnected(connected);
-
-      if (connected) {
-        await whoopService.syncToday();
-        const todayMetrics = await whoopService.getTodayMetrics();
-        setMetrics(todayMetrics);
-      }
-
-      const todaySteps = await pedometerService.getTodaySteps();
-      setSteps(todaySteps);
-
-      const weightEntries = await db.select().from(bodyMetrics).orderBy(desc(bodyMetrics.date)).limit(30);
-      const history = weightEntries.map((e) => ({
-        date: e.date.toISOString().split('T')[0],
-        weight: e.weightKg || 0,
-      })).reverse();
-      setWeightHistory(history);
-      setLatestWeight(history.length > 0 ? history[history.length - 1].weight : null);
-    } catch (e) {
-      console.error('[Forge] refresh failed:', e);
-      setError(e instanceof Error ? e.message : 'Failed to load data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshAll();
-    forgeNotificationService.requestPermissions();
-    checkForgeLock();
-  }, [refreshAll]);
-
-  const checkForgeLock = async () => {
-    const lockEnabled = await biometricAuthService.isForgeLockEnabled();
-    if (!lockEnabled) {
-      setForgeLocked(false);
-      return;
-    }
-    setAuthenticating(true);
-    const success = await biometricAuthService.authenticate('Access Forge');
-    setAuthenticating(false);
-    setForgeLocked(!success);
-  };
-
-  const handleAuthenticate = async () => {
-    setAuthenticating(true);
-    const success = await biometricAuthService.authenticate('Access Forge');
-    setAuthenticating(false);
-    setForgeLocked(!success);
-  };
-
-  useEffect(() => {
-    refreshAll();
-  }, [refreshAll]);
-
-  const handleConnectWhoop = async () => {
-    try {
-      const authUrl = whoopService.getAuthUrl();
-      await Linking.openURL(authUrl);
-    } catch (e) {
-      setError('Failed to open Whoop login');
-    }
-  };
-
-  const handleDisconnectWhoop = async () => {
-    await whoopService.disconnect();
-    setIsConnected(false);
-    setMetrics(null);
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await refreshAll();
-    setRefreshing(false);
-  };
 
   const kjToKcal = (kj: number) => Math.round(kj / 4.184);
 
@@ -144,7 +63,7 @@ export default function ForgeScreen() {
           <Text style={styles.lockBody}>
             Authenticate with Face ID or Touch ID to access your body metrics
           </Text>
-          <Pressable style={styles.unlockButton} onPress={handleAuthenticate}>
+          <Pressable style={styles.unlockButton} onPress={authenticate}>
             <Text style={styles.unlockButtonText}>Unlock Forge</Text>
           </Pressable>
         </View>
@@ -189,7 +108,7 @@ export default function ForgeScreen() {
               </Text>
               <Pressable
                 style={[styles.connectCtaBtn, isConnecting && { opacity: 0.5 }]}
-                onPress={handleConnectWhoop}
+                onPress={connectWhoop}
                 disabled={isConnecting}
               >
                 {isConnecting ? (
@@ -210,7 +129,7 @@ export default function ForgeScreen() {
           <View style={styles.connectedBadge}>
             <View style={styles.connectedDot} />
             <Text style={styles.connectedText}>WHOOP connected</Text>
-            <Pressable onPress={handleDisconnectWhoop} style={styles.disconnectBtn}>
+            <Pressable onPress={disconnectWhoop} style={styles.disconnectBtn}>
               <LogIn size={11} color={OrialColors.textMuted} style={{ transform: [{ scaleX: -1 }] }} />
               <Text style={styles.disconnectText}>Disconnect</Text>
             </Pressable>

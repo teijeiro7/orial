@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const habits = sqliteTable('habits', {
   id: text('id').primaryKey(),
@@ -14,7 +14,7 @@ export const habits = sqliteTable('habits', {
   color: text('color'),
   isArchived: integer('is_archived', { mode: 'boolean' }).notNull().default(false),
   isAiSuggested: integer('is_ai_suggested', { mode: 'boolean' }).notNull().default(false),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const habitEntries = sqliteTable('habit_entries', {
@@ -26,7 +26,7 @@ export const habitEntries = sqliteTable('habit_entries', {
   note: text('note'),
   notionEntryId: text('notion_entry_id'),
   isSynced: integer('is_synced', { mode: 'boolean' }).notNull().default(false),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const reminders = sqliteTable('reminders', {
@@ -51,7 +51,6 @@ export const syncQueue = sqliteTable('sync_queue', {
 
 export const userSettings = sqliteTable('user_settings', {
   id: text('id').primaryKey().default('default'),
-  notionAccessToken: text('notion_access_token'),
   notionHabitsDbId: text('notion_habits_db_id'),
   notionLogsDbId: text('notion_logs_db_id'),
   calendarAccountId: text('calendar_account_id'),
@@ -60,17 +59,6 @@ export const userSettings = sqliteTable('user_settings', {
   aiRemindersEnabled: integer('ai_reminders_enabled', { mode: 'boolean' }).notNull().default(true),
   syncFrequency: text('sync_frequency').default('realtime'),
   fcmToken: text('fcm_token'),
-});
-
-export const whoopTokens = sqliteTable('whoop_tokens', {
-  id: text('id').primaryKey().default('default'),
-  accessToken: text('access_token'),
-  refreshToken: text('refresh_token'),
-  expiresAt: integer('expires_at', { mode: 'timestamp' }),
-  scope: text('scope'),
-  whoopUserId: integer('whoop_user_id'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
 });
 
 export const whoopDaily = sqliteTable('whoop_daily', {
@@ -100,8 +88,10 @@ export const bodyMetrics = sqliteTable('body_metrics', {
   notes: text('notes'),
   photoUri: text('photo_uri'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
-});
+  modifiedAt: integer('updated_at').notNull().default(0),
+}, (t) => [
+  uniqueIndex('body_metrics_date_unique').on(t.date),
+]);
 
 export const pedometerHistory = sqliteTable('pedometer_history', {
   date: text('date').primaryKey(),
@@ -127,7 +117,7 @@ export const sodiumIntake = sqliteTable('sodium_intake', {
   mealType: text('meal_type'),
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const supplements = sqliteTable('supplements', {
@@ -138,7 +128,7 @@ export const supplements = sqliteTable('supplements', {
   reminderTime: text('reminder_time'),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const supplementLogs = sqliteTable('supplement_logs', {
@@ -150,7 +140,7 @@ export const supplementLogs = sqliteTable('supplement_logs', {
   skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const manualMetrics = sqliteTable('manual_metrics', {
@@ -198,7 +188,7 @@ export const nutritionLogs = sqliteTable('nutrition_logs', {
   fiberG: integer('fiber_g'),
   rawData: text('raw_data'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export type Habit = typeof habits.$inferSelect;
@@ -211,8 +201,6 @@ export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;
 export type UserSettings = typeof userSettings.$inferSelect;
 export type NewUserSettings = typeof userSettings.$inferInsert;
-export type WhoopToken = typeof whoopTokens.$inferSelect;
-export type NewWhoopToken = typeof whoopTokens.$inferInsert;
 export type WhoopDaily = typeof whoopDaily.$inferSelect;
 export type NewWhoopDaily = typeof whoopDaily.$inferInsert;
 export type BodyMetric = typeof bodyMetrics.$inferSelect;
@@ -246,7 +234,7 @@ export const tasks = sqliteTable('tasks', {
   pushedFrom: text('pushed_from'), // original date if migrated via push-to-tomorrow
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 // ── Gym (Progressive Overload) ───────────────────────────────────────────────
@@ -258,7 +246,7 @@ export const gymRoutines = sqliteTable('gym_routines', {
   days: text('days').notNull().default('[]'), // JSON [1,2,3,4,5,6,7] (1=Mon)
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const gymExercises = sqliteTable('gym_exercises', {
@@ -275,7 +263,7 @@ export const gymExercises = sqliteTable('gym_exercises', {
   oneRmEstimated: real('one_rm_estimated'), // auto-estimated 1RM (Epley)
   lastSwappedAt: integer('last_swapped_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const gymSessions = sqliteTable('gym_sessions', {
@@ -284,7 +272,7 @@ export const gymSessions = sqliteTable('gym_sessions', {
   date: text('date').notNull(), // YYYY-MM-DD
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const gymSets = sqliteTable('gym_sets', {
@@ -295,7 +283,7 @@ export const gymSets = sqliteTable('gym_sets', {
   reps: integer('reps').notNull(),
   weightKg: real('weight_kg').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 // ── Finance ──────────────────────────────────────────────────────────────────
@@ -324,7 +312,7 @@ export const financeSubscriptions = sqliteTable('finance_subscriptions', {
   autoDeduct: integer('auto_deduct', { mode: 'boolean' }).notNull().default(false),
   lastBilledDate: text('last_billed_date'), // YYYY-MM-DD
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 export const financeWishlist = sqliteTable('finance_wishlist', {
@@ -336,7 +324,7 @@ export const financeWishlist = sqliteTable('finance_wishlist', {
   notes: text('notes'),
   priority: integer('priority').notNull().default(0), // 0=normal 1=high
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 // ── Hydration Profile (dynamic calculator) ───────────────────────────────────
@@ -361,7 +349,7 @@ export const caffeineLogs = sqliteTable('caffeine_logs', {
   timestamp: integer('timestamp', { mode: 'timestamp_ms' }).notNull(),
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  modifiedAt: integer('modified_at').notNull().default(0),
+  modifiedAt: integer('updated_at').notNull().default(0),
 });
 
 // ── Insights (Jarvis) ─────────────────────────────────────────────────────────

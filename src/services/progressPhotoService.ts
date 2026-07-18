@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabaseService } from './supabaseService';
 import { authService } from './authService';
+import { dateString } from '../utils/date';
 
 /**
  * Progress photos service.
@@ -25,7 +26,7 @@ export type ProgressPhoto = {
 
 /** Local date as `YYYY-MM-DD`, the per-day key used for the storage path. */
 export function todayDateString(now: Date = new Date()): string {
-  return now.toISOString().split('T')[0];
+  return dateString(now);
 }
 
 /** Storage object path for a user's photo on a given date: `{userId}/{date}.jpg`. */

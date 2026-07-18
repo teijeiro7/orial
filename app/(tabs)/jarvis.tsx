@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Zap, AlertCircle } from 'lucide-react-native';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
-import { agentService, type ChatMessage } from '../../src/services/openclawService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { agentService, type ChatMessage } from '@/src/services/openclawService';
 
 interface DisplayMessage {
   id: string;

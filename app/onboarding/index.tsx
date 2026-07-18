@@ -8,9 +8,9 @@ import { NotificationsStep } from './steps/NotificationsStep';
 import { NotionStep } from './steps/NotionStep';
 import { CalendarStep } from './steps/CalendarStep';
 import { OpenclawStep } from './steps/OpenclawStep';
-import { useAppStore } from '../../src/stores/appStore';
-import { OrialColors } from '../../src/utils/colors';
-import { OrialTypography } from '../../src/utils/typography';
+import { useAppStore } from '@/src/stores/appStore';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
 
 const STEPS = [
   { id: 'welcome', component: WelcomeStep, title: 'Welcome' },

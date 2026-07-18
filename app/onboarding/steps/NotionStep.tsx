@@ -2,10 +2,10 @@ import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { ArrowRight, Database, SkipForward, Check } from 'lucide-react-native';
 import { useState } from 'react';
 import { NotionSettingsScreen } from '../../settings/notion';
-import { notionService } from '../../../src/services/notionService';
-import { OrialColors } from '../../../src/utils/colors';
-import { OrialTypography } from '../../../src/utils/typography';
-import { GlassCard } from '../../../src/components/GlassCard';
+import { notionService } from '@/src/services/notionService';
+import { OrialColors } from '@/src/utils/colors';
+import { OrialTypography } from '@/src/utils/typography';
+import { GlassCard } from '@/src/components/GlassCard';
 
 interface NotionStepProps {
   onNext: () => void;
