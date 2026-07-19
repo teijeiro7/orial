@@ -1,4 +1,4 @@
-const upstreamTransformer = require('expo/node_modules/@expo/metro-config/build/babel-transformer');
+const upstreamTransformer = require('@expo/metro-config/build/babel-transformer');
 const fs = require('fs');
 
 module.exports.transform = async ({ src, filename, options }) => {
