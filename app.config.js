@@ -105,6 +105,7 @@ export default {
       './plugins/withReactNativeDefaultPreference',
       './plugins/withWaterIntent',
       './plugins/withFmtCppStandardFix',
+      './plugins/withWidgetExtension',
       [
         'expo-build-properties',
         {

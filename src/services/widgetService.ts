@@ -5,6 +5,9 @@ import { pedometerService } from './pedometerService';
 import { hydrationService } from './hydrationService';
 import { supplementService } from './supplementService';
 import { weightPredictionService } from './weightPredictionService';
+import { taskService } from './taskService';
+import { financeService } from './financeService';
+import { caffeineService } from './caffeineService';
 import { db } from './database';
 import { bodyMetrics } from '../../drizzle/schema';
 import { desc } from 'drizzle-orm';
@@ -34,6 +37,17 @@ export interface PhysicalWidgetData {
   predictedWeight: number | null;
   weightRangeLow: number | null;
   weightRangeHigh: number | null;
+}
+
+export interface OverviewWidgetData {
+  date: string;
+  steps: number;
+  hydrationPercentage: number;
+  tasksDone: number;
+  tasksTotal: number;
+  netWorth: number | null;
+  netWorthCurrency: string;
+  caffeineMg: number;
 }
 
 function reloadWidgets(): void {
@@ -101,17 +115,35 @@ async function updateWidgetData(): Promise<void> {
       weightRangeHigh: prediction?.predictionRangeHigh ?? null,
     };
 
+    // Fetch Overview data (snapshot across tasks, finance, caffeine)
+    const todayTasks = await taskService.getTasksForDate(today);
+    const netWorthSummary = await financeService.getNetWorth();
+    const activeCaffeine = await caffeineService.getActiveCaffeine();
+
+    const overviewData: OverviewWidgetData = {
+      date: new Date().toISOString(),
+      steps,
+      hydrationPercentage: hydrationProgress.percentage,
+      tasksDone: todayTasks.filter(t => t.completed).length,
+      tasksTotal: todayTasks.length,
+      netWorth: netWorthSummary.total,
+      netWorthCurrency: 'EUR',
+      caffeineMg: Math.round(activeCaffeine.totalMg),
+    };
+
     // Save to shared preferences for widgets
     if (Platform.OS === 'ios') {
       // iOS: Use App Groups via DefaultPreference
       await DefaultPreference.setName(GROUP_ID);
       await DefaultPreference.set('forge_widget_data', JSON.stringify(forgeData));
       await DefaultPreference.set('physical_widget_data', JSON.stringify(physicalData));
+      await DefaultPreference.set('overview_widget_data', JSON.stringify(overviewData));
     } else {
       // Android: Use SharedPreferences
       await DefaultPreference.setName(SHARED_PREFS_NAME);
       await DefaultPreference.set('forge_widget_data', JSON.stringify(forgeData));
       await DefaultPreference.set('physical_widget_data', JSON.stringify(physicalData));
+      await DefaultPreference.set('overview_widget_data', JSON.stringify(overviewData));
     }
 
     // Reload widgets
