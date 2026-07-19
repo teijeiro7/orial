@@ -22,7 +22,6 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
-const CLIENT_ID = getRequiredEnv('EXPO_PUBLIC_WHOOP_CLIENT_ID');
 const REDIRECT_URI = 'orial://whoop/callback';
 
 const SCOPES = [
@@ -152,7 +151,7 @@ function isConnected(): Promise<boolean> {
 function getAuthUrl(): string {
   const state = Math.random().toString(36).substring(2, 10);
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
+    client_id: getRequiredEnv('EXPO_PUBLIC_WHOOP_CLIENT_ID'),
     response_type: 'code',
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,
