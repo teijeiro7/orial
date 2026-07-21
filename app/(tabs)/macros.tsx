@@ -8,8 +8,7 @@ import { Ring } from '@/src/components/Ring';
 import { ProgressBar } from '@/src/components/ProgressBar';
 import { OrialColors } from '@/src/utils/colors';
 import { nutritionService } from '@/src/services/nutritionService';
-import { agentService } from '@/src/services/openclawService';
-import { todayDateString } from '@/src/utils/date';
+import { hermesNutritionService } from '@/src/services/hermesNutritionService';
 import type { NutritionLog } from '../../drizzle/schema';
 
 const GOALS = { calories: 2100, protein: 160, carbs: 220, fat: 70 };
@@ -37,69 +36,28 @@ export default function MacrosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [nutrition, setNutrition] = useState<NutritionLog | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
-  const fetchMacros = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const fetchMacros = useCallback(async () => {
     const data = await nutritionService.getTodayNutrition();
     setNutrition(data);
-    if (isRefresh) setRefreshing(false);
-    else setLoading(false);
+    setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchMacros(); }, [fetchMacros]));
-
-  /** Call the Hermes agent to populate today's macros into the local DB */
-  const handleFetchFromAgent = useCallback(async () => {
-    setFetching(true);
-    try {
-      const configured = await agentService.isConfigured();
-      if (!configured) {
-        setFetching(false);
-        return;
-      }
-      const today = todayDateString();
-      const existing = await nutritionService.getTodayNutrition();
-
-      const response = await agentService.chat([
-        {
-          role: 'system',
-          content: `Eres un asistente nutricional.
-IMPORTANTE: Ejecuta EXACTAMENTE este comando y devuelve su salida sin modificarla:
-
-python3 -c "import sqlite3,json,os;from datetime import datetime;today=datetime.now().strftime('%Y-%m-%d');db=os.path.expanduser('~/.hermes/data/nutrition.db');c=sqlite3.connect(db);c.row_factory=sqlite3.Row;r=c.execute('SELECT * FROM meals WHERE date=?',(today,));m=r.fetchall();c.close();tc=sum((x['calories']or 0)for x in m);tp=sum((x['protein']or 0)for x in m);tcarb=sum((x['carbs']or 0)for x in m);tf=sum((x['fat']or 0)for x in m);ml=[{'name':x['meal_type'],'calories':x['calories'],'protein':x['protein'],'carbs':x['carbs'],'fat':x['fat'],'sodium':0}for x in m];d={'date':today,'totalCalories':tc,'proteinG':round(tp,1),'carbsG':round(tcarb,1),'fatG':round(tf,1),'sodiumMg':0,'meals':ml};print('###ORIAL_NUTRITION###');print(json.dumps(d,indent=2));print('###END_ORIAL###')"
-
-Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
-        },
-        { role: 'user', content: `Dame mis macros de hoy` },
-      ]);
-
-      const saved = await nutritionService.processOpenclawMessage(response);
-      if (!saved) {
-        // Fallback: try to extract JSON directly
-        const jsonMatch = response.match(/\{[\s\S]*"totalCalories"[\s\S]*\}/);
-        if (jsonMatch) {
-          try {
-            const parsed = JSON.parse(jsonMatch[0]);
-            await nutritionService.importFromOpenclaw({
-              date: today,
-              totalCalories: parsed.totalCalories || 0,
-              proteinG: parsed.proteinG || 0,
-              carbsG: parsed.carbsG || 0,
-              fatG: parsed.fatG || 0,
-              sodiumMg: parsed.sodiumMg || 0,
-              meals: parsed.meals || [],
-            });
-          } catch {}
-        }
-      }
-      await fetchMacros();
-    } catch {
-      // silently fail — user can retry
-    } finally {
-      setFetching(false);
-    }
+  const performSync = useCallback(async (isRefresh: boolean, force = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setFetching(true);
+    const result = await hermesNutritionService.syncToday(force);
+    if (result.reason === 'error') setSyncError(result.error ?? 'Sync failed');
+    else if (result.reason !== 'not-configured') setSyncError(null);
+    await fetchMacros();
+    setRefreshing(false);
+    setFetching(false);
   }, [fetchMacros]);
+
+  useFocusEffect(useCallback(() => {
+    performSync(false);
+  }, [performSync]));
 
   const pct = (val: number | null | undefined, goal: number) =>
     goal > 0 ? Math.min((val ?? 0) / goal, 1) : 0;
@@ -113,7 +71,7 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchMacros(true)} tintColor={OrialColors.violetLight} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => performSync(true)} tintColor={OrialColors.violetLight} />
         }
       >
         <View style={styles.headerRow}>
@@ -129,6 +87,12 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
             <Text style={styles.cameraBtnText}>📸 Analizar Comida</Text>
           </Pressable>
         </View>
+
+        {syncError && (
+          <View style={styles.syncErrorBanner}>
+            <Text style={styles.syncErrorText}>Hermes unreachable: {syncError}</Text>
+          </View>
+        )}
 
         {loading ? (
           <View style={styles.skeletonContainer}>
@@ -178,13 +142,13 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
               </Text>
               <Pressable
                 style={[styles.fetchBtn, fetching && { opacity: 0.6 }]}
-                onPress={handleFetchFromAgent}
+                onPress={() => performSync(false, true)}
                 disabled={fetching}
               >
                 {fetching ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.fetchBtnText}>Fetch from Hermes</Text>
+                  <Text style={styles.fetchBtnText}>Sync from Hermes</Text>
                 )}
               </Pressable>
               <View style={styles.emptyHint}>
@@ -250,17 +214,17 @@ Devuelve la salida del comando TAL CUAL. No añadas nada más.`,
               </GlassCard>
             ) : null}
 
-            <Pressable style={styles.fetchBtnData} onPress={handleFetchFromAgent} disabled={fetching}>
+            <Pressable style={styles.fetchBtnData} onPress={() => performSync(false, true)} disabled={fetching}>
               {fetching ? (
                 <ActivityIndicator size="small" color={OrialColors.violetLight} />
               ) : (
-                <Text style={styles.fetchBtnDataText}>Fetch from Hermes</Text>
+                <Text style={styles.fetchBtnDataText}>Sync from Hermes</Text>
               )}
             </Pressable>
           </>
         )}
 
-        <Text style={styles.disclaimer}>Pull to refresh · data from Hermes sessions</Text>
+        <Text style={styles.disclaimer}>Pull to refresh · data synced from Hermes</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -349,4 +313,6 @@ const styles = StyleSheet.create({
   disclaimer: { textAlign: 'center', color: OrialColors.textMuted, fontSize: 11, fontFamily: 'Inter-Regular', marginBottom: 32, marginTop: 12, letterSpacing: 0.3 },
   fetchBtnData: { marginHorizontal: 16, marginTop: 4, marginBottom: 8, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: OrialColors.border, backgroundColor: OrialColors.surface },
   fetchBtnDataText: { fontSize: 13, color: OrialColors.violetLight, fontFamily: 'Inter-Medium' },
+  syncErrorBanner: { marginHorizontal: 16, marginBottom: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: OrialColors.error + '18', borderRadius: 8, borderWidth: 1, borderColor: OrialColors.error + '40' },
+  syncErrorText: { fontSize: 11, color: OrialColors.error, fontFamily: 'Inter-Regular', textAlign: 'center' },
 });

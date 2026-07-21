@@ -60,6 +60,28 @@ const HERMES_STORAGE_KEY = 'hermes_api_key';
 const LEGACY_OPENCLAW_URL = 'openclaw_api_url';
 const LEGACY_OPENCLAW_KEY = 'openclaw_api_key';
 
+/**
+ * Returns the Hermes (or legacy OpenClaw) base URL and API key stored in
+ * SecureStore. Exported so other services (e.g. hermesNutritionService) can
+ * reuse the same config without duplicating the SecureStore read logic.
+ */
+export async function getHermesConfig(): Promise<AgentConfig | null> {
+  try {
+    let apiUrl = await SecureStore.getItemAsync(HERMES_STORAGE_URL);
+    let apiKey = await SecureStore.getItemAsync(HERMES_STORAGE_KEY);
+
+    if (!apiUrl) {
+      apiUrl = await SecureStore.getItemAsync(LEGACY_OPENCLAW_URL);
+      apiKey = await SecureStore.getItemAsync(LEGACY_OPENCLAW_KEY);
+    }
+
+    if (!apiUrl) return null;
+    return { apiUrl: apiUrl.replace(/\/$/, ''), apiKey: apiKey || '' };
+  } catch {
+    return null;
+  }
+}
+
 class AgentService {
   private static instance: AgentService;
 
@@ -71,21 +93,7 @@ class AgentService {
   }
 
   async getConfig(): Promise<AgentConfig | null> {
-    try {
-      // Try new Hermes keys first, fall back to legacy OpenClaw keys
-      let apiUrl = await SecureStore.getItemAsync(HERMES_STORAGE_URL);
-      let apiKey = await SecureStore.getItemAsync(HERMES_STORAGE_KEY);
-
-      if (!apiUrl) {
-        apiUrl = await SecureStore.getItemAsync(LEGACY_OPENCLAW_URL);
-        apiKey = await SecureStore.getItemAsync(LEGACY_OPENCLAW_KEY);
-      }
-
-      if (!apiUrl) return null;
-      return { apiUrl: apiUrl.replace(/\/$/, ''), apiKey: apiKey || '' };
-    } catch {
-      return null;
-    }
+    return getHermesConfig();
   }
 
   async saveConfig(apiUrl: string, apiKey: string): Promise<void> {

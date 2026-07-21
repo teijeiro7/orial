@@ -10,6 +10,12 @@ jest.mock('./database', () => ({
   },
 }));
 
+jest.mock('./manualMetricsService', () => ({
+  manualMetricsService: {
+    updateMetrics: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 const mockedDb = db as unknown as {
   select: jest.Mock;
   insert: jest.Mock;
@@ -140,5 +146,96 @@ describe('nutritionService.logMeal', () => {
 
     const inserted = values.mock.calls[0][0];
     expect(JSON.parse(inserted.rawData)).toEqual(result);
+  });
+});
+
+describe('nutritionService.upsertDailyTotals', () => {
+  beforeEach(() => {
+    mockedDb.select.mockReset();
+    mockedDb.insert.mockReset();
+    mockedDb.update.mockReset();
+  });
+
+  const hermesData = {
+    date: '2026-07-21',
+    totalCalories: 743,
+    proteinG: 59.6,
+    carbsG: 59.6,
+    fatG: 28.6,
+    sodiumMg: 0,
+    fiberG: 0,
+  };
+
+  it('inserts a new row when none exists for the date', async () => {
+    mockSelectResult([]);
+    const values = mockInsert();
+
+    const result = await nutritionService.upsertDailyTotals('hermes', hermesData);
+
+    expect(result).toEqual({ written: true, reason: 'inserted' });
+    expect(mockedDb.insert).toHaveBeenCalledTimes(1);
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({ source: 'hermes', date: '2026-07-21' }));
+    expect(mockedDb.update).not.toHaveBeenCalled();
+  });
+
+  it('skips when a row already exists and force is false', async () => {
+    mockSelectResult([{ id: 'existing', date: '2026-07-21', source: 'ocr' }]);
+
+    const result = await nutritionService.upsertDailyTotals('hermes', hermesData);
+
+    expect(result).toEqual({ written: false, reason: 'skipped-exists' });
+    expect(mockedDb.insert).not.toHaveBeenCalled();
+    expect(mockedDb.update).not.toHaveBeenCalled();
+  });
+
+  it('overwrites when force is true and a row exists', async () => {
+    mockSelectResult([{ id: 'existing', date: '2026-07-21', source: 'ocr', createdAt: new Date() }]);
+    const { set, where } = mockUpdate();
+
+    const result = await nutritionService.upsertDailyTotals('hermes', hermesData, undefined, true);
+
+    expect(result).toEqual({ written: true, reason: 'updated' });
+    expect(mockedDb.update).toHaveBeenCalledTimes(1);
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ source: 'hermes', date: '2026-07-21', id: 'existing' }));
+    expect(where).toHaveBeenCalled();
+    expect(mockedDb.insert).not.toHaveBeenCalled();
+  });
+
+  it('persists raw JSON string when provided', async () => {
+    mockSelectResult([]);
+    const values = mockInsert();
+    const raw = '{"totalCalories":743}';
+
+    await nutritionService.upsertDailyTotals('hermes', hermesData, raw);
+
+    const inserted = values.mock.calls[0][0];
+    expect(inserted.rawData).toBe(raw);
+  });
+
+  it('defaults rawData to JSON.stringify(data) when not provided', async () => {
+    mockSelectResult([]);
+    const values = mockInsert();
+
+    await nutritionService.upsertDailyTotals('hermes', hermesData);
+
+    const inserted = values.mock.calls[0][0];
+    expect(JSON.parse(inserted.rawData)).toEqual(hermesData);
+  });
+
+  it('syncs manualMetrics after upsert', async () => {
+    mockSelectResult([]);
+    mockInsert();
+    const { manualMetricsService } = require('./manualMetricsService');
+
+    await nutritionService.upsertDailyTotals('hermes', hermesData);
+
+    expect(manualMetricsService.updateMetrics).toHaveBeenCalledWith('2026-07-21', {
+      caloriesIn: 743,
+      proteinG: 59.6,
+      carbsG: 59.6,
+      fatG: 28.6,
+      sodiumMg: 0,
+      fiberG: 0,
+    });
   });
 });

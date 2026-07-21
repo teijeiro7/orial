@@ -1,9 +1,8 @@
 import { db } from './database';
-import { nutritionLogs, manualMetrics, sodiumIntake, hydration, type NutritionLog, type NewNutritionLog } from '../../drizzle/schema';
+import { nutritionLogs, manualMetrics, type NutritionLog, type NewNutritionLog } from '../../drizzle/schema';
 import { eq, desc, gte } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import { manualMetricsService } from './manualMetricsService';
-import { hydrationService } from './hydrationService';
 import type { OCRResult } from './openclawService';
 import { todayDateString, dateString } from '../utils/date';
 
@@ -25,28 +24,65 @@ export interface OpenclawNutritionData {
   }>;
 }
 
-async function importFromOpenclaw(data: OpenclawNutritionData): Promise<void> {
-  // Save to nutrition logs
-  const log: NewNutritionLog = {
-    id: generateUUID(),
+export type UpsertSource = 'hermes' | 'openclaw';
+
+export interface UpsertResult {
+  written: boolean;
+  reason: 'inserted' | 'updated' | 'skipped-exists';
+}
+
+/**
+ * Writes a daily nutrition summary to the local database.
+ *
+ * If a row already exists for `data.date` and `force` is false, the function
+ * returns `{ written: false, reason: 'skipped-exists' }` without touching the
+ * database. When `force` is true the existing row is replaced.
+ *
+ * On successful write the function also syncs manual metrics (for the dashboard
+ * calorie counter).  The sodium-intake / hydration side-effects that the
+ * original `importFromOpenclaw` had are intentionally omitted here — Hermes
+ * does not provide per-meal sodium, so those writes would always be zeros.
+ *
+ * @param source  Where the data came from ('hermes' for HTTP sync, 'openclaw' for chat).
+ * @param data    The nutrition summary.
+ * @param raw     Optional raw JSON string to persist in `rawData` (auditing).
+ * @param force   When false, existing rows are never overwritten.
+ */
+async function upsertDailyTotals(
+  source: UpsertSource,
+  data: OpenclawNutritionData,
+  raw?: string,
+  force = false,
+): Promise<UpsertResult> {
+  const existingRows = await db.select().from(nutritionLogs).where(eq(nutritionLogs.date, data.date)).limit(1);
+  const existing = existingRows[0];
+
+  if (existing && !force) {
+    return { written: false, reason: 'skipped-exists' };
+  }
+
+  const values: NewNutritionLog = {
+    id: existing?.id ?? generateUUID(),
     date: data.date,
-    source: 'openclaw',
+    source,
     totalCalories: data.totalCalories,
     proteinG: data.proteinG,
     carbsG: data.carbsG,
     fatG: data.fatG,
     sodiumMg: data.sodiumMg,
     fiberG: data.fiberG || 0,
-    rawData: JSON.stringify(data),
-    createdAt: new Date(),
+    rawData: raw ?? JSON.stringify(data),
+    createdAt: existing?.createdAt ?? new Date(),
   };
 
-  await db.insert(nutritionLogs).values(log).onConflictDoUpdate({
-    target: nutritionLogs.id,
-    set: log,
-  });
+  if (existing) {
+    await db.update(nutritionLogs).set(values).where(eq(nutritionLogs.id, existing.id));
+  } else {
+    await db.insert(nutritionLogs).values(values);
+  }
 
-  // Update manual metrics with nutrition data
+  // Sync manual metrics so the dashboard calorie counter stays current
+  // Only when we actually wrote (not on skip)
   await manualMetricsService.updateMetrics(data.date, {
     caloriesIn: data.totalCalories,
     proteinG: data.proteinG,
@@ -56,35 +92,17 @@ async function importFromOpenclaw(data: OpenclawNutritionData): Promise<void> {
     fiberG: data.fiberG || 0,
   });
 
-  // Update sodium intake records
-  if (data.meals && data.meals.length > 0) {
-    for (const meal of data.meals) {
-      if (meal.sodium > 0) {
-        await db.insert(sodiumIntake).values({
-          id: generateUUID(),
-          date: data.date,
-          source: meal.name,
-          sodiumMg: meal.sodium,
-          mealType: 'meal',
-          notes: `${meal.calories} kcal`,
-          createdAt: new Date(),
-        });
-      }
-    }
-
-    // Recalculate hydration target based on sodium
-    await hydrationService.recalculateHydrationTarget(data.date);
-  }
+  return { written: true, reason: existing ? 'updated' : 'inserted' };
 }
 
 /**
  * Logs a single meal captured via Jarvis's OCR/vision analysis (T5).
  *
- * Unlike `importFromOpenclaw` (which overwrites the whole day's totals with
- * an agent-reported summary), a meal photo represents just ONE meal, so its
- * macros are ADDED to whatever is already logged for `date` (defaults to
- * today) rather than replacing it. If no row exists yet for that date, one
- * is created with `source: 'ocr'`.
+ * Unlike `upsertDailyTotals` (which replaces the whole day's totals with
+ * a summary), a meal photo represents just ONE meal, so its macros are ADDED
+ * to whatever is already logged for `date` (defaults to today) rather than
+ * replacing it. If no row exists yet for that date, one is created with
+ * `source: 'ocr'`.
  */
 async function logMeal(result: OCRResult, date: string = todayDateString()): Promise<void> {
   const existingRows = await db.select().from(nutritionLogs).where(eq(nutritionLogs.date, date)).limit(1);
@@ -190,7 +208,7 @@ async function parseOpenclawMessage(message: string): Promise<OpenclawNutritionD
 async function processOpenclawMessage(message: string): Promise<boolean> {
   const data = await parseOpenclawMessage(message);
   if (data) {
-    await importFromOpenclaw(data);
+    await upsertDailyTotals('openclaw', data);
     return true;
   }
   return false;
@@ -237,7 +255,7 @@ Instrucciones:
 }
 
 export const nutritionService = {
-  importFromOpenclaw,
+  upsertDailyTotals,
   logMeal,
   getTodayNutrition,
   getHistory,
