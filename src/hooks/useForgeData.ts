@@ -97,8 +97,10 @@ export function useForgeData() {
     try {
       const authUrl = whoopService.getAuthUrl();
       await Linking.openURL(authUrl);
-    } catch {
-      setError('Failed to open Whoop login');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error('[Whoop] connectWhoop failed:', message, e);
+      setError(`Failed to open Whoop login: ${message}`);
     }
   }, []);
 
