@@ -6,6 +6,7 @@ import { GlassCard } from '@/src/components/GlassCard';
 import { OrialColors } from '@/src/utils/colors';
 import { OrialTypography } from '@/src/utils/typography';
 import { nutritionService } from '@/src/services/nutritionService';
+import { hermesNutritionService } from '@/src/services/hermesNutritionService';
 import { manualMetricsService } from '@/src/services/manualMetricsService';
 import type { NutritionLog } from '@/drizzle/schema';
 
@@ -18,9 +19,17 @@ export default function NutritionHistoryScreen() {
     fat: 0,
     sodium: 0,
   });
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData();
+    (async () => {
+      await loadData();
+      const results = await hermesNutritionService.syncLast14Days();
+      const failed = results.find(r => r.reason === 'error');
+      if (failed) setSyncError(failed.error ?? 'Range sync failed');
+      else setSyncError(null);
+      await loadData();
+    })();
   }, []);
 
   const loadData = async () => {
@@ -50,8 +59,14 @@ export default function NutritionHistoryScreen() {
       <ScrollView>
         <View style={styles.header}>
           <Text style={OrialTypography.headingLarge}>Nutrition History</Text>
-          <Text style={OrialTypography.caption}>Track your nutrition from Openclaw</Text>
+          <Text style={OrialTypography.caption}>Track your nutrition from Hermes</Text>
         </View>
+
+        {syncError && (
+          <View style={styles.syncErrorBanner}>
+            <Text style={styles.syncErrorText}>Hermes unreachable: {syncError}</Text>
+          </View>
+        )}
 
         {/* Averages */}
         <View style={styles.statsRow}>
@@ -256,5 +271,21 @@ const styles = StyleSheet.create({
   },
   sodiumText: {
     color: OrialColors.warning,
+  },
+  syncErrorBanner: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: OrialColors.error + '18',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: OrialColors.error + '40',
+  },
+  syncErrorText: {
+    fontSize: 11,
+    color: OrialColors.error,
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
   },
 });
