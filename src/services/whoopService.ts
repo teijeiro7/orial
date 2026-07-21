@@ -108,7 +108,25 @@ interface BodyMeasurementResponse {
   max_heart_rate: number;
 }
 
+export class ReconnectWHOOPError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReconnectWHOOPError';
+  }
+}
+
+export class WHOOPSyncPausedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WHOOPSyncPausedError';
+  }
+}
+
+export type WhoopSyncStatus = 'ok' | 'paused' | 'reconnect-required' | 'disconnected';
+
 let authState: WhoopAuthState | null = null;
+let lastSyncError: WHOOPSyncPausedError | null = null;
+let syncStatus: WhoopSyncStatus = 'disconnected';
 
 async function getAuthState(): Promise<WhoopAuthState | null> {
   if (authState) return authState;
@@ -183,7 +201,7 @@ async function handleCallback(code: string): Promise<void> {
 
 async function forceRefreshToken(): Promise<string> {
   const state = await getAuthState();
-  if (!state) throw new Error('Not connected to Whoop');
+  if (!state) throw new ReconnectWHOOPError('Not connected to Whoop');
 
   const { data, error } = await supabaseService.getClient().functions.invoke(WHOOP_TOKEN_EDGE_FUNCTION, {
     body: {
@@ -193,9 +211,14 @@ async function forceRefreshToken(): Promise<string> {
   });
 
   if (error) {
-    console.error('[Whoop] refresh failed:', error.message);
-    await clearAuthState();
-    throw new Error(`Failed to refresh Whoop token: ${error.message}`);
+    const errorMsg = error.message || 'Network error';
+    if (errorMsg.includes('invalid_grant')) {
+      console.error('[Whoop] refresh failed (invalid_grant):', errorMsg);
+      await clearAuthState();
+      throw new ReconnectWHOOPError('Whoop refresh token expired or revoked');
+    }
+    console.error('[Whoop] refresh failed (transient):', errorMsg);
+    throw new WHOOPSyncPausedError(`Whoop sync paused: ${errorMsg}`);
   }
 
   await saveAuthState({
@@ -231,13 +254,22 @@ async function fetchWhoop<T>(path: string, params?: Record<string, string>): Pro
   let response = await doFetch(token);
 
   if (response.status === 401) {
-    const newToken = await forceRefreshToken();
+    let newToken: string;
+    try {
+      newToken = await forceRefreshToken();
+    } catch (e) {
+      if (e instanceof ReconnectWHOOPError) throw e;
+      throw e;
+    }
     response = await doFetch(newToken);
+    if (response.status === 401) {
+      await clearAuthState();
+      throw new ReconnectWHOOPError('Whoop account revoked or access denied');
+    }
   }
 
   if (!response.ok) {
-    if (response.status === 401) await clearAuthState();
-    throw new Error(`Whoop API ${path}: ${response.status}`);
+    throw new WHOOPSyncPausedError(`Whoop API ${path}: ${response.status}`);
   }
 
   return response.json();
@@ -288,59 +320,72 @@ async function fetchBodyMeasurement(): Promise<BodyMeasurementResponse | null> {
 }
 
 async function syncToday(): Promise<void> {
-  const cycle = await fetchTodayCycle();
-  if (!cycle) return;
+  try {
+    const cycle = await fetchTodayCycle();
+    if (!cycle) return;
 
-  let recovery: RecoveryResponse | null = null;
-  let sleep: SleepResponse | null = null;
+    let recovery: RecoveryResponse | null = null;
+    let sleep: SleepResponse | null = null;
 
-  if (cycle.score_state === 'SCORED') {
-    recovery = await fetchTodayRecovery(cycle.id);
-    sleep = await fetchSleepForCycle(cycle.id);
-  }
+    if (cycle.score_state === 'SCORED') {
+      recovery = await fetchTodayRecovery(cycle.id);
+      sleep = await fetchSleepForCycle(cycle.id);
+    }
 
-  // Fetch body measurement and update if available
-  const bodyMeasurement = await fetchBodyMeasurement();
-  if (bodyMeasurement?.weight_kilogram) {
-    const today = todayDateString();
-    await db.insert(bodyMetrics).values({
-      id: generateUUID(),
-      date: new Date(today),
-      weightKg: bodyMeasurement.weight_kilogram,
-      createdAt: new Date(),
-    }).onConflictDoUpdate({
-      target: bodyMetrics.date, // FIX: upsert by date, not by id (id is always a new UUID and never conflicts)
-      set: {
+    // Fetch body measurement and update if available
+    const bodyMeasurement = await fetchBodyMeasurement();
+    if (bodyMeasurement?.weight_kilogram) {
+      const today = todayDateString();
+      await db.insert(bodyMetrics).values({
+        id: generateUUID(),
+        date: new Date(today),
         weightKg: bodyMeasurement.weight_kilogram,
-        // modified_at is bumped automatically by the DB trigger (see migration 0004)
-      },
+        createdAt: new Date(),
+      }).onConflictDoUpdate({
+        target: bodyMetrics.date, // FIX: upsert by date, not by id (id is always a new UUID and never conflicts)
+        set: {
+          weightKg: bodyMeasurement.weight_kilogram,
+          // modified_at is bumped automatically by the DB trigger (see migration 0004)
+        },
+      });
+    }
+
+    const today = todayDateString();
+    const dailyData: NewWhoopDaily = {
+      date: today,
+      strain: cycle.score?.strain ?? null,
+      kilojoule: cycle.score?.kilojoule ?? null,
+      avgHeartRate: cycle.score?.average_heart_rate ?? null,
+      maxHeartRate: cycle.score?.max_heart_rate ?? null,
+      recoveryScore: recovery?.score?.recovery_score ?? null,
+      restingHeartRate: recovery?.score?.resting_heart_rate ?? null,
+      hrvRmssdMilli: recovery?.score?.hrv_rmssd_milli ?? null,
+      spo2Percentage: recovery?.score?.spo2_percentage ?? null,
+      skinTempCelsius: recovery?.score?.skin_temp_celsius ?? null,
+      sleepPerformance: sleep?.score?.sleep_performance_percentage ?? null,
+      sleepDurationMilli: sleep?.score?.stage_summary?.total_in_bed_time_milli ?? null,
+      respiratoryRate: sleep?.score?.respiratory_rate ?? null,
+      nap: sleep?.nap ?? null,
+      raw: JSON.stringify({ cycle, recovery, sleep }),
+      updatedAt: new Date(),
+    };
+
+    await db.insert(whoopDaily).values(dailyData).onConflictDoUpdate({
+      target: whoopDaily.date,
+      set: dailyData,
     });
+    lastSyncError = null;
+    syncStatus = 'ok';
+  } catch (e) {
+    if (e instanceof WHOOPSyncPausedError) {
+      lastSyncError = e;
+      syncStatus = 'paused';
+    } else if (e instanceof ReconnectWHOOPError) {
+      syncStatus = 'reconnect-required';
+      throw e;
+    }
+    throw e;
   }
-
-  const today = todayDateString();
-  const dailyData: NewWhoopDaily = {
-    date: today,
-    strain: cycle.score?.strain ?? null,
-    kilojoule: cycle.score?.kilojoule ?? null,
-    avgHeartRate: cycle.score?.average_heart_rate ?? null,
-    maxHeartRate: cycle.score?.max_heart_rate ?? null,
-    recoveryScore: recovery?.score?.recovery_score ?? null,
-    restingHeartRate: recovery?.score?.resting_heart_rate ?? null,
-    hrvRmssdMilli: recovery?.score?.hrv_rmssd_milli ?? null,
-    spo2Percentage: recovery?.score?.spo2_percentage ?? null,
-    skinTempCelsius: recovery?.score?.skin_temp_celsius ?? null,
-    sleepPerformance: sleep?.score?.sleep_performance_percentage ?? null,
-    sleepDurationMilli: sleep?.score?.stage_summary?.total_in_bed_time_milli ?? null,
-    respiratoryRate: sleep?.score?.respiratory_rate ?? null,
-    nap: sleep?.nap ?? null,
-    raw: JSON.stringify({ cycle, recovery, sleep }),
-    updatedAt: new Date(),
-  };
-
-  await db.insert(whoopDaily).values(dailyData).onConflictDoUpdate({
-    target: whoopDaily.date,
-    set: dailyData,
-  });
 }
 
 async function getTodayMetrics(): Promise<WhoopDaily | null> {
@@ -374,6 +419,14 @@ async function disconnect(): Promise<void> {
   await clearAuthState();
 }
 
+function getLastSyncError(): WHOOPSyncPausedError | null {
+  return lastSyncError;
+}
+
+function getSyncStatus(): WhoopSyncStatus {
+  return syncStatus;
+}
+
 export const whoopService = {
   isConnected,
   getAuthUrl,
@@ -387,4 +440,6 @@ export const whoopService = {
   getTodayMetrics,
   getHistory,
   disconnect,
+  getLastSyncError,
+  getSyncStatus,
 };
