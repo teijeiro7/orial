@@ -31,6 +31,7 @@ export default function ForgeScreen() {
     error,
     forgeLocked,
     authenticating,
+    syncStatus,
     refreshAll,
     authenticate,
     connectWhoop,
@@ -127,8 +128,11 @@ export default function ForgeScreen() {
         {/* Connected badge */}
         {isConnected && (
           <View style={styles.connectedBadge}>
-            <View style={styles.connectedDot} />
+            <View style={[styles.connectedDot, syncStatus === 'paused' && styles.connectedDotPaused]} />
             <Text style={styles.connectedText}>WHOOP connected</Text>
+            {syncStatus === 'paused' && (
+              <Text style={styles.syncPausedText}>Sync paused — will retry</Text>
+            )}
             <Pressable onPress={disconnectWhoop} style={styles.disconnectBtn}>
               <LogIn size={11} color={OrialColors.textMuted} style={{ transform: [{ scaleX: -1 }] }} />
               <Text style={styles.disconnectText}>Disconnect</Text>
@@ -490,10 +494,19 @@ const styles = StyleSheet.create({
     backgroundColor: OrialColors.success,
     marginRight: 6,
   },
+  connectedDotPaused: {
+    backgroundColor: OrialColors.warning,
+  },
   connectedText: {
     fontSize: 12,
     color: OrialColors.success,
     fontFamily: 'Inter-Medium',
+  },
+  syncPausedText: {
+    fontSize: 11,
+    color: OrialColors.warning,
+    fontFamily: 'Inter-Regular',
+    marginLeft: 8,
   },
   disconnectBtn: {
     flexDirection: 'row',

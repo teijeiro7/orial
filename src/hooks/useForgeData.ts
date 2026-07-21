@@ -9,6 +9,7 @@ import { desc } from 'drizzle-orm';
 import { biometricAuthService } from '@/src/services/biometricAuthService';
 import type { WhoopDaily } from '../../drizzle/schema';
 import { dateString } from '@/src/utils/date';
+import type { WhoopSyncStatus } from '@/src/services/whoopService';
 
 /**
  * All data-fetching and business logic for the Forge screen: WHOOP
@@ -28,6 +29,7 @@ export function useForgeData() {
   const [error, setError] = useState<string | null>(null);
   const [forgeLocked, setForgeLocked] = useState(true);
   const [authenticating, setAuthenticating] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<WhoopSyncStatus>('disconnected');
 
   const refreshAll = useCallback(async () => {
     setError(null);
@@ -36,9 +38,16 @@ export function useForgeData() {
       setIsConnected(connected);
 
       if (connected) {
-        await whoopService.syncToday();
+        try {
+          await whoopService.syncToday();
+        } catch {
+          // syncToday already updated its internal syncStatus
+        }
+        setSyncStatus(whoopService.getSyncStatus());
         const todayMetrics = await whoopService.getTodayMetrics();
         setMetrics(todayMetrics);
+      } else {
+        setSyncStatus('disconnected');
       }
 
       const todaySteps = await pedometerService.getTodaySteps();
@@ -77,10 +86,6 @@ export function useForgeData() {
     checkForgeLock();
   }, [refreshAll, checkForgeLock]);
 
-  useEffect(() => {
-    refreshAll();
-  }, [refreshAll]);
-
   const authenticate = useCallback(async () => {
     setAuthenticating(true);
     const success = await biometricAuthService.authenticate('Access Forge');
@@ -101,6 +106,7 @@ export function useForgeData() {
     await whoopService.disconnect();
     setIsConnected(false);
     setMetrics(null);
+    setSyncStatus(whoopService.getSyncStatus());
   }, []);
 
   const onRefresh = useCallback(async () => {
@@ -121,6 +127,7 @@ export function useForgeData() {
     error,
     forgeLocked,
     authenticating,
+    syncStatus,
     refreshAll,
     authenticate,
     connectWhoop,
