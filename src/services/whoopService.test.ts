@@ -230,7 +230,7 @@ describe('fetchTodayCycle (and the shared fetchWhoop/token-refresh path)', () =>
     });
     (global.fetch as jest.Mock).mockResolvedValue(jsonResponse(401, {}));
 
-    await expect(whoopService.fetchTodayCycle()).rejects.toThrow('Whoop API /cycle: 401');
+    await expect(whoopService.fetchTodayCycle()).rejects.toThrow('Whoop account revoked or access denied');
     expect(mockedSecureStore.deleteItemAsync).toHaveBeenCalledWith('whoop_access_token');
   });
 
@@ -242,14 +242,38 @@ describe('fetchTodayCycle (and the shared fetchWhoop/token-refresh path)', () =>
     expect(mockedSecureStore.deleteItemAsync).not.toHaveBeenCalled();
   });
 
-  it('clears the auth state and throws when the token refresh itself fails', async () => {
+  it('does NOT clear auth when the API returns 5xx (transient error)', async () => {
+    seedConnectedAuthState();
+    (global.fetch as jest.Mock).mockResolvedValue(jsonResponse(503, {}));
+
+    await expect(whoopService.fetchTodayCycle()).rejects.toThrow('Whoop API /cycle: 503');
+    expect(mockedSecureStore.deleteItemAsync).not.toHaveBeenCalled();
+  });
+
+  it('clears the auth state and throws when the token refresh returns invalid_grant', async () => {
     seedConnectedAuthState({ expiresAt: new Date(Date.now() - 1000).toISOString() });
     mockInvoke.mockResolvedValue({ data: null, error: { message: 'invalid_grant' } });
 
     await expect(whoopService.fetchTodayCycle()).rejects.toThrow(
-      'Failed to refresh Whoop token: invalid_grant',
+      'Whoop refresh token expired or revoked',
     );
     expect(mockedSecureStore.deleteItemAsync).toHaveBeenCalledWith('whoop_access_token');
+  });
+
+  it('does NOT clear auth when the token refresh fails with a transient error', async () => {
+    seedConnectedAuthState({ expiresAt: new Date(Date.now() - 1000).toISOString() });
+    mockInvoke.mockResolvedValue({ data: null, error: { message: 'server error' } });
+
+    await expect(whoopService.fetchTodayCycle()).rejects.toThrow('Whoop sync paused: server error');
+    expect(mockedSecureStore.deleteItemAsync).not.toHaveBeenCalled();
+  });
+
+  it('does NOT clear auth when the token refresh fetch throws (network error)', async () => {
+    seedConnectedAuthState({ expiresAt: new Date(Date.now() - 1000).toISOString() });
+    mockInvoke.mockRejectedValue(new Error('network unreachable'));
+
+    await expect(whoopService.fetchTodayCycle()).rejects.toThrow();
+    expect(mockedSecureStore.deleteItemAsync).not.toHaveBeenCalled();
   });
 });
 
@@ -423,5 +447,22 @@ describe('syncToday', () => {
 
     expect(mockedDb.insert).toHaveBeenCalledTimes(1);
     expect(values).toHaveBeenCalledWith(expect.objectContaining({ strain: null, recoveryScore: null }));
+  });
+
+  it('clears lastSyncError after a successful sync', async () => {
+    seedConnectedAuthState();
+    const cycle = { id: 1, start: '2026-07-17', end: '2026-07-18', score_state: 'PENDING_SCORE' };
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/measurement/body')) return Promise.resolve(jsonResponse(500, {}));
+      return Promise.resolve(jsonResponse(200, { records: [cycle] }));
+    });
+
+    const onConflictDoUpdate = jest.fn();
+    const values = jest.fn().mockReturnValue({ onConflictDoUpdate });
+    mockedDb.insert.mockReturnValue({ values });
+
+    await whoopService.syncToday();
+
+    expect(whoopService.getLastSyncError()).toBeNull();
   });
 });
