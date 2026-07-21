@@ -20,28 +20,79 @@ import { syncService } from './syncService';
  *   - whoop_daily        (last 7 days)
  *   - gym_sessions       (last 7 days, joined with gym_sets/gym_exercises)
  *   - nutrition_logs     (last 7 days)
- *   - caffeine_logs      (last 7 days — T1 table)
+ *   - caffeine_logs      (last 7 days)
  *   - finance_orders     (last 30 days)
  *
  * Row shape written by Jarvis (mirrors `insightLogs` below):
  *   { id, generated_at, category, title, body, severity, dismissed: false,
  *     source_agent: 'jarvis', created_at }
  *
- * At least 3 rule types must be implemented server-side; documented examples:
+ * ---------------------------------------------------------------------------
+ * Rules reference (48 rules, Hermes-side implementation)
+ * ---------------------------------------------------------------------------
  *
- *   - sleep (😴): 3+ consecutive days of whoop_daily.sleepDurationMilli < 6h
- *     AND hrvRmssdMilli dropped >= 15% vs the trailing 7-day average →
- *     severity 'critical', body references the HRV drop and recommends
- *     lowering today's training intensity.
+ * SLEEP (category='sleep')
+ *   S1 sleep_consistency_low        warning   Consistencia < 50%
+ *   S2 sleep_efficiency_too_high    warning   Eficiencia > 96% → privación crónica
+ *   S3 sleep_efficiency_too_low     warning   Eficiencia < 85% → entorno
+ *   S4 sleep_debt_accumulating      warning   Deuda > 2h en 7 días
+ *   S5 deep_sleep_low               info      Sueño profundo < 15%
+ *   S6 rem_sleep_low                info      REM < 20%
+ *   S7 late_bedtime_trend           warning   Desplazamiento > 1h en 7 días
+ *   S8 respiratory_rate_spike       critical  +2 rpm vs baseline → infección
+ *   S9 sleep_stress_high            warning   Estrés > 15% del tiempo
+ *   S10 wake_time_consistent        info      Variación < 30 min → felicitar
+ *   S11 sleep_duration_short        warning   < 6h reales
+ *   S12 nap_recovery_benefit        info      Siesta detectada → beneficio
  *
- *   - gym (🏋️): an exercise's current_weight_kg increased over the last 6
- *     weeks of gym_sets for that exercise → severity 'info' (achievement),
- *     body states the kg gained.
+ * RECOVERY (category='recovery')
+ *   R1 hrv_drop_significant         critical  HRV -20% vs media 7d
+ *   R2 hrv_cv_instability           warning   CV HRV +30% → inestabilidad
+ *   R3 rhr_elevated                 warning   RHR +5 bpm vs baseline
+ *   R4 recovery_red                 critical  Recovery < 33%
+ *   R5 recovery_yellow_trend        warning   3+ días amarillo → deload
+ *   R6 green_constant_paradox       warning   7+ días verde → estímulo bajo
+ *   R7 spo2_drop                    warning   SpO2 < 95%
+ *   R8 skin_temp_elevated           warning   Temp +1°C vs baseline
+ *   R9 hrv_improving_trend          info      HRV sube 3+ días
+ *   R10 optimal_recovery_window     info      Recovery 66-85% + HRV estable
  *
- *   - caffeine (☕): 4+ caffeine_logs entries after 16:00 in the trailing 7
- *     days, correlated with a drop in Whoop deep-sleep minutes on those
- *     nights → severity 'warning', body recommends cutting caffeine after
- *     14:00.
+ * STRAIN (category='strain')
+ *   T1 strain_spike                 warning   Strain > 15
+ *   T2 strain_weekly_ramp           warning   Aumento > 30% semanal
+ *   T3 strain_cardio_only           info      90%+ cardiovascular, sin muscular
+ *   T4 zone_distribution_8020       info      Ratio Z1-2 vs Z4-5
+ *   T5 strain_low_recovery_green    warning   Strain bajo + verde → undertraining
+ *   T6 strain_high_recovery_red     critical  Strain alto + rojo → riesgo
+ *   T7 strain_consistency_good      info      Semanal ±15% → periodización
+ *   T8 workout_strain_efficiency    info      Strain por minuto
+ *
+ * NUTRITION (category='nutrition')
+ *   N1 late_dinner_hrv_correlation  warning   Cena < 3h dormir + HRV bajó
+ *   N2 protein_breakfast_missing    info      Sin proteína en desayuno
+ *   N3 sodium_high_hydration        info      Sodio > 3000mg → +0.5L
+ *   N4 calorie_deficit_too_aggressive warning Déficit > 1000 kcal/día
+ *   N5 protein_total_low            warning   < 1.6g/kg
+ *   N6 meal_timing_irregular        info      Horarios irregulares
+ *   N7 hydration_insufficient       warning   < 2.5L/día o < 150% sudor
+ *
+ * GYM (category='gym')
+ *   G1 volume_spike                 warning   Semanal +30%
+ *   G2 progressive_overload_good    info      +2.5kg → felicitar
+ *   G3 rest_time_short              info      Descanso < 2min
+ *   G4 exercise_variety_low         info      Mismos 4+ semanas
+ *   G5 sets_to_failure_excessive    warning   3+ series al fallo
+ *   G6 gym_consistency_good         info      4+ sesiones/semana
+ *
+ * HEALTHSPAN (category='healthspan')
+ *   H1 steps_below_target           info      < 8000 pasos/día
+ *   H2 zone2_volume_insufficient    warning   < 150 min/semana Z2
+ *   H3 vo2max_estimated_trend       info      Tendencia VO2max
+ *   H4 strength_activity_low        warning   < 2 sesiones/semana fuerza
+ *   H5 aging_pace_warning           warning   Ritmo envejecimiento acelerado
+ *
+ * CAFFEINE (category='caffeine')
+ *   C1 late_caffeine_sleep_impact   warning   4+ cafés después 16:00 → deep sleep ↓
  *
  * The app-side manual-refresh contract: `requestManualRefresh()` below POSTs
  * to `${HERMES_API_URL}/v1/insights/refresh` (same host/auth as the existing
@@ -51,7 +102,16 @@ import { syncService } from './syncService';
  * exists yet.
  */
 
-export type InsightCategory = 'sleep' | 'gym' | 'finance' | 'nutrition' | 'caffeine' | 'mixed';
+export type InsightCategory =
+  | 'sleep'
+  | 'recovery'
+  | 'strain'
+  | 'gym'
+  | 'nutrition'
+  | 'healthspan'
+  | 'caffeine'
+  | 'finance'
+  | 'mixed';
 export type InsightSeverity = 'info' | 'warning' | 'critical';
 
 export interface Insight {

@@ -87,6 +87,16 @@ describe('sortInsights (pure)', () => {
 
     expect(input).toEqual(inputCopy);
   });
+
+  it('sorts critical recovery and warning strain before info sleep', () => {
+    const criticalRecovery = makeInsight({ id: 'cr', severity: 'critical', category: 'recovery' });
+    const warningStrain = makeInsight({ id: 'ws', severity: 'warning', category: 'strain' });
+    const infoSleep = makeInsight({ id: 'is', severity: 'info', category: 'sleep' });
+
+    const sorted = sortInsights([infoSleep, warningStrain, criticalRecovery]);
+
+    expect(sorted.map((i) => i.id)).toEqual(['cr', 'ws', 'is']);
+  });
 });
 
 describe('filterInsights (pure)', () => {
@@ -107,6 +117,19 @@ describe('filterInsights (pure)', () => {
   it('filters by category when provided', () => {
     const result = filterInsights([sleepInsight, gymInsight], 'gym');
     expect(result.map((i) => i.id)).toEqual(['g']);
+  });
+
+  it('filters by new categories (recovery, strain, healthspan)', () => {
+    const recoveryInsight = makeInsight({ id: 'r', category: 'recovery' });
+    const strainInsight = makeInsight({ id: 't', category: 'strain' });
+    const healthspanInsight = makeInsight({ id: 'h', category: 'healthspan' });
+    const sleepInsight2 = makeInsight({ id: 's2', category: 'sleep' });
+
+    const all = [recoveryInsight, strainInsight, healthspanInsight, sleepInsight2];
+
+    expect(filterInsights(all, 'recovery').map((i) => i.id)).toEqual(['r']);
+    expect(filterInsights(all, 'strain').map((i) => i.id)).toEqual(['t']);
+    expect(filterInsights(all, 'healthspan').map((i) => i.id)).toEqual(['h']);
   });
 });
 

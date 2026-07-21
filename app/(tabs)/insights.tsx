@@ -1,8 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, RefreshCw } from 'lucide-react-native';
+import {
+  X,
+  RefreshCw,
+  Moon,
+  HeartPulse,
+  Zap,
+  Dumbbell,
+  Salad,
+  Dna,
+  Coffee,
+  Wallet,
+  Shuffle,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { GlassCard } from '@/src/components/GlassCard';
+import { DailyDigest } from '@/src/components/insights/DailyDigest';
+import { InsightFilter } from '@/src/components/insights/InsightFilter';
 import {
   insightService,
   applyDismiss,
@@ -13,13 +28,16 @@ import {
 import { OrialColors } from '@/src/utils/colors';
 import { OrialTypography } from '@/src/utils/typography';
 
-const CATEGORY_EMOJI: Record<InsightCategory, string> = {
-  sleep: '😴',
-  gym: '🏋️',
-  nutrition: '🥗',
-  caffeine: '☕',
-  finance: '💰',
-  mixed: '🔀',
+const CATEGORY_ICON: Record<InsightCategory, LucideIcon> = {
+  sleep: Moon,
+  recovery: HeartPulse,
+  strain: Zap,
+  gym: Dumbbell,
+  nutrition: Salad,
+  healthspan: Dna,
+  caffeine: Coffee,
+  finance: Wallet,
+  mixed: Shuffle,
 };
 
 const SEVERITY_SECTIONS: { severity: InsightSeverity; emoji: string; label: string; color: string }[] = [
@@ -36,6 +54,7 @@ export default function InsightsScreen() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<InsightCategory | null>(null);
 
   const loadInsights = useCallback(async () => {
     const data = await insightService.getInsights();
@@ -77,6 +96,8 @@ export default function InsightsScreen() {
     }
   }
 
+  const visibleInsights = filter ? insights.filter((i) => i.category === filter) : insights;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -90,7 +111,10 @@ export default function InsightsScreen() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {insights.length === 0 ? (
+          <DailyDigest />
+          <InsightFilter active={filter} onSelect={setFilter} />
+
+          {visibleInsights.length === 0 ? (
             <GlassCard style={styles.emptyCard}>
               <Text style={[OrialTypography.bodyMedium, styles.emptyText]}>
                 Sin insights por ahora. Jarvis analiza tus datos cada pocas horas — vuelve más tarde o pulsa
@@ -99,7 +123,7 @@ export default function InsightsScreen() {
             </GlassCard>
           ) : (
             SEVERITY_SECTIONS.map(({ severity, emoji, label, color }) => {
-              const items = insights.filter((insight) => insight.severity === severity);
+              const items = visibleInsights.filter((insight) => insight.severity === severity);
               if (items.length === 0) return null;
 
               return (
@@ -112,7 +136,11 @@ export default function InsightsScreen() {
                       <GlassCard key={insight.id} style={styles.card} accentColor={color}>
                         <View style={styles.cardHeader}>
                           <Text style={[OrialTypography.bodyLarge, styles.cardTitle]}>
-                            {CATEGORY_EMOJI[insight.category]} {insight.title}
+                            {(() => {
+                              const Icon = CATEGORY_ICON[insight.category];
+                              return <Icon size={18} color={OrialColors.textPrimary} />;
+                            })()}{' '}
+                            {insight.title}
                           </Text>
                           <Pressable
                             onPress={() => handleDismiss(insight.id)}
