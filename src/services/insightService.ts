@@ -1,8 +1,13 @@
 import { eq } from 'drizzle-orm';
 import { db } from './database';
-import { insightLogs, type InsightLog } from '../../drizzle/schema';
+import { insightLogs, whoopDaily, type InsightLog } from '../../drizzle/schema';
 import { agentService } from './openclawService';
 import { syncService } from './syncService';
+
+import {
+  Moon, HeartPulse, Zap, Dumbbell, Salad, Dna, Coffee, Wallet, Shuffle,
+  type LucideIcon,
+} from 'lucide-react-native';
 
 /**
  * ============================================================================
@@ -92,7 +97,21 @@ import { syncService } from './syncService';
  *   H5 aging_pace_warning           warning   Ritmo envejecimiento acelerado
  *
  * CAFFEINE (category='caffeine')
- *   C1 late_caffeine_sleep_impact   warning   4+ cafés después 16:00 → deep sleep ↓
+ *   C1 late_caffeine_sleep_impact   warning   4+ caffeine_logs entries after
+ *     16:00 in the trailing 7 days, correlated with a drop in Whoop
+ *     deep-sleep minutes on those nights → recommends cutting caffeine
+ *     after 14:00.
+ *
+ * FINANCE (category='finance')
+ *   Reserved for future rules driven by finance_orders data (subscriptions,
+ *   spending anomalies, budget alerts). Hermes will add rules here when the
+ *   data source is ready. Until then, no insights should carry this category.
+ *
+ * MIXED (sentinel)
+ *   Used when a single insight crosses 2+ categories and Hermes cannot
+ *   classify it under one primary category. The app renders it under the
+ *   Shuffle icon. Hermes should prefer a primary category over MIXED
+ *   whenever a dominant domain is clear.
  *
  * The app-side manual-refresh contract: `requestManualRefresh()` below POSTs
  * to `${HERMES_API_URL}/v1/insights/refresh` (same host/auth as the existing
@@ -113,6 +132,40 @@ export type InsightCategory =
   | 'finance'
   | 'mixed';
 export type InsightSeverity = 'info' | 'warning' | 'critical';
+
+// ── Category → icon mapping (single source of truth) ────────────────────────
+
+export const CATEGORY_ICON: Record<InsightCategory, LucideIcon> = {
+  sleep: Moon,
+  recovery: HeartPulse,
+  strain: Zap,
+  gym: Dumbbell,
+  nutrition: Salad,
+  healthspan: Dna,
+  caffeine: Coffee,
+  finance: Wallet,
+  mixed: Shuffle,
+};
+
+export const CATEGORY_FILTERS: { category: InsightCategory; label: string; icon: LucideIcon }[] = [
+  { category: 'sleep', label: 'Sueño', icon: Moon },
+  { category: 'recovery', label: 'Recuperación', icon: HeartPulse },
+  { category: 'strain', label: 'Strain', icon: Zap },
+  { category: 'gym', label: 'Gimnasio', icon: Dumbbell },
+  { category: 'nutrition', label: 'Nutrición', icon: Salad },
+  { category: 'healthspan', label: 'Salud', icon: Dna },
+  { category: 'caffeine', label: 'Cafeína', icon: Coffee },
+  { category: 'finance', label: 'Finanzas', icon: Wallet },
+  { category: 'mixed', label: 'Mixto', icon: Shuffle },
+];
+
+// ── Daily digest types ──────────────────────────────────────────────────────
+
+export interface WhoopDailySummary {
+  recovery: number | null;
+  sleep: number | null;
+  strain: number | null;
+}
 
 export interface Insight {
   id: string;
@@ -196,6 +249,23 @@ export class InsightService {
   /** Marks an insight as dismissed. Local-only; see syncService.ts for why. */
   async dismissInsight(id: string): Promise<void> {
     await db.update(insightLogs).set({ dismissed: true }).where(eq(insightLogs.id, id));
+  }
+
+  /** Returns today's Whoop daily summary for the DailyDigest card. */
+  async getDailyDigest(): Promise<WhoopDailySummary | null> {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const rows = await db
+      .select({
+        recovery: whoopDaily.recoveryScore,
+        sleep: whoopDaily.sleepDurationMilli,
+        strain: whoopDaily.strain,
+      })
+      .from(whoopDaily)
+      .where(eq(whoopDaily.date, dateStr))
+      .limit(1);
+    const row = rows[0];
+    return row ? { recovery: row.recovery, sleep: row.sleep, strain: row.strain } : null;
   }
 
   /**

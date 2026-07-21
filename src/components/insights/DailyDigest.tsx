@@ -1,17 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { eq } from 'drizzle-orm';
 import { Activity, Moon, Flame } from 'lucide-react-native';
-import { db } from '@/src/services/database';
-import { whoopDaily } from '../../../drizzle/schema';
+import { insightService, type WhoopDailySummary } from '@/src/services/insightService';
 import { GlassCard } from '@/src/components/GlassCard';
 import { OrialColors } from '@/src/utils/colors';
 import { OrialTypography } from '@/src/utils/typography';
-
-function todayString(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function formatSleep(milli: number | null): string {
   if (!milli) return '—';
@@ -28,28 +21,12 @@ function recoveryColor(score: number | null): string {
 }
 
 export function DailyDigest() {
-  const [data, setData] = useState<{
-    recovery: number | null;
-    sleep: number | null;
-    strain: number | null;
-  } | null>(null);
+  const [data, setData] = useState<WhoopDailySummary | null>(null);
 
   useEffect(() => {
     (async () => {
-      const today = todayString();
-      const rows = await db
-        .select({
-          recovery: whoopDaily.recoveryScore,
-          sleep: whoopDaily.sleepDurationMilli,
-          strain: whoopDaily.strain,
-        })
-        .from(whoopDaily)
-        .where(eq(whoopDaily.date, today))
-        .limit(1);
-      const row = rows[0];
-      if (row) {
-        setData({ recovery: row.recovery, sleep: row.sleep, strain: row.strain });
-      }
+      const summary = await insightService.getDailyDigest();
+      if (summary) setData(summary);
     })();
   }, []);
 

@@ -1,26 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  X,
-  RefreshCw,
-  Moon,
-  HeartPulse,
-  Zap,
-  Dumbbell,
-  Salad,
-  Dna,
-  Coffee,
-  Wallet,
-  Shuffle,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { X, RefreshCw } from 'lucide-react-native';
 import { GlassCard } from '@/src/components/GlassCard';
 import { DailyDigest } from '@/src/components/insights/DailyDigest';
 import { InsightFilter } from '@/src/components/insights/InsightFilter';
 import {
   insightService,
   applyDismiss,
+  filterInsights,
+  CATEGORY_ICON,
   type Insight,
   type InsightCategory,
   type InsightSeverity,
@@ -28,23 +17,16 @@ import {
 import { OrialColors } from '@/src/utils/colors';
 import { OrialTypography } from '@/src/utils/typography';
 
-const CATEGORY_ICON: Record<InsightCategory, LucideIcon> = {
-  sleep: Moon,
-  recovery: HeartPulse,
-  strain: Zap,
-  gym: Dumbbell,
-  nutrition: Salad,
-  healthspan: Dna,
-  caffeine: Coffee,
-  finance: Wallet,
-  mixed: Shuffle,
-};
-
 const SEVERITY_SECTIONS: { severity: InsightSeverity; emoji: string; label: string; color: string }[] = [
   { severity: 'critical', emoji: '🔴', label: 'Crítico', color: OrialColors.error },
   { severity: 'warning', emoji: '🟡', label: 'Atención', color: OrialColors.warning },
   { severity: 'info', emoji: '🟢', label: 'Logro', color: OrialColors.success },
 ];
+
+function CategoryIcon({ category }: { category: InsightCategory }) {
+  const Icon = CATEGORY_ICON[category];
+  return <Icon size={18} color={OrialColors.textPrimary} />;
+}
 
 function todayLabel(): string {
   return new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
@@ -96,7 +78,7 @@ export default function InsightsScreen() {
     }
   }
 
-  const visibleInsights = filter ? insights.filter((i) => i.category === filter) : insights;
+  const visibleInsights = filterInsights(insights, filter ?? undefined);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -136,10 +118,7 @@ export default function InsightsScreen() {
                       <GlassCard key={insight.id} style={styles.card} accentColor={color}>
                         <View style={styles.cardHeader}>
                           <Text style={[OrialTypography.bodyLarge, styles.cardTitle]}>
-                            {(() => {
-                              const Icon = CATEGORY_ICON[insight.category];
-                              return <Icon size={18} color={OrialColors.textPrimary} />;
-                            })()}{' '}
+                            <CategoryIcon category={insight.category} />{' '}
                             {insight.title}
                           </Text>
                           <Pressable
