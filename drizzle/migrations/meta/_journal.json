@@ -71,6 +71,13 @@
       "when": 1784313713760,
       "tag": "0009_graceful_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784632009544,
+      "tag": "0010_modern_bishop",
+      "breakpoints": true
     }
   ]
 }
