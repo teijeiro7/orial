@@ -34,6 +34,13 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
+const MS_PER_MINUTE = 60000;
+
+/** Rounds a WHOOP stage-summary duration (milliseconds) to whole minutes. */
+function toMinutes(millis: number | undefined): number | null {
+  return millis === undefined ? null : Math.round(millis / MS_PER_MINUTE);
+}
+
 const REDIRECT_URI = 'orial://whoop/callback';
 
 const SCOPES = [
@@ -399,18 +406,10 @@ async function syncToday(): Promise<void> {
         sleepEnd: new Date(sleep.end),
         sleepScorePct: sleep.score?.sleep_performance_percentage ?? null,
         respiratoryRate: sleep.score?.respiratory_rate ?? null,
-        timeInBedMin: sleep.score?.stage_summary
-          ? Math.round(sleep.score.stage_summary.total_in_bed_time_milli / 60000)
-          : null,
-        lightSleepMin: sleep.score?.stage_summary
-          ? Math.round(sleep.score.stage_summary.total_light_sleep_time_milli / 60000)
-          : null,
-        deepSleepMin: sleep.score?.stage_summary
-          ? Math.round(sleep.score.stage_summary.total_slow_wave_sleep_time_milli / 60000)
-          : null,
-        remSleepMin: sleep.score?.stage_summary
-          ? Math.round(sleep.score.stage_summary.total_rem_sleep_time_milli / 60000)
-          : null,
+        timeInBedMin: toMinutes(sleep.score?.stage_summary?.total_in_bed_time_milli),
+        lightSleepMin: toMinutes(sleep.score?.stage_summary?.total_light_sleep_time_milli),
+        deepSleepMin: toMinutes(sleep.score?.stage_summary?.total_slow_wave_sleep_time_milli),
+        remSleepMin: toMinutes(sleep.score?.stage_summary?.total_rem_sleep_time_milli),
         isNap: sleep.nap,
         source: 'api',
         createdAt: new Date(),

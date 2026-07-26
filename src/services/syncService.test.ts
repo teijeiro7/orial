@@ -49,16 +49,13 @@ describe('supabaseRemote.upsert', () => {
     );
   });
 
-  it('stamps undefined when nobody is signed in', async () => {
+  it('throws instead of pushing a row with no user_id when nobody is signed in', async () => {
     mockAuth.getCurrentUser.mockReturnValue(null);
 
-    await supabaseRemote.upsert(TABLE_CONFIG, { date: '2026-01-01' });
-
-    expect(mockSupabase.upsert).toHaveBeenCalledWith(
-      'hydration',
-      { date: '2026-01-01', user_id: undefined },
-      'date',
+    await expect(supabaseRemote.upsert(TABLE_CONFIG, { date: '2026-01-01' })).rejects.toThrow(
+      'Cannot push changes: no authenticated user',
     );
+    expect(mockSupabase.upsert).not.toHaveBeenCalled();
   });
 });
 

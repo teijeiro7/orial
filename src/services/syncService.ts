@@ -98,6 +98,7 @@ export const supabaseRemote: SyncRemote = {
   },
   async upsert(config, row) {
     const userId = authService.getCurrentUser()?.id;
+    if (!userId) throw new Error('Cannot push changes: no authenticated user');
     await supabaseService.upsert(config.table, { ...row, user_id: userId }, config.conflictKey);
   },
 };

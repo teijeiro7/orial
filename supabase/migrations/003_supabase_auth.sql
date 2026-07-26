@@ -15,8 +15,8 @@
 --    (habits, habit_entries, finance_orders) are left untouched.
 --
 -- 2. Backfills `user_id` on all 30 tables for Cristian's one Supabase Auth
---    user (teijeiroparga@outlook.com, created via the dashboard) and locks
---    the column NOT NULL. Safe now that `user_id` is `uuid` and Supabase
+--    user (created via the dashboard, see auth.users) and locks the column
+--    NOT NULL. Safe now that `user_id` is `uuid` and Supabase
 --    Auth issues real uuids (Firebase's uid was a 28-char string — the wrong
 --    type for this column, never actually compatible).
 --
@@ -77,7 +77,7 @@ END $$;
 DO $$
 DECLARE
   t TEXT;
-  owner_uid CONSTANT uuid := '6d8e5361-b59a-4604-b6e0-b50796f24f3a'; -- teijeiroparga@outlook.com
+  owner_uid CONSTANT uuid := '6d8e5361-b59a-4604-b6e0-b50796f24f3a'; -- see auth.users
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'habits', 'habit_entries', 'reminders', 'sync_queue', 'user_settings',

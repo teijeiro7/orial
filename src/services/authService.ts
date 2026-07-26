@@ -14,9 +14,13 @@ export interface UserProfile {
 
 let currentUser: User | null = null;
 
+function getAuth() {
+  return supabaseService.getClient().auth;
+}
+
 // Keeps `getCurrentUser()` synchronous (progressPhotoService and the sync
 // push adapter both need the uid without awaiting a session lookup).
-supabaseService.getClient().auth.onAuthStateChange((_event, session) => {
+getAuth().onAuthStateChange((_event, session) => {
   currentUser = session?.user ?? null;
 });
 
@@ -68,7 +72,6 @@ function handleAuthError(error: any): Error {
         message = 'Invalid email address';
         break;
       case 'over_request_rate_limit':
-      case 'over_email_send_rate_limit':
         message = 'Too many attempts. Please try again later';
         break;
       default:
@@ -84,7 +87,7 @@ function handleAuthError(error: any): Error {
 // Email/Password Authentication
 async function loginWithEmail(email: string, password: string): Promise<UserProfile> {
   try {
-    const { error } = await supabaseService.getClient().auth.signInWithPassword({ email, password });
+    const { error } = await getAuth().signInWithPassword({ email, password });
     if (error) throw error;
     return await getUserProfile();
   } catch (error: any) {
@@ -98,7 +101,7 @@ async function updateProfile(displayName?: string, photoURL?: string): Promise<v
   if (!user) throw new Error('No user is currently signed in');
 
   try {
-    const { error } = await supabaseService.getClient().auth.updateUser({
+    const { error } = await getAuth().updateUser({
       data: {
         display_name: displayName ?? user.user_metadata?.display_name ?? null,
         avatar_url: photoURL ?? user.user_metadata?.avatar_url ?? null,
@@ -113,7 +116,7 @@ async function updateProfile(displayName?: string, photoURL?: string): Promise<v
 // Sign Out
 async function signOut(): Promise<void> {
   try {
-    const { error } = await supabaseService.getClient().auth.signOut();
+    const { error } = await getAuth().signOut();
     if (error) throw error;
   } catch (error: any) {
     throw handleAuthError(error);
