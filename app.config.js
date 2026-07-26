@@ -16,25 +16,17 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.orial.app',
-      googleServicesFile: './GoogleService-Info.plist',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleURLTypes: [
           {
-            CFBundleURLSchemes: [
-              process.env.EXPO_PUBLIC_APP_SCHEME || 'orial',
-              process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID 
-                ? `com.googleusercontent.apps.${process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.split('.')[0]}`
-                : 'com.googleusercontent.apps.YOUR_CLIENT_ID'
-            ]
+            CFBundleURLSchemes: [process.env.EXPO_PUBLIC_APP_SCHEME || 'orial']
           }
         ]
       }
     },
     android: {
       package: 'com.orial.app',
-      // Temporarily disabled for iOS-only prebuild
-      // googleServicesFile: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_SERVICES || './google-services.json',
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#0A0A1A'
@@ -57,26 +49,6 @@ export default {
       favicon: './assets/favicon.png'
     },
     plugins: [
-      '@react-native-firebase/app',
-      '@react-native-firebase/auth',
-      '@react-native-firebase/messaging',
-      [
-        'react-native-fbsdk-next',
-        {
-          appID: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || 'YOUR_FACEBOOK_APP_ID',
-          clientToken: process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN || 'YOUR_FACEBOOK_CLIENT_TOKEN',
-          displayName: process.env.EXPO_PUBLIC_APP_NAME || 'Orial',
-          scheme: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID 
-            ? `fb${process.env.EXPO_PUBLIC_FACEBOOK_APP_ID}`
-            : 'fbYOUR_FACEBOOK_APP_ID',
-          advertiserIDCollectionEnabled: false,
-          autoLogAppEventsEnabled: false,
-          isAutoInitEnabled: true,
-          ios: {
-            userTrackingPermission: false
-          }
-        }
-      ],
       [
         'expo-router',
         {

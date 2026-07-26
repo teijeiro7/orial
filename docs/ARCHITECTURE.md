@@ -18,8 +18,8 @@ decisions.
 | Local DB | Expo SQLite + Drizzle ORM (`drizzle-orm/expo-sqlite`) |
 | Cloud DB | Supabase (Postgres) — sync target + backend for the "Jarvis" agent |
 | State | Zustand (single small store; most state is local/component or SQLite-backed) |
-| Auth | Firebase Auth (`@react-native-firebase/auth`) |
-| Notifications | Expo Notifications + Firebase Cloud Messaging |
+| Auth | Supabase Auth (email/password) |
+| Notifications | Expo Notifications (local scheduling) |
 | Testing | Jest + `jest-expo` preset |
 | Build | EAS Build (`eas.json`) |
 
@@ -43,7 +43,7 @@ orial/
 │                              #   supplements, weight-history, etc.)
 ├── src/
 │   ├── components/           # Shared UI (GlassCard, charts, sheets, modals)
-│   ├── context/               # AuthContext (Firebase auth state + actions)
+│   ├── context/               # AuthContext (Supabase auth state + actions)
 │   ├── hooks/                 # Cross-cutting hooks (e.g. NFC water-intake queue drain)
 │   ├── services/               # One file per domain — business logic + data access
 │   ├── stores/                 # Zustand store(s)
@@ -103,21 +103,20 @@ not in SQLite or AsyncStorage.
 
 ## 4. Auth
 
-Firebase Auth (`@react-native-firebase/auth`) is the only identity provider,
-exposed to the app through `src/context/AuthContext.tsx` and
-`src/services/authService.ts`. Four sign-in methods are wired up:
+Supabase Auth is the only identity provider, exposed to the app through
+`src/context/AuthContext.tsx` and `src/services/authService.ts`. Email/password
+is the only sign-in method (this is a single-user app; accounts are
+provisioned from the Supabase dashboard rather than through in-app
+registration).
 
-- Email/password (`loginWithEmail`, `registerWithEmail`)
-- Google (`@react-native-google-signin/google-signin`)
-- Apple (`@invertase/react-native-apple-authentication`)
-- Facebook (`react-native-fbsdk-next`)
-
-`AuthContext` subscribes to `auth().onAuthStateChanged`, keeps both the raw
-Firebase user and an app-level `UserProfile`, and exposes login/register/
-logout/update-profile/password-reset actions to the rest of the app. An
-optional biometric gate (`src/services/biometricAuthService.ts`, Expo Local
-Authentication) can lock the app behind Face ID / Touch ID after Firebase
-auth succeeds.
+`AuthContext` subscribes to `supabase.auth.onAuthStateChange`, keeps an
+app-level `UserProfile` mapped from the Supabase `User`, and exposes
+login/logout/update-profile actions to the rest of the app. The Supabase
+session (access + refresh token) is persisted in AsyncStorage and
+auto-refreshed by the client; `auth.uid()` in RLS policies resolves directly to
+the signed-in user. An optional biometric gate
+(`src/services/biometricAuthService.ts`, Expo Local Authentication) can lock
+the app behind Face ID / Touch ID after auth succeeds.
 
 ## 5. State management
 
@@ -142,15 +141,15 @@ State is intentionally light on global stores:
 | Calendar | iCloud / Google Calendar reminder sync | `src/services/calendarService.ts`, `app/settings/calendar.tsx` |
 | HealthKit (iOS) | Body metrics via `react-native-health` | `src/services/healthKitService.ts` |
 | Pedometer | Step counting via Expo Sensors | `src/services/pedometerService.ts` |
-| Push notifications | Expo Notifications + Firebase Cloud Messaging | `src/services/notificationService.ts`, `forgeNotificationService.ts` |
+| Push notifications | Expo Notifications (local scheduling only) | `src/services/notificationService.ts`, `forgeNotificationService.ts` |
 | Home-screen widget data | Writes shared preferences (`react-native-default-preference`) consumed by a native widget | `src/services/widgetService.ts` |
 
 ## 7. Build & deploy
 
 - **Config**: `app.config.js` is the single Expo config (JS, not static JSON)
   so plugin arguments and bundle IDs can be driven by environment variables
-  (`EXPO_PUBLIC_APP_SCHEME`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, Facebook App
-  ID, etc.). iOS bundle ID `com.orial.app`, same package ID on Android.
+  (`EXPO_PUBLIC_APP_SCHEME`, etc.). iOS bundle ID `com.orial.app`, same
+  package ID on Android.
 - **Native config plugins** (`plugins/`): `withReactNativeDefaultPreference`,
   `withWaterIntent` (+ its native `plugins/ios/LogWaterIntent.swift` helper
   for NFC-triggered water logging), and `withFmtCppStandardFix` (build-flag
@@ -176,7 +175,7 @@ State is intentionally light on global stores:
 - **No custom backend**: aside from Supabase (used purely as a Postgres
   store + sync target, no Edge Functions in this codebase today) and the
   external Jarvis agent, the app talks directly to third-party APIs (WHOOP,
-  Notion, Firebase) from the client.
+  Notion) from the client.
 
 ## Maintenance
 

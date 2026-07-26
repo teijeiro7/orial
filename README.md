@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/Expo-54-000020?style=flat-square&logo=expo&logoColor=white" alt="Expo" />
     <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
     <img src="https://img.shields.io/badge/SQLite-offline--first-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite" />
-    <img src="https://img.shields.io/badge/Firebase-auth-FFCA28?style=flat-square&logo=firebase&logoColor=black" alt="Firebase" />
+    <img src="https://img.shields.io/badge/Supabase-auth-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
   </p>
 </div>
 
@@ -64,11 +64,11 @@ Real-time personal metrics at a glance:
 | Language | TypeScript 5.9 |
 | Local DB | Expo SQLite + Drizzle ORM |
 | State | Zustand |
-| Auth | Firebase (Google, Apple, Facebook) |
+| Auth | Supabase Auth (email/password) |
 | Biometrics | Expo Local Authentication |
 | Wearable | WHOOP REST API (OAuth 2.0) |
 | Health | HealthKit (iOS) via react-native-health |
-| Notifications | Expo Notifications + Firebase FCM |
+| Notifications | Expo Notifications (local scheduling) |
 | Calendar | Expo Calendar (iCloud / Google) |
 | UI | Glassmorphism, Expo Linear Gradient, Expo Blur |
 
@@ -94,7 +94,7 @@ orial/
 └── assets/              # Icons, splash screens
 ```
 
-No backend. The app talks directly to external APIs (WHOOP, Notion, Firebase) from the client. All user data lives in local SQLite or user-controlled services.
+No backend. The app talks directly to external APIs (WHOOP, Notion, Supabase) from the client. All user data lives in local SQLite or user-controlled services.
 
 ---
 
@@ -125,13 +125,9 @@ cp .env.example .env
 Required variables:
 
 ```env
-# Firebase
-EXPO_PUBLIC_FIREBASE_API_KEY=
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=
-
-# Google OAuth
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
+# Supabase
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
 
 # WHOOP
 EXPO_PUBLIC_WHOOP_CLIENT_ID=
@@ -213,10 +209,10 @@ Jarvis connects to the same Supabase project **server-side** using the
 agent can read all tables to generate insights and write to `insight_logs`.
 The app and Jarvis stay decoupled: neither depends on the other's sync loop.
 
-> **Security note:** RLS is intentionally left disabled for this single-user
-> setup (app uses the anon key, Jarvis uses `service_role`). Before going
-> multi-user, add a `user_id` column and per-user RLS policies — see the notes
-> at the bottom of `001_initial.sql`.
+> **Security note:** every table has RLS enabled with a per-row ownership
+> policy (`auth.uid() = user_id`, restricted to the `authenticated` role) — see
+> `supabase/migrations/002_whoop_enrichment_and_rls.sql` and
+> `003_supabase_auth.sql`.
 
 ---
 
@@ -239,7 +235,7 @@ Dark-first glassmorphism UI with a deep violet palette:
 ## Security
 
 - Credentials stored in Expo SecureStore (Keychain / Keystore)
-- Firebase Auth tokens managed server-side
+- Supabase session persisted in AsyncStorage, auto-refreshed by the client
 - No credentials committed to source — use environment variables
 - Biometric gate on app open (optional)
 

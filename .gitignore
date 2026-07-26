@@ -45,10 +45,6 @@ coverage/
 /android
 build-ios.log
 
-# Firebase config (contains API keys)
-GoogleService-Info.plist
-google-services.json
-
 # CodeGraph local index
 .codegraph/
 
