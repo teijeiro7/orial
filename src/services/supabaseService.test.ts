@@ -5,6 +5,13 @@ jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(),
 }));
 
+// supabaseService reads auth().currentUser to build the accessToken callback
+// passed to createClient — mock it the same way authService.test.ts does.
+jest.mock('@react-native-firebase/auth', () => {
+  const instance = { currentUser: null as any };
+  return { __esModule: true, default: jest.fn(() => instance) };
+});
+
 const mockedCreateClient = createClient as jest.Mock;
 
 /**

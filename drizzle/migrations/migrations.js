@@ -12,6 +12,7 @@ import m0007 from './0007_regular_sheva_callister.sql';
 import m0008 from './0008_smart_gauntlet.sql';
 import m0009 from './0009_graceful_gideon.sql';
 import m0010 from './0010_modern_bishop.sql';
+import m0011 from './0011_fine_maddog.sql';
 
   export default {
     journal,
@@ -26,7 +27,8 @@ m0006,
 m0007,
 m0008,
 m0009,
-m0010
+m0010,
+m0011
     }
   }
   

@@ -68,6 +68,11 @@ export const DEFAULT_SYNC_TABLES: SyncTableConfig[] = [
   { table: 'hydration_profile', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'caffeine_logs', timestampField: 'updated_at', conflictKey: 'id' },
   { table: 'insight_logs', timestampField: 'generated_at', conflictKey: 'id' },
+  { table: 'whoop_workouts', timestampField: 'updated_at', conflictKey: 'id' },
+  { table: 'whoop_sleep_sessions', timestampField: 'updated_at', conflictKey: 'id' },
+  // Journal rows never change after import (no live API source), so — like
+  // insight_logs — this is pull-only in practice, cursored on created_at.
+  { table: 'whoop_journal_entries', timestampField: 'created_at', conflictKey: 'id' },
 ];
 
 /** Normalises a JS value to something SQLite accepts (booleans → 0/1). */

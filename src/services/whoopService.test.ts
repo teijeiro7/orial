@@ -408,6 +408,7 @@ describe('syncToday', () => {
 
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/recovery')) return Promise.resolve(jsonResponse(200, recovery));
+      if (url.includes('/activity/workout')) return Promise.resolve(jsonResponse(200, { records: [] }));
       if (url.includes('/sleep')) return Promise.resolve(jsonResponse(200, sleep));
       if (url.includes('/measurement/body')) return Promise.resolve(jsonResponse(200, bodyMeasurement));
       return Promise.resolve(jsonResponse(200, { records: [cycle] }));
@@ -419,10 +420,12 @@ describe('syncToday', () => {
 
     await whoopService.syncToday();
 
-    expect(mockedDb.insert).toHaveBeenCalledTimes(2);
+    // body measurement + whoop_daily + whoop_sleep_sessions (no workouts this time)
+    expect(mockedDb.insert).toHaveBeenCalledTimes(3);
     expect(values).toHaveBeenCalledWith(expect.objectContaining({ weightKg: 80 }));
     expect(values).toHaveBeenCalledWith(expect.objectContaining({ strain: 10, recoveryScore: 80, sleepPerformance: 90 }));
-    expect(onConflictDoUpdate).toHaveBeenCalledTimes(2);
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({ id: 's1', isNap: false, source: 'api' }));
+    expect(onConflictDoUpdate).toHaveBeenCalledTimes(3);
   });
 
   it('skips the body-measurement write when no weight is returned, but still writes the daily row', async () => {
@@ -436,6 +439,7 @@ describe('syncToday', () => {
 
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/measurement/body')) return Promise.resolve(jsonResponse(500, {}));
+      if (url.includes('/activity/workout')) return Promise.resolve(jsonResponse(200, { records: [] }));
       return Promise.resolve(jsonResponse(200, { records: [cycle] }));
     });
 
@@ -447,6 +451,46 @@ describe('syncToday', () => {
 
     expect(mockedDb.insert).toHaveBeenCalledTimes(1);
     expect(values).toHaveBeenCalledWith(expect.objectContaining({ strain: null, recoveryScore: null }));
+  });
+
+  it('persists each fetched workout into whoop_workouts', async () => {
+    seedConnectedAuthState();
+    const cycle = { id: 7, start: '2026-07-17', end: '2026-07-18', score_state: 'PENDING_SCORE' };
+    const workouts = [
+      {
+        id: 'w1',
+        start: '2026-07-17T18:00:00Z',
+        end: '2026-07-17T18:30:00Z',
+        sport_name: 'Caminar',
+        score_state: 'SCORED',
+        score: { strain: 4.4, average_heart_rate: 98, max_heart_rate: 106, kilojoule: 163 },
+      },
+      {
+        id: 'w2',
+        start: '2026-07-17T19:00:00Z',
+        end: '2026-07-17T19:30:00Z',
+        sport_name: 'Tenis',
+        score_state: 'SCORED',
+        score: { strain: 8.1, average_heart_rate: 120, max_heart_rate: 150, kilojoule: 400 },
+      },
+    ];
+
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/measurement/body')) return Promise.resolve(jsonResponse(500, {}));
+      if (url.includes('/activity/workout')) return Promise.resolve(jsonResponse(200, { records: workouts }));
+      return Promise.resolve(jsonResponse(200, { records: [cycle] }));
+    });
+
+    const onConflictDoUpdate = jest.fn();
+    const values = jest.fn().mockReturnValue({ onConflictDoUpdate });
+    mockedDb.insert.mockReturnValue({ values });
+
+    await whoopService.syncToday();
+
+    // whoop_daily + one insert per workout
+    expect(mockedDb.insert).toHaveBeenCalledTimes(3);
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({ id: 'w1', activityName: 'Caminar', activityStrain: 4.4, source: 'api' }));
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({ id: 'w2', activityName: 'Tenis', activityStrain: 8.1, source: 'api' }));
   });
 
   it('clears lastSyncError after a successful sync', async () => {

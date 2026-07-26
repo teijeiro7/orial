@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import auth from '@react-native-firebase/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -13,6 +13,14 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  * gracefully: `getClient()` returns a client built with a harmless fallback
  * URL/key so the app never crashes at startup, and `isConfigured()` returns
  * false so callers (e.g. the sync service) can skip remote work while offline.
+ *
+ * Identity for RLS comes from Firebase (the app's real login), registered in
+ * the Supabase dashboard as a Third-Party Auth provider (Authentication →
+ * Third-Party Auth → Firebase, project id `orial-4a639`). `accessToken`
+ * fetches a fresh Firebase ID token per request; Supabase validates it and
+ * resolves `auth.uid()` to the token's `sub` claim (the Firebase uid), which
+ * RLS policies compare against each row's `user_id`. No Supabase-side session
+ * to persist — Firebase already persists its own.
  */
 
 // Fallback values keep `createClient` from throwing when real creds are absent.
@@ -45,11 +53,9 @@ export class SupabaseService {
     this.configured = !looksLikePlaceholder(url) && !looksLikePlaceholder(anonKey);
 
     this.client = createClient(url || FALLBACK_URL, anonKey || FALLBACK_ANON_KEY, {
-      auth: {
-        storage: AsyncStorage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
+      accessToken: async () => {
+        const user = auth().currentUser;
+        return user ? await user.getIdToken() : null;
       },
     });
     return this.client;

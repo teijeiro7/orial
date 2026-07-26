@@ -29,6 +29,7 @@ function exercise(overrides: Partial<GymExercise> = {}): GymExercise {
     lastSwappedAt: null,
     createdAt: new Date(),
     modifiedAt: 0,
+    userId: null,
     ...overrides,
   };
 }
@@ -43,6 +44,7 @@ function set(exerciseId: string, setNumber: number, reps: number, weightKg: numb
     weightKg,
     createdAt: new Date(),
     modifiedAt: 0,
+    userId: null,
   };
 }
 

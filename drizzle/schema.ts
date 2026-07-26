@@ -78,6 +78,7 @@ export const whoopDaily = sqliteTable('whoop_daily', {
   nap: integer('nap', { mode: 'boolean' }),
   raw: text('raw'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
 });
 
 export const bodyMetrics = sqliteTable('body_metrics', {
@@ -89,6 +90,7 @@ export const bodyMetrics = sqliteTable('body_metrics', {
   photoUri: text('photo_uri'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 }, (t) => [
   uniqueIndex('body_metrics_date_unique').on(t.date),
 ]);
@@ -97,6 +99,7 @@ export const pedometerHistory = sqliteTable('pedometer_history', {
   date: text('date').primaryKey(),
   steps: integer('steps').notNull().default(0),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
 });
 
 export const hydration = sqliteTable('hydration', {
@@ -107,6 +110,7 @@ export const hydration = sqliteTable('hydration', {
   sodiumMg: integer('sodium_mg').notNull().default(0),
   extraLitersFromSodium: real('extra_liters_from_sodium').notNull().default(0),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
 });
 
 export const sodiumIntake = sqliteTable('sodium_intake', {
@@ -118,6 +122,7 @@ export const sodiumIntake = sqliteTable('sodium_intake', {
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 export const supplements = sqliteTable('supplements', {
@@ -129,6 +134,7 @@ export const supplements = sqliteTable('supplements', {
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 export const supplementLogs = sqliteTable('supplement_logs', {
@@ -141,6 +147,7 @@ export const supplementLogs = sqliteTable('supplement_logs', {
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 export const manualMetrics = sqliteTable('manual_metrics', {
@@ -162,6 +169,7 @@ export const manualMetrics = sqliteTable('manual_metrics', {
   stressLevel: integer('stress_level'),
   notes: text('notes'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
 });
 
 export const weightPredictions = sqliteTable('weight_predictions', {
@@ -174,6 +182,7 @@ export const weightPredictions = sqliteTable('weight_predictions', {
   factors: text('factors'),
   confidence: real('confidence'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
 });
 
 export const nutritionLogs = sqliteTable('nutrition_logs', {
@@ -189,6 +198,7 @@ export const nutritionLogs = sqliteTable('nutrition_logs', {
   rawData: text('raw_data'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 export type Habit = typeof habits.$inferSelect;
@@ -235,6 +245,7 @@ export const tasks = sqliteTable('tasks', {
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 // ── Gym (Progressive Overload) ───────────────────────────────────────────────
@@ -247,6 +258,7 @@ export const gymRoutines = sqliteTable('gym_routines', {
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 export const gymExercises = sqliteTable('gym_exercises', {
@@ -264,6 +276,7 @@ export const gymExercises = sqliteTable('gym_exercises', {
   lastSwappedAt: integer('last_swapped_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 export const gymSessions = sqliteTable('gym_sessions', {
@@ -273,6 +286,7 @@ export const gymSessions = sqliteTable('gym_sessions', {
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 export const gymSets = sqliteTable('gym_sets', {
@@ -284,6 +298,7 @@ export const gymSets = sqliteTable('gym_sets', {
   weightKg: real('weight_kg').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 // ── Finance ──────────────────────────────────────────────────────────────────
@@ -297,6 +312,7 @@ export const financeAccounts = sqliteTable('finance_accounts', {
   icon: text('icon').notNull().default('💳'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
 });
 
 export const financeSubscriptions = sqliteTable('finance_subscriptions', {
@@ -313,6 +329,7 @@ export const financeSubscriptions = sqliteTable('finance_subscriptions', {
   lastBilledDate: text('last_billed_date'), // YYYY-MM-DD
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 export const financeWishlist = sqliteTable('finance_wishlist', {
@@ -325,6 +342,7 @@ export const financeWishlist = sqliteTable('finance_wishlist', {
   priority: integer('priority').notNull().default(0), // 0=normal 1=high
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
 
 // ── Hydration Profile (dynamic calculator) ───────────────────────────────────
@@ -338,6 +356,7 @@ export const hydrationProfile = sqliteTable('hydration_profile', {
   caffeineMgPerDay: integer('caffeine_mg_per_day').notNull().default(0),
   stimulantMeds: integer('stimulant_meds', { mode: 'boolean' }).notNull().default(false),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
 });
 
 // ── Caffeine ─────────────────────────────────────────────────────────────────
@@ -350,7 +369,85 @@ export const caffeineLogs = sqliteTable('caffeine_logs', {
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   modifiedAt: integer('updated_at').notNull().default(0),
+  userId: text('user_id'),
 });
+
+// ── Whoop (workouts, sleep sessions, journal) ───────────────────────────────
+// Backed by the CSV bulk export (physiological_cycles/sueño/entrenamientos/
+// journal_entries — the WHOOP v2 API has no journal endpoint, so historical
+// journal answers only ever arrive via this one-time import) plus, going
+// forward, the live API sync in whoopService.syncToday().
+
+export const whoopWorkouts = sqliteTable('whoop_workouts', {
+  id: text('id').primaryKey(),
+  cycleStart: integer('cycle_start', { mode: 'timestamp' }).notNull(),
+  cycleEnd: integer('cycle_end', { mode: 'timestamp' }),
+  workoutStart: integer('workout_start', { mode: 'timestamp' }).notNull(),
+  workoutEnd: integer('workout_end', { mode: 'timestamp' }).notNull(),
+  activityName: text('activity_name').notNull(),
+  activityStrain: real('activity_strain'),
+  kilojoule: real('kilojoule'),
+  maxHeartRate: integer('max_heart_rate'),
+  avgHeartRate: integer('avg_heart_rate'),
+  hrZone1Pct: real('hr_zone_1_pct'),
+  hrZone2Pct: real('hr_zone_2_pct'),
+  hrZone3Pct: real('hr_zone_3_pct'),
+  hrZone4Pct: real('hr_zone_4_pct'),
+  hrZone5Pct: real('hr_zone_5_pct'),
+  gpsEnabled: integer('gps_enabled', { mode: 'boolean' }),
+  source: text('source').notNull().default('csv_import'), // csv_import | api
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
+});
+
+export const whoopSleepSessions = sqliteTable('whoop_sleep_sessions', {
+  id: text('id').primaryKey(),
+  cycleStart: integer('cycle_start', { mode: 'timestamp' }).notNull(),
+  cycleEnd: integer('cycle_end', { mode: 'timestamp' }),
+  sleepStart: integer('sleep_start', { mode: 'timestamp' }).notNull(),
+  sleepEnd: integer('sleep_end', { mode: 'timestamp' }).notNull(),
+  sleepScorePct: integer('sleep_score_pct'),
+  respiratoryRate: real('respiratory_rate'),
+  sleepDurationMin: integer('sleep_duration_min'),
+  timeInBedMin: integer('time_in_bed_min'),
+  lightSleepMin: integer('light_sleep_min'),
+  deepSleepMin: integer('deep_sleep_min'),
+  remSleepMin: integer('rem_sleep_min'),
+  awakeMin: integer('awake_min'),
+  sleepNeededMin: integer('sleep_needed_min'),
+  sleepDebtMin: integer('sleep_debt_min'),
+  sleepEfficiencyPct: integer('sleep_efficiency_pct'),
+  sleepConsistencyPct: integer('sleep_consistency_pct'),
+  isNap: integer('is_nap', { mode: 'boolean' }).notNull().default(false),
+  source: text('source').notNull().default('csv_import'), // csv_import | api
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
+});
+
+// Long format (one row per daily behavioral question) rather than one wide
+// column per question — WHOOP adds/retires journal questions over time and
+// this needs no schema change when it does. CSV-import-only, no live source.
+export const whoopJournalEntries = sqliteTable('whoop_journal_entries', {
+  id: text('id').primaryKey(),
+  cycleStart: integer('cycle_start', { mode: 'timestamp' }).notNull(),
+  cycleEnd: integer('cycle_end', { mode: 'timestamp' }),
+  questionText: text('question_text').notNull(),
+  answeredYes: integer('answered_yes', { mode: 'boolean' }),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
+}, (t) => [
+  uniqueIndex('whoop_journal_entries_cycle_question_unique').on(t.cycleStart, t.questionText),
+]);
+
+export type WhoopWorkout = typeof whoopWorkouts.$inferSelect;
+export type NewWhoopWorkout = typeof whoopWorkouts.$inferInsert;
+export type WhoopSleepSession = typeof whoopSleepSessions.$inferSelect;
+export type NewWhoopSleepSession = typeof whoopSleepSessions.$inferInsert;
+export type WhoopJournalEntry = typeof whoopJournalEntries.$inferSelect;
+export type NewWhoopJournalEntry = typeof whoopJournalEntries.$inferInsert;
 
 // ── Insights (Jarvis) ─────────────────────────────────────────────────────────
 // Populated by Jarvis (server-side, out of this repo) writing directly to
@@ -367,6 +464,7 @@ export const insightLogs = sqliteTable('insight_logs', {
   dismissed: integer('dismissed', { mode: 'boolean' }).notNull().default(false),
   sourceAgent: text('source_agent').notNull().default('jarvis'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
 });
 
 // ── New types ────────────────────────────────────────────────────────────────
