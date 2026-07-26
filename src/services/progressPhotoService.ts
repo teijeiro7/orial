@@ -6,20 +6,22 @@ import { dateString } from '../utils/date';
 /**
  * Progress photos service.
  *
- * Photos are stored directly in the PUBLIC Supabase Storage bucket
- * `progress-photos`, one object per user per day at `{userId}/{date}.jpg`.
- * Uploads reuse T0's `supabaseService.uploadFile()` — this service never
- * builds its own Storage client. The date-keyed path means at most one photo
- * per day (a re-take overwrites, `upsert: true`), which keeps the timeline
- * clean and makes before/after comparison a simple date lookup.
+ * Photos are stored in the PRIVATE Supabase Storage bucket `progress-photos`,
+ * one object per user per day at `{userId}/{date}.jpg`, scoped by RLS to the
+ * owning user. Uploads reuse `supabaseService.uploadFile()` — this service
+ * never builds its own Storage client. Reads go through time-limited signed
+ * URLs (`createSignedUrl`) since the bucket has no public access. The
+ * date-keyed path means at most one photo per day (a re-take overwrites,
+ * `upsert: true`), which keeps the timeline clean and makes before/after
+ * comparison a simple date lookup.
  */
 
 export const PROGRESS_PHOTOS_BUCKET = 'progress-photos';
 
-/** A single progress photo: its capture date and public URL. */
+/** A single progress photo: its capture date and signed URL. */
 export type ProgressPhoto = {
   date: string; // YYYY-MM-DD
-  uri: string; // public URL
+  uri: string; // time-limited signed URL
 };
 
 // ── Pure helpers (unit-tested) ───────────────────────────────────────────────
@@ -48,10 +50,10 @@ export function sortTimeline(photos: ProgressPhoto[]): ProgressPhoto[] {
 
 function requireUserId(): string {
   const user = authService.getCurrentUser();
-  if (!user?.uid) {
+  if (!user?.id) {
     throw new Error('Debes iniciar sesión para usar las fotos de progreso');
   }
-  return user.uid;
+  return user.id;
 }
 
 export const progressPhotoService = {
@@ -97,15 +99,16 @@ export const progressPhotoService = {
       throw new Error(error.message);
     }
 
-    const photos: ProgressPhoto[] = (data ?? [])
-      .filter((file: { name: string }) => /\.jpe?g$/i.test(file.name))
-      .map((file: { name: string }) => {
+    const jpegFiles = (data ?? []).filter((file: { name: string }) => /\.jpe?g$/i.test(file.name));
+    const photos: ProgressPhoto[] = await Promise.all(
+      jpegFiles.map(async (file: { name: string }) => {
         const date = dateFromObjectName(file.name);
         return {
           date,
-          uri: supabaseService.getPublicUrl(PROGRESS_PHOTOS_BUCKET, buildPhotoPath(userId, date)),
+          uri: await supabaseService.createSignedUrl(PROGRESS_PHOTOS_BUCKET, buildPhotoPath(userId, date)),
         };
-      });
+      }),
+    );
 
     return sortTimeline(photos);
   },
@@ -116,9 +119,10 @@ export const progressPhotoService = {
     date2: string,
   ): Promise<{ uri1: string; uri2: string }> {
     const userId = requireUserId();
-    return {
-      uri1: supabaseService.getPublicUrl(PROGRESS_PHOTOS_BUCKET, buildPhotoPath(userId, date1)),
-      uri2: supabaseService.getPublicUrl(PROGRESS_PHOTOS_BUCKET, buildPhotoPath(userId, date2)),
-    };
+    const [uri1, uri2] = await Promise.all([
+      supabaseService.createSignedUrl(PROGRESS_PHOTOS_BUCKET, buildPhotoPath(userId, date1)),
+      supabaseService.createSignedUrl(PROGRESS_PHOTOS_BUCKET, buildPhotoPath(userId, date2)),
+    ]);
+    return { uri1, uri2 };
   },
 };

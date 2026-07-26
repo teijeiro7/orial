@@ -1,4 +1,4 @@
-import auth from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -14,13 +14,10 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  * URL/key so the app never crashes at startup, and `isConfigured()` returns
  * false so callers (e.g. the sync service) can skip remote work while offline.
  *
- * Identity for RLS comes from Firebase (the app's real login), registered in
- * the Supabase dashboard as a Third-Party Auth provider (Authentication →
- * Third-Party Auth → Firebase, project id `orial-4a639`). `accessToken`
- * fetches a fresh Firebase ID token per request; Supabase validates it and
- * resolves `auth.uid()` to the token's `sub` claim (the Firebase uid), which
- * RLS policies compare against each row's `user_id`. No Supabase-side session
- * to persist — Firebase already persists its own.
+ * Supabase Auth is the app's only identity provider. The session (access +
+ * refresh token) is persisted in AsyncStorage and auto-refreshed by the
+ * client; `auth.uid()` in RLS policies resolves directly to the signed-in
+ * user's id, compared against each row's `user_id`.
  */
 
 // Fallback values keep `createClient` from throwing when real creds are absent.
@@ -53,9 +50,11 @@ export class SupabaseService {
     this.configured = !looksLikePlaceholder(url) && !looksLikePlaceholder(anonKey);
 
     this.client = createClient(url || FALLBACK_URL, anonKey || FALLBACK_ANON_KEY, {
-      accessToken: async () => {
-        const user = auth().currentUser;
-        return user ? await user.getIdToken() : null;
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
       },
     });
     return this.client;
@@ -119,7 +118,7 @@ export class SupabaseService {
     return row as T;
   }
 
-  /** Uploads a file to a storage bucket and returns its public URL. */
+  /** Uploads a file to a storage bucket and returns a signed URL for it. */
   async uploadFile(
     bucket: string,
     path: string,
@@ -129,12 +128,16 @@ export class SupabaseService {
       upsert: true,
     });
     if (error) throw new Error(error.message);
-    return this.getPublicUrl(bucket, path);
+    return this.createSignedUrl(bucket, path);
   }
 
-  /** Returns the public URL for an object in a storage bucket. */
-  getPublicUrl(bucket: string, path: string): string {
-    return this.getClient().storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  /** Returns a time-limited signed URL for an object in a private storage bucket. */
+  async createSignedUrl(bucket: string, path: string, expiresInSeconds = 3600): Promise<string> {
+    const { data, error } = await this.getClient()
+      .storage.from(bucket)
+      .createSignedUrl(path, expiresInSeconds);
+    if (error) throw new Error(error.message);
+    return data.signedUrl;
   }
 
   /** Test hook: drops the cached client so env changes take effect. */

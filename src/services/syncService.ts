@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from './authService';
 import { expoDb } from './database';
 import { supabaseService } from './supabaseService';
 import {
@@ -96,7 +97,8 @@ export const supabaseRemote: SyncRemote = {
     return (data ?? []) as SyncRow[];
   },
   async upsert(config, row) {
-    await supabaseService.upsert(config.table, row, config.conflictKey);
+    const userId = authService.getCurrentUser()?.id;
+    await supabaseService.upsert(config.table, { ...row, user_id: userId }, config.conflictKey);
   },
 };
 
@@ -160,5 +162,5 @@ export const syncService = new SyncEngine({
   local: sqliteLocalStore,
   cursors: asyncStorageCursors,
   tables: DEFAULT_SYNC_TABLES,
-  isEnabled: () => supabaseService.isConfigured(),
+  isEnabled: () => supabaseService.isConfigured() && authService.isAuthenticated(),
 });
