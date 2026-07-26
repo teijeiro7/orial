@@ -81,13 +81,14 @@ describe('syncService.isEnabled guard', () => {
     // Every configured table is walked; return no changes except for one table
     // so the assertion only has to reason about a single upsert call.
     mockExpoDb.getAllAsync.mockImplementation(async (sql: string) => {
-      if (sql.includes('hydration')) return [{ date: '2026-01-01', updated_at: 10 }];
+      if (sql.startsWith('SELECT * FROM hydration ')) return [{ date: '2026-01-01', updated_at: 10 }];
       return [];
     });
 
     const result = await syncService.pushChanges();
 
     expect(result.success).toBe(true);
+    expect(mockSupabase.upsert).toHaveBeenCalledTimes(1);
     expect(mockSupabase.upsert).toHaveBeenCalledWith(
       'hydration',
       { date: '2026-01-01', updated_at: 10, user_id: 'user-1' },
