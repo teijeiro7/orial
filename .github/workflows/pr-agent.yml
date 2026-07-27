@@ -1,0 +1,44 @@
+name: PR Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize, labeled]
+  issue_comment:
+
+jobs:
+  pr_agent_job:
+    # Solo corre si el PR lleva la label "pr-agent-review" (la añade la skill develop-pr
+    # cuando el diff toca lógica de negocio), o si alguien pide un comando manual
+    # (/review, /describe, /improve...) comentando en el PR.
+    if: >
+      github.event.sender.type != 'Bot' &&
+      (
+        (github.event_name == 'issue_comment' && github.event.issue.pull_request != null) ||
+        (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'pr-agent-review'))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+    name: Run PR Agent review
+    steps:
+      - name: PR Agent action step
+        uses: the-pr-agent/pr-agent@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Codestral (Mistral), modelo especializado en código. Free tier "Experiment".
+          config.model: "mistral/codestral-latest"
+          config.fallback_models: '["mistral/codestral-latest"]'
+          MISTRAL.KEY: ${{ secrets.MISTRAL_API_KEY }}
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "true"
+          github_action_config.auto_improve: "true"
+          # pr-agent's own runner (github_action_runner.py) only actually processes
+          # pull_request events whose "action" is in this list - by default that's
+          # opened/reopened/ready_for_review/review_requested. "labeled" and
+          # "synchronize" fall through and get silently skipped ("Skipping action:
+          # labeled") even when our own `if:` above matches. Explicitly widening this
+          # list is what makes the label (and later pushes while labeled) actually
+          # trigger a real review, instead of relying on a comment-relay workaround.
+          github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "review_requested", "labeled", "synchronize"]'
