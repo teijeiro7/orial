@@ -87,6 +87,11 @@ function handleAuthError(error: any): Error {
 // Email/Password Authentication
 async function loginWithEmail(email: string, password: string): Promise<UserProfile> {
   try {
+    if (!supabaseService.isConfigured()) {
+      throw new Error(
+        'Supabase is not configured: check EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY'
+      );
+    }
     const { error } = await getAuth().signInWithPassword({ email, password });
     if (error) throw error;
     return await getUserProfile();

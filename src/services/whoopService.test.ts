@@ -1,6 +1,6 @@
 /**
- * whoopService reads `process.env.EXPO_PUBLIC_WHOOP_CLIENT_ID` at module load time
- * (`getRequiredEnv`) and caches an in-memory `authState` across calls. Both of these
+ * whoopService reads `process.env.EXPO_PUBLIC_WHOOP_CLIENT_ID` at call time
+ * (`requireEnv`) and caches an in-memory `authState` across calls. Both of these
  * are module-scoped, so every test re-requires the module fresh (via
  * `jest.resetModules()`) to avoid one test's auth state leaking into the next, and
  * to avoid a static `import` (which is hoisted above this file's own statements)

@@ -9,6 +9,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  *   - EXPO_PUBLIC_SUPABASE_URL
  *   - EXPO_PUBLIC_SUPABASE_ANON_KEY   (anon key is public-safe by design)
  *
+ * Must be read as a static `process.env.EXPO_PUBLIC_X` member access — Babel's
+ * env-inlining plugin only rewrites literal `EXPO_PUBLIC_` property names, so a
+ * computed `process.env[name]` silently survives unreplaced and resolves to
+ * `undefined` at runtime.
+ *
  * When credentials are missing or still placeholders, the service degrades
  * gracefully: `getClient()` returns a client built with a harmless fallback
  * URL/key so the app never crashes at startup, and `isConfigured()` returns
@@ -26,8 +31,7 @@ const FALLBACK_ANON_KEY = 'placeholder-anon-key';
 
 const PLACEHOLDER_HINTS = ['xxxx', 'your_', 'placeholder', 'eyJxxx'];
 
-function readEnv(name: string): string {
-  const value = process.env[name];
+function normalizeEnv(value: string | undefined): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
@@ -45,8 +49,8 @@ export class SupabaseService {
   getClient(): SupabaseClient {
     if (this.client) return this.client;
 
-    const url = readEnv('EXPO_PUBLIC_SUPABASE_URL');
-    const anonKey = readEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+    const url = normalizeEnv(process.env.EXPO_PUBLIC_SUPABASE_URL);
+    const anonKey = normalizeEnv(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
     this.configured = !looksLikePlaceholder(url) && !looksLikePlaceholder(anonKey);
 
     this.client = createClient(url || FALLBACK_URL, anonKey || FALLBACK_ANON_KEY, {
