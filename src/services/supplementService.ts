@@ -120,6 +120,7 @@ async function getTodayLogs(date?: string): Promise<(SupplementLog & { supplemen
         notes: null,
         createdAt: new Date(),
         modifiedAt: 0,
+        userId: null,
       }),
       supplement,
     };

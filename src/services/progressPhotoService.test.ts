@@ -18,7 +18,7 @@ jest.mock('expo-image-picker', () => ({
 jest.mock('./supabaseService', () => ({
   supabaseService: {
     uploadFile: jest.fn(),
-    getPublicUrl: jest.fn(),
+    createSignedUrl: jest.fn(),
     getClient: jest.fn(),
   },
 }));
@@ -35,9 +35,9 @@ const mockAuth = authService as jest.Mocked<typeof authService>;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockAuth.getCurrentUser.mockReturnValue({ uid: 'user-1' } as never);
-  mockSupabase.getPublicUrl.mockImplementation(
-    (bucket: string, path: string) => `https://cdn/${bucket}/${path}`,
+  mockAuth.getCurrentUser.mockReturnValue({ id: 'user-1' } as never);
+  mockSupabase.createSignedUrl.mockImplementation(
+    async (bucket: string, path: string) => `https://cdn/${bucket}/${path}`,
   );
 });
 

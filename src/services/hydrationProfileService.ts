@@ -14,6 +14,7 @@ const DEFAULT_PROFILE: Omit<HydrationProfile, 'id'> = {
   caffeineMgPerDay: 0,
   stimulantMeds: false,
   updatedAt: new Date(),
+  userId: null,
 };
 
 export const hydrationProfileService = {

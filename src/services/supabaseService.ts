@@ -13,6 +13,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  * gracefully: `getClient()` returns a client built with a harmless fallback
  * URL/key so the app never crashes at startup, and `isConfigured()` returns
  * false so callers (e.g. the sync service) can skip remote work while offline.
+ *
+ * Supabase Auth is the app's only identity provider. The session (access +
+ * refresh token) is persisted in AsyncStorage and auto-refreshed by the
+ * client; `auth.uid()` in RLS policies resolves directly to the signed-in
+ * user's id, compared against each row's `user_id`.
  */
 
 // Fallback values keep `createClient` from throwing when real creds are absent.
@@ -113,7 +118,7 @@ export class SupabaseService {
     return row as T;
   }
 
-  /** Uploads a file to a storage bucket and returns its public URL. */
+  /** Uploads a file to a storage bucket and returns a signed URL for it. */
   async uploadFile(
     bucket: string,
     path: string,
@@ -123,12 +128,16 @@ export class SupabaseService {
       upsert: true,
     });
     if (error) throw new Error(error.message);
-    return this.getPublicUrl(bucket, path);
+    return this.createSignedUrl(bucket, path);
   }
 
-  /** Returns the public URL for an object in a storage bucket. */
-  getPublicUrl(bucket: string, path: string): string {
-    return this.getClient().storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  /** Returns a time-limited signed URL for an object in a private storage bucket. */
+  async createSignedUrl(bucket: string, path: string, expiresInSeconds = 3600): Promise<string> {
+    const { data, error } = await this.getClient()
+      .storage.from(bucket)
+      .createSignedUrl(path, expiresInSeconds);
+    if (error) throw new Error(error.message);
+    return data.signedUrl;
   }
 
   /** Test hook: drops the cached client so env changes take effect. */

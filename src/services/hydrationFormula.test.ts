@@ -15,6 +15,7 @@ function makeProfile(overrides: Partial<HydrationProfile> = {}): HydrationProfil
     caffeineMgPerDay: 0,
     stimulantMeds: false,
     updatedAt: new Date(),
+    userId: null,
     ...overrides,
   };
 }

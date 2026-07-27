@@ -29,13 +29,13 @@ function makeBuilder(result: { data: unknown; error: unknown }) {
 
 function makeClient() {
   const upload = jest.fn().mockResolvedValue({ data: { path: 'p' }, error: null });
-  const getPublicUrl = jest.fn(() => ({ data: { publicUrl: 'https://cdn/p' } }));
-  const storageFrom = jest.fn(() => ({ upload, getPublicUrl }));
+  const createSignedUrl = jest.fn().mockResolvedValue({ data: { signedUrl: 'https://cdn/p?token=x' }, error: null });
+  const storageFrom = jest.fn(() => ({ upload, createSignedUrl }));
   return {
     from: jest.fn(),
     storage: { from: storageFrom },
     __upload: upload,
-    __getPublicUrl: getPublicUrl,
+    __createSignedUrl: createSignedUrl,
     __storageFrom: storageFrom,
   };
 }
@@ -143,7 +143,7 @@ describe('supabaseService', () => {
     expect(row).toEqual({ date: '2026-01-01' });
   });
 
-  it('uploadFile uploads then returns the public url', async () => {
+  it('uploadFile uploads then returns a signed url', async () => {
     const client = makeClient();
     mockedCreateClient.mockReturnValue(client);
 
@@ -151,15 +151,26 @@ describe('supabaseService', () => {
 
     expect(client.__storageFrom).toHaveBeenCalledWith('progress-photos');
     expect(client.__upload).toHaveBeenCalled();
-    expect(url).toBe('https://cdn/p');
+    expect(url).toBe('https://cdn/p?token=x');
   });
 
-  it('getPublicUrl returns the cdn url', () => {
+  it('createSignedUrl returns the signed url', async () => {
     const client = makeClient();
     mockedCreateClient.mockReturnValue(client);
 
-    const url = supabaseService.getPublicUrl('progress-photos', 'a/b.jpg');
+    const url = await supabaseService.createSignedUrl('progress-photos', 'a/b.jpg');
 
-    expect(url).toBe('https://cdn/p');
+    expect(client.__createSignedUrl).toHaveBeenCalledWith('a/b.jpg', 3600);
+    expect(url).toBe('https://cdn/p?token=x');
+  });
+
+  it('createSignedUrl throws when supabase returns an error', async () => {
+    const client = makeClient();
+    client.__createSignedUrl.mockResolvedValue({ data: null, error: { message: 'not found' } });
+    mockedCreateClient.mockReturnValue(client);
+
+    await expect(supabaseService.createSignedUrl('progress-photos', 'a/b.jpg')).rejects.toThrow(
+      'not found',
+    );
   });
 });

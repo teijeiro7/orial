@@ -44,6 +44,7 @@ function makeAccount(overrides: Partial<FinanceAccount> = {}): FinanceAccount {
     icon: '💳',
     updatedAt: new Date(),
     createdAt: new Date(),
+    userId: null,
     ...overrides,
   };
 }
@@ -63,6 +64,7 @@ function makeSubscription(overrides: Partial<FinanceSubscription> = {}): Finance
     lastBilledDate: null,
     createdAt: new Date(),
     modifiedAt: 0,
+    userId: null,
     ...overrides,
   };
 }
@@ -78,6 +80,7 @@ function makeWishlistItem(overrides: Partial<FinanceWishlistItem> = {}): Finance
     priority: 0,
     createdAt: new Date(),
     modifiedAt: 0,
+    userId: null,
     ...overrides,
   };
 }

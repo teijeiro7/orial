@@ -1,5 +1,17 @@
 import { db } from './database';
-import { whoopDaily, bodyMetrics, pedometerHistory, type WhoopDaily, type NewWhoopDaily, type NewBodyMetric, type NewPedometerEntry } from '../../drizzle/schema';
+import {
+  whoopDaily,
+  bodyMetrics,
+  pedometerHistory,
+  whoopWorkouts,
+  whoopSleepSessions,
+  type WhoopDaily,
+  type NewWhoopDaily,
+  type NewBodyMetric,
+  type NewPedometerEntry,
+  type NewWhoopWorkout,
+  type NewWhoopSleepSession,
+} from '../../drizzle/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { generateUUID } from '../utils/uuid';
 import * as SecureStore from 'expo-secure-store';
@@ -20,6 +32,13 @@ function getRequiredEnv(key: string): string {
     throw new Error(`Missing required environment variable: ${key}`);
   }
   return value;
+}
+
+const MS_PER_MINUTE = 60000;
+
+/** Rounds a WHOOP stage-summary duration (milliseconds) to whole minutes. */
+function toMinutes(millis: number | undefined): number | null {
+  return millis === undefined ? null : Math.round(millis / MS_PER_MINUTE);
 }
 
 const REDIRECT_URI = 'orial://whoop/callback';
@@ -374,6 +393,59 @@ async function syncToday(): Promise<void> {
       target: whoopDaily.date,
       set: dailyData,
     });
+
+    // Sleep session detail (naps included) — the CSV bulk export is the only
+    // source for history before this sync started, but going forward we keep
+    // feeding whoop_sleep_sessions from the same `sleep` fetch whoop_daily uses.
+    if (sleep) {
+      const sleepData: NewWhoopSleepSession = {
+        id: sleep.id,
+        cycleStart: new Date(cycle.start),
+        cycleEnd: cycle.end ? new Date(cycle.end) : null,
+        sleepStart: new Date(sleep.start),
+        sleepEnd: new Date(sleep.end),
+        sleepScorePct: sleep.score?.sleep_performance_percentage ?? null,
+        respiratoryRate: sleep.score?.respiratory_rate ?? null,
+        timeInBedMin: toMinutes(sleep.score?.stage_summary?.total_in_bed_time_milli),
+        lightSleepMin: toMinutes(sleep.score?.stage_summary?.total_light_sleep_time_milli),
+        deepSleepMin: toMinutes(sleep.score?.stage_summary?.total_slow_wave_sleep_time_milli),
+        remSleepMin: toMinutes(sleep.score?.stage_summary?.total_rem_sleep_time_milli),
+        isNap: sleep.nap,
+        source: 'api',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await db.insert(whoopSleepSessions).values(sleepData).onConflictDoUpdate({
+        target: whoopSleepSessions.id,
+        set: sleepData,
+      });
+    }
+
+    // Workouts — fetched but previously discarded; now persisted so Orial
+    // keeps a queryable training history (used to be API-only, never stored).
+    const workouts = await fetchTodayWorkouts();
+    for (const workout of workouts) {
+      const workoutData: NewWhoopWorkout = {
+        id: workout.id,
+        cycleStart: new Date(cycle.start),
+        cycleEnd: cycle.end ? new Date(cycle.end) : null,
+        workoutStart: new Date(workout.start),
+        workoutEnd: new Date(workout.end),
+        activityName: workout.sport_name,
+        activityStrain: workout.score?.strain ?? null,
+        kilojoule: workout.score?.kilojoule ?? null,
+        maxHeartRate: workout.score?.max_heart_rate ?? null,
+        avgHeartRate: workout.score?.average_heart_rate ?? null,
+        source: 'api',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await db.insert(whoopWorkouts).values(workoutData).onConflictDoUpdate({
+        target: whoopWorkouts.id,
+        set: workoutData,
+      });
+    }
+
     lastSyncError = null;
     syncStatus = 'ok';
   } catch (e) {
