@@ -26,10 +26,9 @@ const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const WHOOP_API_BASE = 'https://api.prod.whoop.com/developer/v2';
 const WHOOP_TOKEN_EDGE_FUNCTION = 'whoop-token';
 
-function getRequiredEnv(key: string): string {
-  const value = process.env[key];
+function requireEnv(name: string, value: string | undefined): string {
   if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
+    throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
 }
@@ -188,7 +187,7 @@ function isConnected(): Promise<boolean> {
 function getAuthUrl(): string {
   const state = Math.random().toString(36).substring(2, 10);
   const params = new URLSearchParams({
-    client_id: getRequiredEnv('EXPO_PUBLIC_WHOOP_CLIENT_ID'),
+    client_id: requireEnv('EXPO_PUBLIC_WHOOP_CLIENT_ID', process.env.EXPO_PUBLIC_WHOOP_CLIENT_ID),
     response_type: 'code',
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,

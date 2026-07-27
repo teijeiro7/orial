@@ -12,6 +12,7 @@ jest.mock('@supabase/supabase-js', () => {
 });
 
 import { authService } from './authService';
+import { supabaseService } from './supabaseService';
 import * as supabaseJs from '@supabase/supabase-js';
 
 type MockAuthInstance = {
@@ -51,6 +52,9 @@ const GENERIC_AUTH_ERROR = 'An error occurred during authentication';
 describe('authService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://real.supabase.co';
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'real-anon-key';
+    supabaseService.resetClient();
     emitSession(null);
   });
 
