@@ -39,7 +39,7 @@ describe('hermesNutritionService.syncToday', () => {
     const result = await hermesNutritionService.syncToday();
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://hermes.test/nutrition/v1/nutrition/today',
+      'https://hermes.test/nutrition/v1/today',
       expect.objectContaining({ headers: { Authorization: 'Bearer tok' } }),
     );
     expect(mockedUpsert).toHaveBeenCalledWith(
@@ -121,7 +121,7 @@ describe('hermesNutritionService.syncDate', () => {
     await hermesNutritionService.syncDate('2026-07-20');
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://hermes.test/nutrition/v1/nutrition/2026-07-20',
+      'https://hermes.test/nutrition/v1/2026-07-20',
       expect.anything(),
     );
     expect(mockedUpsert).toHaveBeenCalledWith(
@@ -144,7 +144,7 @@ describe('hermesNutritionService.syncRange', () => {
     const results = await hermesNutritionService.syncRange('2026-07-19', '2026-07-20');
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://hermes.test/nutrition/v1/nutrition/range?from=2026-07-19&to=2026-07-20',
+      'https://hermes.test/nutrition/v1/range?from=2026-07-19&to=2026-07-20',
       expect.anything(),
     );
     expect(mockedUpsert).toHaveBeenCalledTimes(2);
@@ -169,12 +169,12 @@ describe('hermesNutritionService.syncRange', () => {
 });
 
 describe('hermesNutritionService.checkHealth', () => {
-  it('returns true when /nutrition/health responds 200', async () => {
+  it('returns true when the gateway /health responds 200', async () => {
     mockFetchJson({ status: 'ok' });
     const ok = await hermesNutritionService.checkHealth();
     expect(ok).toBe(true);
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://hermes.test/nutrition/health',
+      'https://hermes.test/health',
       expect.anything(),
     );
   });
@@ -198,7 +198,7 @@ describe('hermesNutritionService.syncLast14Days', () => {
     await hermesNutritionService.syncLast14Days();
 
     const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
-    expect(url).toContain('/nutrition/v1/nutrition/range?from=');
+    expect(url).toContain('/nutrition/v1/range?from=');
     expect(url).toContain('&to=');
   });
 });

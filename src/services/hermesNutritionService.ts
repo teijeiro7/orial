@@ -1,10 +1,14 @@
-import { getHermesConfig } from './openclawService';
+import { getHermesConfig, type AgentConfig } from './openclawService';
 import { nutritionService, type OpenclawNutritionData, type UpsertResult } from './nutritionService';
 import { todayDateString, dateString } from '../utils/date';
 import { subDays } from 'date-fns';
+import { fetchHermes, toHermesError } from './hermesClient';
+
+/** Base path for the Hermes nutrition backend (:8765), proxied at `/nutrition/v1/*`. */
+const NUTRITION_BASE = '/nutrition/v1';
 
 /**
- * Raw shape returned by the Hermes `/nutrition/v1/nutrition/*` endpoints.
+ * Raw shape returned by the Hermes `/nutrition/v1/*` endpoints.
  * The field names differ from `OpenclawNutritionData` (top-level prefixes,
  * no sodium/fiber), so mapping is required before persisting.
  */
@@ -34,8 +38,6 @@ export interface SyncResult {
   date: string;
 }
 
-const TIMEOUT_MS = 5_000;
-
 function toInternalData(h: HermesNutritionDay): OpenclawNutritionData {
   return {
     date: h.date,
@@ -48,53 +50,35 @@ function toInternalData(h: HermesNutritionDay): OpenclawNutritionData {
   };
 }
 
-async function fetchJson<T>(url: string, apiKey: string): Promise<T> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as T;
-  } finally {
-    clearTimeout(id);
-  }
-}
-
 function mapResult(r: UpsertResult, date: string): SyncResult {
   return { written: r.written, reason: r.reason, date };
 }
 
 async function syncOne(
   date: string,
-  fetcher: (apiUrl: string, apiKey: string) => Promise<HermesNutritionDay>,
+  fetcher: (config: AgentConfig) => Promise<HermesNutritionDay>,
   force: boolean,
 ): Promise<SyncResult> {
   const config = await getHermesConfig();
   if (!config) return { written: false, reason: 'not-configured', date };
   try {
-    const raw = await fetcher(config.apiUrl, config.apiKey);
+    const raw = await fetcher(config);
     const data = toInternalData(raw);
     const result = await nutritionService.upsertDailyTotals('hermes', data, JSON.stringify(raw), force);
     return mapResult(result, data.date);
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') {
-      return { written: false, reason: 'error', error: 'Request timed out', date };
-    }
-    return { written: false, reason: 'error', error: String(e), date };
+    return { written: false, reason: 'error', error: toHermesError(e), date };
   }
 }
 
 async function syncMany(
-  fetcher: (apiUrl: string, apiKey: string) => Promise<HermesNutritionDay[]>,
+  fetcher: (config: AgentConfig) => Promise<HermesNutritionDay[]>,
   force: boolean,
 ): Promise<SyncResult[]> {
   const config = await getHermesConfig();
   if (!config) return [];
   try {
-    const days = await fetcher(config.apiUrl, config.apiKey);
+    const days = await fetcher(config);
     const results: SyncResult[] = [];
     for (const day of days) {
       const data = toInternalData(day);
@@ -103,8 +87,7 @@ async function syncMany(
     }
     return results;
   } catch (e) {
-    const msg = e instanceof DOMException && e.name === 'AbortError' ? 'Request timed out' : String(e);
-    return [{ written: false, reason: 'error', error: msg, date: 'range' }];
+    return [{ written: false, reason: 'error', error: toHermesError(e), date: 'range' }];
   }
 }
 
@@ -112,7 +95,7 @@ export const hermesNutritionService = {
   async syncToday(force = false): Promise<SyncResult> {
     return syncOne(
       todayDateString(),
-      async (apiUrl, apiKey) => fetchJson<HermesNutritionDay>(`${apiUrl}/nutrition/v1/nutrition/today`, apiKey),
+      (config) => fetchHermes<HermesNutritionDay>(`${NUTRITION_BASE}/today`, config),
       force,
     );
   },
@@ -120,15 +103,14 @@ export const hermesNutritionService = {
   async syncDate(date: string, force = false): Promise<SyncResult> {
     return syncOne(
       date,
-      async (apiUrl, apiKey) => fetchJson<HermesNutritionDay>(`${apiUrl}/nutrition/v1/nutrition/${date}`, apiKey),
+      (config) => fetchHermes<HermesNutritionDay>(`${NUTRITION_BASE}/${date}`, config),
       force,
     );
   },
 
   async syncRange(from: string, to: string, force = false): Promise<SyncResult[]> {
     return syncMany(
-      async (apiUrl, apiKey) =>
-        fetchJson<HermesNutritionDay[]>(`${apiUrl}/nutrition/v1/nutrition/range?from=${from}&to=${to}`, apiKey),
+      (config) => fetchHermes<HermesNutritionDay[]>(`${NUTRITION_BASE}/range?from=${from}&to=${to}`, config),
       force,
     );
   },
@@ -139,11 +121,12 @@ export const hermesNutritionService = {
     return hermesNutritionService.syncRange(from, to, force);
   },
 
+  /** Delegates to the gateway root `/health` — `/nutrition/health` is not a real route. */
   async checkHealth(): Promise<boolean> {
     const config = await getHermesConfig();
     if (!config) return false;
     try {
-      await fetchJson(`${config.apiUrl}/nutrition/health`, config.apiKey);
+      await fetchHermes('/health', config);
       return true;
     } catch {
       return false;
